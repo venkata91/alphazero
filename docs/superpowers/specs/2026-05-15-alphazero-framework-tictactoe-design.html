@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AlphaZero Framework + Tic-Tac-Toe (Sub-project 1)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="kicker">Spec</p>
+      <h1>AlphaZero Framework + Tic-Tac-Toe (Sub-project 1)</h1>
+      <div class="hero-meta">
+      <span><strong>date:</strong>2026-05-15</span>
+      <span><strong>status:</strong>Approved (brainstorming → implementation)</span>
+      <span><strong>sub project:</strong>1</span>
+      <span><strong>target:</strong>Game-agnostic AlphaZero framework, validated end-to-end on Tic-Tac-Toe</span>
+      </div>
+    </header>
+    <article class="spec"><h2 id="1-context">1. Context</h2>
+<p>This is the first of a multi-stage project to build an AlphaZero-style chess engine from scratch.
+The user's primary goal is <strong>learning</strong>: build the full AlphaZero pipeline (board representation → neural network → MCTS → self-play → training loop), understand each component deeply, and let the achieved ELO emerge from the work — rather than chasing a target ELO via shortcuts.</p>
+<p>The project is decomposed into five sub-projects. This document specifies <strong>Sub-project 1</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Scope</th>
+<th>Target</th>
+<th>Estimate</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>1</strong></td>
+<td><strong>AlphaZero framework + Tic-Tac-Toe (this spec)</strong></td>
+<td>Pipeline validated; zero losses vs perfect TTT solver</td>
+<td>2–3 weeks</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Connect 4 plugged into the same framework</td>
+<td>Beats minimax-depth-8 reliably</td>
+<td>1–2 weeks</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Chess (python-chess wrapper, scaled net, core training)</td>
+<td>1500–1800 ELO from scratch</td>
+<td>4–8 weeks</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Productionize: UCI protocol, cloud training, longer runs</td>
+<td>1800–2300 ELO</td>
+<td>open-ended</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Hybrid (supervised pre-training, distillation)</td>
+<td>2500+ ELO</td>
+<td>open-ended</td>
+</tr>
+</tbody>
+</table>
+<p>Sub-project 1 produces the reusable framework. Everything downstream depends on it being correct.</p>
+<hr>
+<h2 id="2-goals">2. Goals</h2>
+<ul>
+<li>Build a <strong>game-agnostic</strong> framework where everything except the <code>Game</code> class is reusable across TTT, Connect 4, and chess.</li>
+<li>Validate the full AlphaZero loop end-to-end on Tic-Tac-Toe — small enough that bugs are obvious, large enough that the pipeline is non-trivial.</li>
+<li>Reach the <strong>kill criterion</strong>: an agent trained on TTT loses <strong>zero games</strong> out of 200 against a perfect minimax solver. (TTT is a draw with optimal play; a correctly trained agent must match.)</li>
+<li>Keep boundaries between layers strict enough that each component is independently testable.</li>
+</ul>
+<h2 id="3-non-goals">3. Non-goals</h2>
+<p>These are explicitly out of scope for Sub-project 1; some are picked up in later sub-projects.</p>
+<ul>
+<li>Performance optimization (single-process; we will not parallelize self-play yet).</li>
+<li>Cloud / distributed training.</li>
+<li>GPU-specific kernels or torch.compile experiments.</li>
+<li>UCI engine protocol (Sub-project 4).</li>
+<li>Connect 4 / chess game implementations (Sub-projects 2 and 3).</li>
+<li>Hyperparameter sweeps. We pick reasonable defaults from the AlphaZero paper and tune only if convergence fails.</li>
+</ul>
+<hr>
+<h2 id="4-architecture">4. Architecture</h2>
+<p>The framework is structured as <strong>four orthogonal layers</strong> with strict boundaries.
+The most important design property: <strong>MCTS does not import the neural network, and the neural network does not import MCTS.</strong> They communicate through a function signature (<code>eval_fn</code>). This makes each layer independently testable and means moving to Connect 4 or chess in later sub-projects requires changing <strong>only the <code>Game</code> class</strong> — every other layer is reusable.</p>
+<pre><code>┌─────────────────────────────────────────────────────────────┐
+│  L4. Training orchestration (Trainer)                        │
+│      self-play → buffer → train → arena, looping             │
+└──┬───────────┬───────────┬───────────┬──────────────────────┘
+   │           │           │           │
+   ▼           ▼           ▼           ▼
+┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐
+│SelfPlay │ │ Replay  │ │ Arena   │ │ Eval vs │
+│ Worker  │ │ Buffer  │ │         │ │ Solver  │
+└────┬────┘ └─────────┘ └────┬────┘ └─────────┘
+     │                       │
+     ▼                       ▼
+┌────────────────────┐ ┌────────────────────────┐
+│ L3. MCTS           │ │ L2. Game (rules,       │
+│   PUCT, expand,    │ │     encoding,          │
+│   backup           │ │     symmetries)        │
+└──────────┬─────────┘ └────────────────────────┘
+           │ eval_fn(state) → (priors, value)
+           ▼
+┌──────────────────────────────────────────────────────────────┐
+│  L1. AlphaZeroNet — PyTorch ResNet with policy + value heads │
+│      Pure forward pass; knows nothing about MCTS or training │
+└──────────────────────────────────────────────────────────────┘
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Layer</th>
+<th>Component</th>
+<th>Imports</th>
+<th>Does NOT know about</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1</td>
+<td><code>AlphaZeroNet</code></td>
+<td>torch, <code>Game.input_shape</code>, <code>Game.action_size</code></td>
+<td>MCTS, self-play, training loop</td>
+</tr>
+<tr>
+<td>L2</td>
+<td><code>Game</code> (and <code>TicTacToe</code>)</td>
+<td>nothing</td>
+<td>NN, MCTS, training</td>
+</tr>
+<tr>
+<td>L3</td>
+<td><code>MCTS</code></td>
+<td><code>Game</code>, an <code>eval_fn</code> callable</td>
+<td>NN class, training, self-play</td>
+</tr>
+<tr>
+<td>L4</td>
+<td><code>SelfPlayWorker</code>, <code>ReplayBuffer</code>, <code>Arena</code>, <code>Trainer</code></td>
+<td>everything above</td>
+<td>(top-level)</td>
+</tr>
+</tbody>
+</table>
+<p>This table is the design's load-bearing claim. If we ever find ourselves importing MCTS inside the NN or <code>Game</code> inside the trainer's <code>train_step</code>, we've broken an abstraction.</p>
+<hr>
+<h2 id="5-components">5. Components</h2>
+<h3 id="51-game-interface-tictactoe-implementation">5.1 <code>Game</code> interface (+ <code>TicTacToe</code> implementation)</h3>
+<p><strong>Role</strong>: encapsulates everything game-specific so MCTS / NN / training don't know which game they're operating on.</p>
+<pre><code class="language-python">class Game(ABC):
+    input_shape: tuple[int, ...]   # e.g. (3, 3, 3) for TTT — (channels, H, W)
+    action_size: int                # e.g. 9 for TTT
+
+    def initial_state() -&gt; State
+    def current_player(state) -&gt; int                     # +1 or -1
+    def legal_actions_mask(state) -&gt; np.ndarray[bool]    # shape (action_size,)
+    def apply(state, action: int) -&gt; State
+    def terminal_value(state) -&gt; Optional[float]         # None if not terminal; else ±1 / 0 from current player's POV
+    def encode(state) -&gt; np.ndarray                      # shape == input_shape
+    def canonical_state(state) -&gt; State                  # rewrite state so current player is &quot;+1&quot;
+    def symmetries(encoded_state, policy) -&gt; list[tuple] # data augmentation; default returns [(s, π)]
+</code></pre>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><strong><code>canonical_state</code> is the "always-as-+1" trick.</strong> The NN never has to learn "whose turn is it" — <code>canonical_state</code> rewrites the board from the current player's perspective. Roughly halves the effective state space the NN must model.</li>
+<li><strong><code>terminal_value</code> is from current-player POV</strong>, not "white wins / black wins". Consistent with canonical encoding.</li>
+<li><strong><code>symmetries</code></strong> is data augmentation. TTT has 8 (the D₄ dihedral group: 4 rotations × 2 reflections). Connect 4 has 2 (left-right mirror). <strong>Chess has none</strong> because castling and pawn direction break symmetry. Default returns <code>[(s, π)]</code>; TTT overrides with full 8.</li>
+</ul>
+<p><strong>TTT-specific encoding</strong>: state is a 3×3 numpy array with +1 / −1 / 0. Encoding into a (3, 3, 3) tensor uses 3 planes: my-pieces, opponent-pieces, all-ones (the constant plane helps small CNNs reason about board edges — a standard trick).</p>
+<h3 id="52-alphazeronet">5.2 <code>AlphaZeroNet</code></h3>
+<p><strong>Role</strong>: PyTorch module. Encoded state batch → (policy logits, value).</p>
+<pre><code class="language-python">class AlphaZeroNet(nn.Module):
+    def __init__(self, input_shape, action_size, n_blocks=4, n_channels=32): ...
+    def forward(x) -&gt; (policy_logits[B, action_size], value[B])
+</code></pre>
+<p>Structure: input conv → N residual blocks → two heads (policy + value).</p>
+<p>A residual block is:</p>
+<pre><code class="language-python">out = relu(x + bn2(conv2(relu(bn1(conv1(x))))))
+</code></pre>
+<p>Loss is the AlphaZero loss:</p>
+<pre><code class="language-python">policy_loss = −sum(π · log_softmax(policy_logits))  # soft target — not one-hot
+value_loss  = mse(value, z)
+loss        = policy_loss + value_loss              # L2 regularization via AdamW(weight_decay)
+</code></pre>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><strong>AdamW (not SGD+momentum).</strong> The original AlphaZero paper used SGD+momentum, but AdamW is the modern pragmatic choice for replications: faster convergence on small games with no observable downside.</li>
+<li><strong>Soft cross-entropy.</strong> Target π is a <em>probability distribution</em> from MCTS (not a one-hot of "best move"). We compute <code>−sum(π * log_softmax(logits))</code> manually rather than using <code>nn.CrossEntropyLoss</code> (which expects class indices).</li>
+<li><strong>Legal-action masking at inference</strong>: set illegal action logits to −∞ before softmax. Not applied during training (loss is conditional on legal moves only, since π itself only has support on legal moves).</li>
+<li><strong>Sizing for TTT</strong>: 4 blocks × 32 channels (~250K params) is plenty. For chess later: 10–20 blocks × 128–256 channels.</li>
+</ul>
+<h3 id="53-mcts">5.3 <code>MCTS</code></h3>
+<p><strong>Role</strong>: from a given state, run N simulations, return an improved policy (visit distribution).</p>
+<pre><code class="language-python">class MCTS:
+    def __init__(self, game, eval_fn, c_puct=1.5,
+                 dirichlet_alpha=1.0, dirichlet_weight=0.25): ...
+    def search(self, root_state, num_simulations: int,
+               add_root_noise: bool) -&gt; np.ndarray
+        # returns shape (action_size,), summing to 1.0
+</code></pre>
+<p><code>eval_fn</code> is <code>(encoded_state) -&gt; (priors, value)</code>. <strong>This is the boundary</strong> — MCTS does not know it is calling a neural network. In tests we mock it with hand-coded priors and verify MCTS behavior independently.</p>
+<p>Tree node:</p>
+<pre><code class="language-python">@dataclass
+class Node:
+    prior: float                      # P(s, a) of the action that led HERE
+    visit_count: int                  # N
+    value_sum: float                  # W (cumulative)
+    children: dict[int, Node]         # action_index → child
+    is_expanded: bool
+
+    @property
+    def Q(self): return self.value_sum / max(1, self.visit_count)
+</code></pre>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><strong>PUCT formula</strong> as in the AlphaZero paper:</li>
+</ul>
+<p><code>U(s, a) = c_puct · P(s, a) · sqrt(sum_b N(s, b)) / (1 + N(s, a))
+  score   = Q(s, a) + U(s, a)</code></p>
+<ul>
+<li><strong>Dirichlet noise at root</strong> (only during self-play, never arena / eval):</li>
+</ul>
+<p><code>priors[root] = 0.75 · priors[root] + 0.25 · Dirichlet(α)</code></p>
+<p>α scales inversely with average legal moves: 1.0 for TTT, 0.3 for chess in the paper.</p>
+<ul>
+<li>
+<p><strong>Sign flip on backup</strong>: zero-sum games. After backing up by 1 ply, <code>value = −value</code>, so each node's Q is always from <em>its own</em> current-player POV.</p>
+</li>
+<li>
+<p><strong>Temperature lives outside MCTS</strong> — in the self-play caller. MCTS returns raw visit counts; the caller chooses argmax (τ=0) or sample-by-visits (τ=1).</p>
+</li>
+</ul>
+<h3 id="54-selfplayworker">5.4 <code>SelfPlayWorker</code></h3>
+<p><strong>Role</strong>: play one full game using MCTS, emit training tuples.</p>
+<pre><code class="language-python">def run_one_game(game, eval_fn, num_simulations,
+                 temperature_threshold=6) -&gt; list[(s, π, z)]:
+    state = game.initial_state()
+    mcts = MCTS(game, eval_fn, ...)
+    history = []                       # list of (encoded_s, π, current_player)
+    move = 0
+    while game.terminal_value(state) is None:
+        canon = game.canonical_state(state)
+        π = mcts.search(canon, num_simulations, add_root_noise=True)
+        action = (sample_from(π) if move &lt; temperature_threshold
+                  else π.argmax())
+        history.append((game.encode(canon), π, game.current_player(state)))
+        state = game.apply(state, action)
+        move += 1
+
+    # Game terminated — assign z per ply from THAT PLY'S MOVER's POV
+    z_final = game.terminal_value(state)
+    examples = []
+    # for each (s, π, player_at_ply) in history:
+    #     z_at_ply = z_final * sign_for(player_at_ply, final_player)
+    return augment_with_symmetries(examples)
+</code></pre>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><strong>Temperature schedule</strong>: τ=1 (sample) for first N moves to encourage diverse openings; τ=0 (argmax) after, to exploit. N=6 for TTT (basically the entire game given TTT's 9-ply maximum), N≈30 for chess.</li>
+<li><strong>Symmetry augmentation happens at the worker</strong>, not in the buffer. TTT: 1 game → up to 8× training tuples. The augmentation logic lives next to the game-specific code where it logically belongs.</li>
+<li><strong>z-assignment</strong> is the most bug-prone part of the entire framework. Each ply's z is the <em>eventual</em> game outcome from <em>that ply's mover's</em> POV. Worth dedicated unit tests (see §8.2 "SelfPlayWorker tests").</li>
+</ul>
+<h3 id="55-replaybuffer">5.5 <code>ReplayBuffer</code></h3>
+<p><strong>Role</strong>: fixed-size FIFO of training tuples.</p>
+<pre><code class="language-python">class ReplayBuffer:
+    def __init__(capacity: int)
+    def add(examples: list[tuple]) -&gt; None
+    def sample(batch_size: int) -&gt; (state_batch, policy_batch, value_batch)
+    def __len__()
+</code></pre>
+<p>Backed by <code>collections.deque(maxlen=capacity)</code>. <strong>No prioritization</strong> — uniform random sampling is what the AlphaZero paper specifies and what we'll use. Prioritized experience replay has been tried by replications with mixed results; not worth the complexity in v1.</p>
+<h3 id="56-trainer-orchestration">5.6 <code>Trainer</code> (orchestration)</h3>
+<p><strong>Role</strong>: the outer loop. Owns the network, the replay buffer, the schedule.</p>
+<pre><code class="language-python">class Trainer:
+    def run(self):
+        for iteration in range(config.num_iterations):
+            # 1. Self-play with current best NN
+            for _ in range(config.games_per_iteration):
+                examples = run_one_game(
+                    game,
+                    eval_fn=self.best_net,
+                    num_simulations=config.num_simulations,
+                )
+                self.replay_buffer.add(examples)
+
+            # 2. Train: K minibatches sampled from buffer
+            if len(self.replay_buffer) &gt;= config.min_buffer_size:
+                for _ in range(config.training_steps_per_iteration):
+                    batch = self.replay_buffer.sample(config.batch_size)
+                    self._train_step(batch)
+
+            # 3. Arena every N iterations
+            if iteration % config.arena_interval == 0:
+                win_rate = arena.play_match(
+                    candidate=self.candidate_net,
+                    opponent=self.best_net,
+                    num_games=config.arena_games,
+                )
+                if win_rate &gt;= config.arena_threshold:
+                    self.best_net = copy.deepcopy(self.candidate_net)
+                else:
+                    self.candidate_net.load_state_dict(self.best_net.state_dict())
+
+            # 4. Eval vs perfect solver every M iterations
+            if iteration % config.eval_interval == 0:
+                self._eval_vs_solver()
+
+            # 5. Checkpoint
+            torch.save({...}, f&quot;checkpoints/iter_{iteration}.pt&quot;)
+</code></pre>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><strong>Self-play uses <code>best_net</code>, training updates <code>candidate_net</code>.</strong> This is the most critical and easiest-to-miss design rule. New training updates <code>candidate_net</code>; <code>best_net</code> only updates after arena acceptance. Without this distinction, you can poison self-play data with a regressed network.</li>
+<li><strong>Revert on arena rejection</strong>: load <code>best_net</code>'s weights back into <code>candidate_net</code>. This makes the candidate try again from the same starting point next iteration.</li>
+<li><strong>Single-process</strong> for Sub-project 1. Self-play, training, arena — all serial. Parallelism is a Sub-project 3 problem.</li>
+</ul>
+<h3 id="57-arena">5.7 <code>Arena</code></h3>
+<pre><code class="language-python">def play_match(game, agent_a, agent_b, num_games=40) -&gt; float:
+    &quot;&quot;&quot;Returns agent_a's win rate. Alternates colors to split the white-mover advantage.&quot;&quot;&quot;
+</code></pre>
+<p>Agents are callables <code>(state) -&gt; action_int</code>. The MCTS-with-current-NN agent is built by wrapping <code>(network) -&gt; agent</code>: a function that for any given state runs MCTS with <code>eval_fn = network</code>, <strong>τ=0</strong>, <strong>no root noise</strong>, and returns argmax. Same <code>MCTS</code> class, different settings.</p>
+<h3 id="58-perfect-ttt-solver-eval-ground-truth">5.8 Perfect TTT solver (eval ground truth)</h3>
+<pre><code class="language-python">def solve_tictactoe(state, player) -&gt; int:   # returns +1 / 0 / −1
+    &quot;&quot;&quot;Standard alpha-beta minimax. TTT has ~5478 states; runs in &lt;1ms cached.&quot;&quot;&quot;
+</code></pre>
+<p>Used in evaluation:</p>
+<pre><code class="language-python">def eval_vs_solver(agent, num_games=200) -&gt; dict:
+    &quot;&quot;&quot;Play agent (alternating colors) vs perfect-play opponent.
+    Return: {wins, draws, losses}. Pass criterion: zero losses.&quot;&quot;&quot;
+</code></pre>
+<p>TTT is a draw with perfect play. A correctly trained agent should always draw or win — never lose. Any loss = a bug somewhere in the pipeline.</p>
+<hr>
+<h2 id="6-data-flow">6. Data flow</h2>
+<p>Three nested loops: the iteration (Trainer.run), one self-play game, one MCTS simulation.</p>
+<h3 id="61-one-training-iteration">6.1 One training iteration</h3>
+<pre><code>ITERATION N
+  best_net (frozen for this iteration)
+        │
+        ▼
+  SelfPlay × 100 games  ──→  ReplayBuffer  ──→  train_step × 500  ──→  candidate_net
+   (uses best_net)          (FIFO 50K)        (AdamW, lr=1e-3)
+                                                                            │
+                                                                            ▼
+                            ┌── Arena (every K iter) ──────────────────────┐
+                            │  candidate vs best, 40 games                  │
+                            │  win_rate ≥ 0.55 → best_net := candidate     │
+                            │  else            → candidate := best_net      │
+                            └───────────────────────────────────────────────┘
+                                                                            │
+                            Periodic: eval_vs_solver, checkpoint            │
+                                                                            ▼
+                                                                  (next iteration)
+</code></pre>
+<p><strong>Concrete TTT scale</strong>: 1 iteration ≈ 100 games × ~7 plies × 8 symmetries = ~5,600 training tuples. 500 minibatches × batch_size 64 = 32K samples seen per iteration. ~30–50 iterations to convergence. Estimated wall-time on M4 Pro: <strong>15–45 minutes total</strong> for the full Sub-project 1 training run.</p>
+<h3 id="62-one-self-play-game">6.2 One self-play game</h3>
+<pre><code>state₀ = game.initial_state()
+loop while game.terminal_value(state) is None:
+    canon  = game.canonical_state(state)
+    π      = MCTS.search(canon, num_simulations=50, add_root_noise=True)
+    action = sample(π)  if move &lt; temperature_threshold
+             argmax(π)  otherwise
+    record (game.encode(canon), π, current_player(state))
+    state  = game.apply(state, action)
+end loop
+
+z_final = game.terminal_value(state)
+for each recorded ply, assign z from THAT PLY'S mover's POV
+augment with symmetries  (TTT: 1 game → up to 8× training tuples)
+</code></pre>
+<h3 id="63-one-mcts-simulation">6.3 One MCTS simulation</h3>
+<pre><code>1. SELECT
+   path = [root]; node = root
+   while node.is_expanded and not terminal:
+       a = argmax_a [ Q(s, a)  +  c_puct · P(s, a) · √ΣN / (1 + N(s, a)) ]
+       node = node.children[a];  path.append(node)
+
+2. EXPAND
+   if terminal:
+       leaf_value = game.terminal_value(node.state)
+   else:
+       priors, leaf_value = eval_fn(node.state)
+       priors = mask_illegal(priors, legal_mask); renormalize
+       for a in legal_actions:
+           node.children[a] = Node(prior=priors[a], ...)
+       node.is_expanded = True
+
+3. BACKUP
+   value = leaf_value
+   for node in reversed(path):
+       node.visit_count += 1
+       node.value_sum   += value
+       value = −value      # zero-sum sign flip
+</code></pre>
+<p>After 50 such simulations, π = visit_counts / sum at the root.</p>
+<p>Dirichlet noise is applied to the root's children's priors <strong>exactly once, before the 50 simulations start</strong>, and <strong>only during self-play</strong>.</p>
+<h3 id="64-one-training-step">6.4 One training step</h3>
+<pre><code class="language-python">batch = replay_buffer.sample(64)
+states, target_πs, target_zs = batch.tensors
+
+policy_logits, values = candidate_net(states)
+policy_loss = −(target_πs * log_softmax(policy_logits, dim=-1)).sum(dim=-1).mean()
+value_loss  = F.mse_loss(values.squeeze(-1), target_zs)
+loss = policy_loss + value_loss   # L2 reg via AdamW(weight_decay=1e-4)
+
+optimizer.zero_grad()
+loss.backward()
+optimizer.step()
+</code></pre>
+<p>Roughly 10 lines of PyTorch. The complexity in this project lives in MCTS and self-play, <strong>not</strong> in training itself.</p>
+<hr>
+<h2 id="7-critical-invariants">7. Critical invariants</h2>
+<p>Six rules that, if broken, cause <strong>silent training failure</strong> (training looks like it's running but the agent never improves, or improves and then collapses). These each become a named regression test.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Invariant</th>
+<th>Failure mode if broken</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Self-play uses <code>best_net</code>; training updates <code>candidate_net</code>.</td>
+<td>Self-play data is generated by a regressed network → buffer poisoned → next training step trains on bad data.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Dirichlet noise: root only, self-play only.</td>
+<td>Adding it during arena breaks the head-to-head signal. Adding it deep in the tree corrupts search.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Backup flips sign per ply (zero-sum).</td>
+<td>Q values don't represent current-player POV → PUCT picks the wrong moves → MCTS plays badly.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code>canonical_state</code> applied consistently at every encode site.</td>
+<td>NN sees inconsistent inputs across positions → never converges.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Z is assigned per-ply from <em>that ply's mover's POV</em>, not the final-mover's POV.</td>
+<td>Value targets are systematically wrong; value head never learns.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Replay buffer is NOT reset between iterations.</td>
+<td>Training signal becomes too narrow per iteration; loss oscillates.</td>
+</tr>
+</tbody>
+</table>
+<p>Some of these are reinforced by the type system / shape of the API (#3 is enforced by MCTS internals; #6 is enforced by the trainer never calling <code>replay_buffer.clear()</code>). Others require explicit tests (#1, #2, #4, #5).</p>
+<hr>
+<h2 id="8-testing-strategy">8. Testing strategy</h2>
+<h3 id="81-philosophy">8.1 Philosophy</h3>
+<ul>
+<li><strong>Test-first for the high-risk components</strong>: MCTS, self-play z-assignment, training loop. Write the test (with hand-computed expected values) <em>before</em> the implementation.</li>
+<li><strong>Mock at the layer boundary</strong>: MCTS tested with a mock <code>eval_fn</code>; NN tested with synthetic batches; self-play tested with a fixed-prior eval_fn. Isolates failures.</li>
+<li><strong>The 6 invariants from §7 each get a named regression test.</strong></li>
+<li><strong>Slow tests gated.</strong> End-to-end "train + verify zero losses vs perfect solver" takes 15+ minutes; mark <code>@pytest.mark.slow</code> so unit-test runs stay under a minute.</li>
+</ul>
+<h3 id="82-test-pyramid-by-component">8.2 Test pyramid (by component)</h3>
+<p><strong><code>Game</code> / <code>TicTacToe</code></strong> — pure-function tests; coverage target near 100%:</p>
+<ul>
+<li><code>test_initial_state_is_empty</code></li>
+<li><code>test_apply_places_correct_piece</code> + <code>test_apply_advances_player</code></li>
+<li><code>test_legal_actions_correct_for_known_positions</code></li>
+<li><code>test_terminal_value_x_wins_row</code> / <code>col</code> / <code>diag</code> / <code>draw</code> / <code>in_progress</code></li>
+<li><code>test_encode_shape_matches_input_shape</code></li>
+<li><code>test_canonical_state_is_identity_when_player_is_plus_one</code></li>
+<li><code>test_canonical_state_inverts_when_player_is_minus_one</code></li>
+<li><code>test_symmetries_yields_8_distinct_tuples</code> + <code>test_symmetries_includes_identity</code></li>
+</ul>
+<p><strong><code>AlphaZeroNet</code></strong> — shape and convergence sanity:</p>
+<ul>
+<li><code>test_forward_pass_shape</code></li>
+<li><code>test_value_in_range</code> (tanh → [−1, +1])</li>
+<li><code>test_save_load_state_dict_roundtrip</code></li>
+<li><code>test_loss_decreases_on_synthetic_overfit_batch</code> (classic "can the net memorize a tiny batch?")</li>
+</ul>
+<p><strong><code>MCTS</code></strong> — deterministic with mocks; coverage target near 100%:</p>
+<ul>
+<li><code>test_search_returns_distribution_summing_to_one</code></li>
+<li><code>test_uniform_prior_uniform_value_produces_uniform_visits</code> (symmetry)</li>
+<li><code>test_prior_favoring_action_a_concentrates_visits_at_a</code></li>
+<li><code>test_value_favoring_child_a_concentrates_visits_at_a</code> (exploit-only)</li>
+<li><code>test_puct_formula_at_known_state</code> (hand-compute, assert numeric)</li>
+<li><code>test_dirichlet_noise_changes_root_priors_only</code></li>
+<li><code>test_dirichlet_noise_disabled_when_add_noise_is_false</code></li>
+<li><code>test_backup_flips_sign_per_ply</code> (zero-sum invariant)</li>
+<li><code>test_terminal_leaf_uses_terminal_value_not_eval_fn</code></li>
+<li><code>test_legal_actions_only_get_children</code></li>
+</ul>
+<p><strong><code>SelfPlayWorker</code></strong> — focus on z-assignment:</p>
+<ul>
+<li><code>test_one_game_runs_to_terminal</code></li>
+<li><code>test_history_length_matches_plies_played</code></li>
+<li><code>test_z_assignment_x_wins_on_move_5</code> ← critical</li>
+<li><code>test_z_assignment_o_wins_on_move_4</code> ← critical</li>
+<li><code>test_z_assignment_draw_assigns_zero_to_every_ply</code> ← critical</li>
+<li><code>test_symmetry_augmentation_multiplies_by_8</code> (for TTT)</li>
+<li><code>test_temperature_zero_picks_argmax</code></li>
+<li><code>test_temperature_one_samples_proportionally</code></li>
+</ul>
+<p><strong><code>ReplayBuffer</code></strong> — boring but covered:</p>
+<ul>
+<li><code>test_capacity_respected</code></li>
+<li><code>test_overflow_drops_oldest</code></li>
+<li><code>test_sample_returns_batch_size</code></li>
+<li><code>test_sample_is_approximately_uniform</code></li>
+</ul>
+<p><strong><code>Arena</code></strong>:</p>
+<ul>
+<li><code>test_same_agent_self_match_approximately_fifty_percent</code></li>
+<li><code>test_stronger_agent_wins</code> (e.g., MCTS-200 vs MCTS-50)</li>
+<li><code>test_color_alternation</code></li>
+</ul>
+<p><strong><code>Trainer</code></strong> — light unit testing, heavy integration:</p>
+<ul>
+<li><code>test_iteration_advances_state</code></li>
+<li><code>test_arena_acceptance_replaces_best_net</code></li>
+<li><code>test_arena_rejection_reverts_candidate_to_best</code></li>
+<li><code>test_checkpoint_save_and_load</code></li>
+</ul>
+<h3 id="83-the-6-invariants-map">8.3 The 6-invariants map</h3>
+<table>
+<thead>
+<tr>
+<th>Invariant</th>
+<th>Test</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Self-play uses best_net</td>
+<td><code>test_selfplay_calls_best_net_not_candidate</code> (install counting wrapper, assert <code>best_net.forward</code> called and <code>candidate_net.forward</code> not called)</td>
+</tr>
+<tr>
+<td>Dirichlet noise scope</td>
+<td><code>test_dirichlet_noise_changes_root_priors_only</code> + <code>test_arena_disables_dirichlet_noise</code></td>
+</tr>
+<tr>
+<td>Backup sign flip</td>
+<td><code>test_backup_flips_sign_per_ply</code></td>
+</tr>
+<tr>
+<td>Canonical state</td>
+<td>enforced structurally by <code>Game</code> API; cross-check via <code>test_encode_swaps_planes_when_player_changes</code></td>
+</tr>
+<tr>
+<td>Z per-ply mover's POV</td>
+<td>The three <code>test_z_assignment_*</code> tests</td>
+</tr>
+<tr>
+<td>Buffer not reset</td>
+<td><code>test_replay_buffer_not_reset_between_iterations</code></td>
+</tr>
+</tbody>
+</table>
+<h3 id="84-kill-criterion-the-success-bar">8.4 Kill criterion (the success bar)</h3>
+<pre><code class="language-python">@pytest.mark.slow
+def test_e2e_tictactoe_reaches_zero_losses_vs_perfect_solver():
+    &quot;&quot;&quot;Train an AlphaZero agent on TTT. Play 200 games vs perfect minimax solver.
+    Assert: 0 losses. (TTT is a draw with perfect play; agent must match.)&quot;&quot;&quot;
+
+    trainer = Trainer(game=TicTacToe(), config=TTT_TRAINING_CONFIG)
+    trainer.run()   # ~15 min on M4 Pro
+
+    agent = make_mcts_agent(trainer.best_net, num_simulations=50, temperature=0.0)
+    results = play_match(TicTacToe(), agent, PerfectTTTSolver(), num_games=200)
+    assert results.losses == 0, f&quot;Agent lost {results.losses} games to perfect play&quot;
+</code></pre>
+<p><strong>This test passing is the definition of Sub-project 1 success.</strong> Sub-project 2 (Connect 4) can begin only after this passes consistently.</p>
+<h3 id="85-tooling">8.5 Tooling</h3>
+<ul>
+<li><code>pytest</code> + <code>pytest-xdist</code> for parallelism</li>
+<li><code>@pytest.mark.slow</code> for the kill-criterion E2E test</li>
+<li><code>unittest.mock</code> (stdlib) is sufficient; no external mocking framework</li>
+<li>Coverage target: 90%+ on <code>games/</code>, <code>mcts.py</code>, <code>selfplay.py</code>. Don't chase coverage on the trainer loop body.</li>
+</ul>
+<hr>
+<h2 id="9-hyperparameter-defaults-tic-tac-toe">9. Hyperparameter defaults (Tic-Tac-Toe)</h2>
+<p>Frozen dataclass; values are starting points from the AlphaZero paper adapted to TTT scale.</p>
+<pre><code class="language-python">@dataclass(frozen=True)
+class TrainingConfig:
+    # Network
+    n_blocks: int = 4
+    n_channels: int = 32
+
+    # MCTS
+    num_simulations: int = 50
+    c_puct: float = 1.5
+    dirichlet_alpha: float = 1.0
+    dirichlet_weight: float = 0.25
+
+    # Self-play
+    games_per_iteration: int = 100
+    temperature_threshold: int = 6
+
+    # Training
+    training_steps_per_iteration: int = 500
+    batch_size: int = 64
+    learning_rate: float = 1e-3
+    weight_decay: float = 1e-4
+
+    # Replay buffer
+    replay_buffer_capacity: int = 50_000
+    min_buffer_size: int = 5_000
+
+    # Arena
+    arena_interval: int = 5
+    arena_games: int = 40
+    arena_threshold: float = 0.55
+
+    # Eval vs solver
+    eval_interval: int = 5
+    eval_games: int = 200
+
+    # Schedule
+    num_iterations: int = 50
+
+    # Misc
+    seed: int = 42
+    device: str = &quot;auto&quot;
+    checkpoint_dir: str = &quot;checkpoints&quot;
+    log_dir: str = &quot;runs&quot;
+</code></pre>
+<p><strong>The handful that actually matter:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Knob</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>num_simulations = 50</code></td>
+<td>Most impactful. Too few (5–10) → MCTS adds little over raw NN. Too many → self-play crawls. 50 is enough on TTT's tiny tree.</td>
+</tr>
+<tr>
+<td><code>c_puct = 1.5</code></td>
+<td>Lower bound of the typical range; appropriate for small branching factor. Chess uses 2.5–4.</td>
+</tr>
+<tr>
+<td><code>temperature_threshold = 6</code></td>
+<td>For TTT this is nearly the whole game. Schedule mostly matters for longer games; kept for forward compatibility.</td>
+</tr>
+<tr>
+<td><code>arena_threshold = 0.55</code></td>
+<td>AlphaGo Zero value. AlphaZero (2017) dropped arena; we keep it for safety during development.</td>
+</tr>
+<tr>
+<td><code>min_buffer_size = 5,000</code></td>
+<td>Prevents training on a tiny correlated buffer in iteration 1. Buffer fills after ~100 games × ~50 (with symmetries) in iter 1.</td>
+</tr>
+<tr>
+<td><code>weight_decay = 1e-4</code></td>
+<td>AlphaZero paper value. Higher would underfit; lower would risk overfitting.</td>
+</tr>
+</tbody>
+</table>
+<p>Loaded from <code>configs/tictactoe.toml</code> so the exact config is saved alongside checkpoints without code changes.</p>
+<hr>
+<h2 id="10-project-layout">10. Project layout</h2>
+<pre><code>alphazero/                            # repo root (~/git/alphazero)
+├── pyproject.toml                    # PEP 621 metadata + dependencies
+├── .gitignore                        # ✓ exists
+├── concepts.html                     # ✓ exists — visual primer
+├── tools/
+│   └── render_spec.py                # md → styled html (this spec, future specs)
+├── configs/
+│   └── tictactoe.toml                # TrainingConfig for TTT
+├── docs/superpowers/specs/
+│   ├── 2026-05-15-alphazero-framework-tictactoe-design.md   ← this doc
+│   └── 2026-05-15-alphazero-framework-tictactoe-design.html ← rendered
+├── src/alphazero/                    # source package (src-layout)
+│   ├── __init__.py
+│   ├── config.py                     # TrainingConfig + load_config()
+│   ├── games/
+│   │   ├── __init__.py
+│   │   ├── base.py                   # Game ABC
+│   │   └── tictactoe.py
+│   ├── solvers/
+│   │   ├── __init__.py
+│   │   └── tictactoe_solver.py       # perfect minimax (eval ground truth)
+│   ├── network.py                    # AlphaZeroNet + ResidualBlock
+│   ├── mcts.py                       # MCTS + Node
+│   ├── selfplay.py                   # run_one_game + z-assignment
+│   ├── replay_buffer.py
+│   ├── arena.py                      # play_match
+│   ├── trainer.py                    # Trainer.run — outer loop
+│   ├── eval_vs_solver.py             # eval harness for TTT
+│   └── cli.py                        # python -m alphazero ...
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                   # shared fixtures
+│   ├── test_game_tictactoe.py
+│   ├── test_network.py
+│   ├── test_mcts.py
+│   ├── test_selfplay.py
+│   ├── test_replay_buffer.py
+│   ├── test_arena.py
+│   ├── test_trainer.py
+│   ├── test_invariants.py            # the 5 named invariant tests
+│   └── test_e2e_tictactoe.py         # kill criterion (@pytest.mark.slow)
+├── checkpoints/                      # .gitignored
+└── runs/                             # .gitignored
+</code></pre>
+<p>Notes:</p>
+<ul>
+<li><strong><code>src/</code> layout</strong> over flat. Prevents accidental imports from the source tree when an installed copy exists.</li>
+<li><strong><code>configs/*.toml</code></strong> lets us version-control hyperparameters separately from code.</li>
+<li><strong>No README.md yet</strong> — added when the project is presentable.</li>
+</ul>
+<hr>
+<h2 id="11-dependencies-tooling">11. Dependencies &amp; tooling</h2>
+<pre><code class="language-toml">[project]
+name = &quot;alphazero&quot;
+version = &quot;0.1.0&quot;
+requires-python = &quot;&gt;=3.11&quot;
+dependencies = [
+    &quot;torch&gt;=2.2&quot;,         # PyTorch — MPS backend works on M4 Pro
+    &quot;numpy&gt;=1.26&quot;,
+    &quot;tomli&gt;=2.0&quot;,         # config loading (3.11+ has tomllib; tomli for compat)
+    &quot;tqdm&gt;=4.66&quot;,         # progress bars during self-play
+    &quot;tensorboard&gt;=2.16&quot;,  # local logging — no account / cloud needed
+]
+
+[project.optional-dependencies]
+dev = [
+    &quot;pytest&gt;=8.0&quot;,
+    &quot;pytest-xdist&gt;=3.5&quot;,
+    &quot;ruff&gt;=0.4&quot;,          # lint + format
+    &quot;markdown&gt;=3.10&quot;,     # for tools/render_spec.py
+]
+</code></pre>
+<p><strong>Choices:</strong></p>
+<ul>
+<li><strong>TensorBoard, not wandb.</strong> TensorBoard is local-only and zero-config. wandb requires an account and uploads metadata to a third party. Can swap later.</li>
+<li><strong><code>python-chess</code> not yet.</strong> Saved for Sub-project 3. Including it here would imply we're building toward chess in Sub-project 1, which we're not.</li>
+<li><strong><code>uv</code></strong> (recommended) or <code>pip</code> + venv for package management.</li>
+<li><strong>Python 3.11+</strong>. Tested primarily on 3.11.</li>
+</ul>
+<hr>
+<h2 id="12-cli-surface">12. CLI surface</h2>
+<pre><code>python -m alphazero train --config configs/tictactoe.toml
+python -m alphazero eval  --checkpoint checkpoints/iter_30.pt --opponent perfect_solver
+python -m alphazero play  --checkpoint checkpoints/iter_30.pt --as x    # nice-to-have
+</code></pre>
+<p>The interactive <code>play</code> subcommand is a nice-to-have for sanity checks — useful for verifying the trained agent "feels right" (blocks obvious wins, takes obvious wins) beyond the numeric eval.</p>
+<hr>
+<h2 id="13-success-criterion-recap">13. Success criterion (recap)</h2>
+<p>Sub-project 1 is <strong>done</strong> when:</p>
+<blockquote>
+<p><code>pytest -m slow tests/test_e2e_tictactoe.py</code> passes consistently:
+a trained agent loses <strong>zero</strong> games out of 200 against a perfect TTT minimax solver, alternating colors.</p>
+</blockquote>
+<p>Only after this passes does Sub-project 2 (Connect 4) begin.</p>
+<hr>
+<h2 id="14-out-of-scope-saved-for-future-sub-projects">14. Out of scope (saved for future sub-projects)</h2>
+<ul>
+<li><strong>Parallel self-play</strong> (Sub-project 3) — necessary for chess scale, premature for TTT.</li>
+<li><strong>Cloud / distributed training</strong> (Sub-project 4) — Colab Pro / AWS only if we hit hardware limits.</li>
+<li><strong>UCI protocol</strong> (Sub-project 4) — for playing in chess GUIs / on Lichess.</li>
+<li><strong>Supervised pre-training</strong> (Sub-project 5) — only if pure self-play hits an ELO ceiling.</li>
+<li><strong>Bitboard move generator</strong> (Sub-project 3+) — only if <code>python-chess</code> becomes the bottleneck.</li>
+<li><strong>Prioritized replay</strong> — uniform sampling works fine per the paper.</li>
+<li><strong>Network architecture experiments</strong> — stick with the paper's ResNet shape; revisit if convergence fails.</li>
+</ul>
+<hr>
+<h2 id="15-references">15. References</h2>
+<ul>
+<li>Silver et al., <em>Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm</em> (AlphaZero), 2017 — primary reference for architecture and hyperparameters.</li>
+<li>Silver et al., <em>Mastering the game of Go without human knowledge</em> (AlphaGo Zero), 2017 — the arena gate originates here.</li>
+<li><code>concepts.html</code> (in this repo) — visual primer on MCTS, ResNet, PUCT, replay buffer, arena.</li>
+</ul></article>
+  </main>
+</body>
+</html>
