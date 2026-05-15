@@ -101,3 +101,80 @@ class Trainer:
         self.optimizer.step()
 
         return float(loss.item())
+
+    def _make_argmax_mcts_agent(self, net: AlphaZeroNet):
+        """Build an MCTS-with-NN agent that plays τ=0, no Dirichlet noise."""
+        from .mcts import MCTS
+
+        eval_fn = self._make_eval_fn(net)
+        def agent(game, state):
+            mcts = MCTS(game, eval_fn, c_puct=self.config.c_puct)
+            pi = mcts.search(state, num_simulations=self.config.num_simulations,
+                             add_root_noise=False)
+            return int(np.argmax(pi))
+        return agent
+
+    def _arena_win_rate(self) -> float:
+        """Play candidate vs best; return candidate's win rate."""
+        from .arena import play_match
+        candidate_agent = self._make_argmax_mcts_agent(self.candidate_net)
+        best_agent = self._make_argmax_mcts_agent(self.best_net)
+        result = play_match(
+            self.game, candidate_agent, best_agent,
+            num_games=self.config.arena_games,
+        )
+        return result.win_rate
+
+    def _maybe_accept_candidate(self) -> bool:
+        """Run arena gate. If candidate wins >= threshold, accept; else revert."""
+        win_rate = self._arena_win_rate()
+        if win_rate >= self.config.arena_threshold:
+            self.best_net = copy.deepcopy(self.candidate_net)
+            self.best_net.eval()
+            return True
+        self.candidate_net.load_state_dict(self.best_net.state_dict())
+        return False
+
+    def _eval_vs_solver(self) -> dict:
+        """Play current best_net vs the perfect TTT solver."""
+        from .arena import play_match
+        from .solvers.tictactoe_solver import solve_tictactoe_action
+
+        def solver_agent(game, state):
+            return solve_tictactoe_action(state)
+
+        net_agent = self._make_argmax_mcts_agent(self.best_net)
+        result = play_match(
+            self.game, net_agent, solver_agent,
+            num_games=self.config.eval_games,
+        )
+        return {
+            "wins": result.wins_a,
+            "draws": result.draws,
+            "losses": result.losses_a,
+        }
+
+    def _save_checkpoint(self) -> Path:
+        ckpt_dir = Path(self.config.checkpoint_dir)
+        ckpt_dir.mkdir(parents=True, exist_ok=True)
+        path = ckpt_dir / f"iter_{self.iteration:04d}.pt"
+        torch.save({
+            "iteration": self.iteration,
+            "best_net": self.best_net.state_dict(),
+            "candidate_net": self.candidate_net.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+        }, path)
+        return path
+
+    def run(self) -> None:
+        for _ in range(self.config.num_iterations):
+            self.iteration += 1
+            self._run_self_play_iteration()
+            if len(self.replay_buffer) >= self.config.min_buffer_size:
+                for _step in range(self.config.training_steps_per_iteration):
+                    self._train_step()
+            if self.iteration % self.config.arena_interval == 0:
+                self._maybe_accept_candidate()
+            if self.iteration % self.config.eval_interval == 0:
+                _ = self._eval_vs_solver()
+            self._save_checkpoint()
