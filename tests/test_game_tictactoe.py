@@ -168,9 +168,15 @@ def test_encode_treats_current_player_as_my_pieces(ttt: TicTacToe):
 
 
 def test_symmetries_yields_8_distinct_tuples(ttt: TicTacToe):
-    """Asymmetric input → all 8 D₄ symmetries are distinct."""
+    """An input with trivial stabilizer → all 8 D4 images are distinct.
+
+    A single corner has stabilizer of size 2 (one diagonal reflection fixes
+    it), so its orbit is only 4. We need a multi-piece configuration with
+    no D4 symmetry to get orbit size 8.
+    """
     s = ttt.initial_state()
-    s = ttt.apply(s, 0)  # X corner top-left — asymmetric
+    s = ttt.apply(s, 0)  # X at (0,0)
+    s = ttt.apply(s, 1)  # O at (0,1) — together: no D4 symmetry fixes this pair
     canon = ttt.canonical_state(s)
     enc = ttt.encode(canon)
     policy = np.array([0.1, 0.05, 0.05, 0.05, 0.6, 0.05, 0.05, 0.05, 0.0], dtype=np.float32)
