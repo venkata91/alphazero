@@ -385,6 +385,89 @@
         50%      { transform: scaleY(0.25); }
       }
 
+      /* Architecture diagram */
+      .arch-panel { margin: 20px 0; }
+      .arch-viz {
+        width: 100%;
+        margin: 12px 0 6px;
+        padding: 12px;
+        background: var(--bg-soft);
+        border: 2px solid var(--line-faint);
+        border-radius: 18px;
+        overflow: hidden;
+      }
+      .arch-svg { width: 100%; height: auto; display: block; }
+      .arch-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        margin: 14px 0 4px;
+        padding: 12px 14px;
+        background: var(--paper-tint);
+        border: 2px dashed var(--line-faint);
+        border-radius: 14px;
+      }
+      .arch-legend .item { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; color: var(--ink-soft); }
+      .arch-legend .dot {
+        display: inline-block;
+        width: 14px; height: 14px;
+        border-radius: 4px;
+        border: 2px solid;
+      }
+      .arch-legend .blue   { background: var(--blue-bg);   border-color: var(--blue);   }
+      .arch-legend .orange { background: var(--orange-bg); border-color: var(--orange); }
+      .arch-legend .green  { background: var(--green-bg);  border-color: var(--green);  }
+
+      /* Glossary */
+      .glossary { margin: 20px 0; }
+      .glossary-group {
+        margin: 18px 0;
+      }
+      .glossary-heading {
+        margin: 22px 0 12px;
+        color: var(--orange);
+        font-size: 1.4rem;
+        font-family: var(--cursive);
+        letter-spacing: 0;
+        font-weight: 700;
+      }
+      .glossary-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+      .glossary-grid > div {
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+      }
+      .glossary-grid strong {
+        display: block;
+        margin-bottom: 4px;
+        color: var(--blue-deep);
+        font-family: var(--cursive);
+        font-size: 1.3rem;
+        font-weight: 700;
+      }
+      .glossary-grid p {
+        margin: 0;
+        color: var(--ink-soft);
+        font-size: 0.98rem;
+        line-height: 1.5;
+      }
+      .glossary-grid code {
+        margin: 0;
+        padding: 1px 6px;
+        font-size: 0.85em;
+      }
+      @media (max-width: 920px) {
+        .glossary-grid { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 640px) {
+        .glossary-grid { grid-template-columns: 1fr; }
+      }
+
       /* Training loop track */
       .loop-track {
         display: flex;
@@ -808,6 +891,322 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
         </div>
         <div class="callout" style="margin-top: 18px;">
           <strong>The deep idea:</strong> MCTS makes the policy sharper than the raw NN (it sees many moves ahead). Training distills that sharpness back into the NN. The sharper NN makes MCTS even sharper next iteration. Repeat. <em>That</em> is AlphaZero.
+        </div>
+      </section>
+
+      <!-- ============================ Architecture & data flow ============================ -->
+      <section class="animation-panel arch-panel" id="architecture">
+        <p class="kicker">Architecture &middot; one iteration end-to-end</p>
+        <h2>How the components wire together</h2>
+        <p>
+          The whole framework is four orthogonal layers. The <strong>Trainer</strong> coordinates one iteration as a 4-stage pipeline at the top.
+          The <strong>MCTS</strong> and <strong>Game</strong> sit underneath as the search + rules layer.
+          The <strong>AlphaZeroNet</strong> sits at the bottom — a pure PyTorch module wrapped as MCTS's <code class="code-inline">eval_fn</code>, trained by stage 3.
+          Arrows show dependencies and data flow.
+        </p>
+
+        <div class="arch-viz" aria-hidden="true">
+          <svg viewBox="0 0 900 540" class="arch-svg" preserveAspectRatio="xMidYMid meet">
+            <!-- ====== Trainer container (dashed orange) ====== -->
+            <rect x="15" y="15" width="870" height="180" rx="20"
+                  fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5" stroke-dasharray="8 6" opacity="0.55"/>
+            <text x="38" y="40" class="v-text-strong" style="font-size:15px; fill:var(--orange-deep);">Trainer (orchestration)</text>
+            <text x="38" y="56" class="v-text" style="font-size:11px;">one iteration cycles through 4 stages, then loops</text>
+
+            <!-- ====== Stage 1: SelfPlay (blue) ====== -->
+            <rect x="50"  y="72" width="170" height="100" rx="14"
+                  fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="2.5"/>
+            <text x="135" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">1. SelfPlay</text>
+            <text x="135" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">×100 games / iter</text>
+            <text x="135" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">eval_fn = best_net</text>
+            <text x="135" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">emits (s, π, z) tuples</text>
+            <text x="135" y="164" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">Dirichlet noise at root</text>
+
+            <!-- arrow 1 → 2 -->
+            <line x1="222" y1="122" x2="258" y2="122" class="v-edge-flow"/>
+            <text x="240" y="115" text-anchor="middle" class="v-text" style="font-size:9px;">(s, π, z)</text>
+
+            <!-- ====== Stage 2: ReplayBuffer (green) ====== -->
+            <rect x="258" y="72" width="170" height="100" rx="14"
+                  fill="var(--green-bg)" stroke="var(--green)" stroke-width="2.5"/>
+            <text x="343" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">2. ReplayBuffer</text>
+            <text x="343" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">FIFO 50K tuples</text>
+            <text x="343" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">uniform random sample</text>
+            <text x="343" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">batch_size=64</text>
+
+            <!-- arrow 2 → 3 -->
+            <line x1="430" y1="122" x2="466" y2="122" class="v-edge-flow" style="animation-delay:.2s"/>
+            <text x="448" y="115" text-anchor="middle" class="v-text" style="font-size:9px;">minibatch</text>
+
+            <!-- ====== Stage 3: Train (blue) ====== -->
+            <rect x="466" y="72" width="170" height="100" rx="14"
+                  fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="2.5"/>
+            <text x="551" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">3. Train</text>
+            <text x="551" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">×500 steps / iter</text>
+            <text x="551" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">AdamW, weight_decay=1e-4</text>
+            <text x="551" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">loss = CE(π) + MSE(z)</text>
+            <text x="551" y="164" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">updates candidate_net</text>
+
+            <!-- arrow 3 → 4 -->
+            <line x1="638" y1="122" x2="674" y2="122" class="v-edge-flow" style="animation-delay:.4s"/>
+
+            <!-- ====== Stage 4: Arena (orange) ====== -->
+            <rect x="674" y="72" width="170" height="100" rx="14"
+                  fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5"/>
+            <text x="759" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">4. Arena</text>
+            <text x="759" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">candidate vs best_net</text>
+            <text x="759" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">40 games, split colors</text>
+            <text x="759" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">τ=0, no noise</text>
+            <text x="759" y="164" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">accept iff ≥ 55%</text>
+
+            <!-- Loop-back arrow: Arena → SelfPlay -->
+            <path d="M 759,172 Q 759,210 690,210 L 200,210 Q 135,210 135,172"
+                  fill="none" stroke="var(--orange)" stroke-width="2.2"
+                  stroke-dasharray="6 4" stroke-linecap="round" opacity="0.85"/>
+            <polygon points="135,172 130,182 140,182" fill="var(--orange)"/>
+            <text x="450" y="206" text-anchor="middle" class="v-text v-text-red" style="font-size:11px;">loop: best_net ← candidate (accept) &nbsp;|&nbsp; candidate ← best_net (revert)</text>
+
+            <!-- ===== Divider label ===== -->
+            <line x1="40" y1="232" x2="860" y2="232" class="v-axis"/>
+            <text x="38" y="246" class="v-text" style="font-size:11px;">─── used by orchestration ──↓</text>
+
+            <!-- ===== MCTS box (orange) ===== -->
+            <rect x="190" y="262" width="245" height="100" rx="14"
+                  fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5"/>
+            <text x="312" y="290" text-anchor="middle" class="v-text-strong" style="font-size:14px;">MCTS</text>
+            <text x="312" y="310" text-anchor="middle" class="v-text" style="font-size:11px;">select (PUCT) → expand → backup</text>
+            <text x="312" y="325" text-anchor="middle" class="v-text" style="font-size:11px;">N simulations per move</text>
+            <text x="312" y="340" text-anchor="middle" class="v-text" style="font-size:11px;">returns visit distribution π</text>
+            <text x="312" y="355" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">eval_fn: (state) → (priors, value)</text>
+
+            <!-- ===== Game box (green) ===== -->
+            <rect x="490" y="262" width="245" height="100" rx="14"
+                  fill="var(--green-bg)" stroke="var(--green)" stroke-width="2.5"/>
+            <text x="612" y="290" text-anchor="middle" class="v-text-strong" style="font-size:14px;">Game</text>
+            <text x="612" y="310" text-anchor="middle" class="v-text" style="font-size:11px;">initial / apply / terminal_value</text>
+            <text x="612" y="325" text-anchor="middle" class="v-text" style="font-size:11px;">encode / canonical_state</text>
+            <text x="612" y="340" text-anchor="middle" class="v-text" style="font-size:11px;">legal_actions_mask / symmetries</text>
+            <text x="612" y="355" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">TTT → Connect 4 → Chess (same interface)</text>
+
+            <!-- MCTS ↔ Game uses arrow -->
+            <line x1="435" y1="305" x2="490" y2="305" class="v-edge-flow" style="animation-delay:.3s"/>
+            <text x="462" y="298" text-anchor="middle" class="v-text" style="font-size:9px;">uses</text>
+
+            <!-- SelfPlay → MCTS (uses) -->
+            <path d="M 135,172 L 135,240 L 240,240 L 240,262"
+                  fill="none" stroke="var(--blue)" stroke-width="1.8"
+                  stroke-dasharray="4 4" stroke-linecap="round" opacity="0.8"/>
+            <polygon points="240,262 235,254 245,254" fill="var(--blue)"/>
+            <text x="150" y="232" class="v-text v-text-cyan" style="font-size:10px;">uses MCTS</text>
+
+            <!-- Arena → MCTS (uses) -->
+            <path d="M 759,172 L 759,240 L 385,240 L 385,262"
+                  fill="none" stroke="var(--orange)" stroke-width="1.8"
+                  stroke-dasharray="4 4" stroke-linecap="round" opacity="0.8"/>
+            <polygon points="385,262 380,254 390,254" fill="var(--orange)"/>
+            <text x="600" y="232" class="v-text v-text-red" style="font-size:10px;">uses MCTS (τ=0)</text>
+
+            <!-- ===== AlphaZeroNet box (deep blue) ===== -->
+            <rect x="240" y="410" width="420" height="115" rx="16"
+                  fill="var(--blue-bg)" stroke="var(--blue-deep)" stroke-width="2.5"/>
+            <text x="450" y="438" text-anchor="middle" class="v-text-strong" style="font-size:14px;">AlphaZeroNet (PyTorch nn.Module)</text>
+            <text x="450" y="458" text-anchor="middle" class="v-text" style="font-size:11px;">input encoding → N residual blocks (backbone)</text>
+            <text x="450" y="473" text-anchor="middle" class="v-text" style="font-size:11px;">→ [ policy_head (logits) , value_head (scalar in [-1,+1]) ]</text>
+            <text x="450" y="490" text-anchor="middle" class="v-text" style="font-size:11px;">forward(state_batch) → (priors, value)</text>
+            <text x="450" y="508" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">does not know about MCTS / Game / training; pure forward pass</text>
+
+            <!-- MCTS → AlphaZeroNet (eval_fn) -->
+            <path d="M 312,362 L 312,395 L 360,395 L 360,410"
+                  fill="none" stroke="var(--blue)" stroke-width="2"
+                  stroke-dasharray="5 4" stroke-linecap="round"/>
+            <polygon points="360,410 355,402 365,402" fill="var(--blue)"/>
+            <text x="320" y="385" class="v-text v-text-cyan" style="font-size:10px;">eval_fn(s)</text>
+            <text x="320" y="396" class="v-text v-text-cyan" style="font-size:10px;">→ (P, v)</text>
+
+            <!-- Train → AlphaZeroNet (updates weights) - dashed back-arrow style -->
+            <path d="M 551,172 L 551,395 L 540,395 L 540,410"
+                  fill="none" stroke="var(--orange)" stroke-width="2"
+                  stroke-dasharray="5 4" stroke-linecap="round"/>
+            <polygon points="540,410 535,402 545,402" fill="var(--orange)"/>
+            <text x="560" y="385" class="v-text v-text-red" style="font-size:10px;">backprop</text>
+            <text x="560" y="396" class="v-text v-text-red" style="font-size:10px;">updates</text>
+          </svg>
+        </div>
+
+        <div class="arch-legend">
+          <span class="item"><span class="dot blue"></span>Neural network / training</span>
+          <span class="item"><span class="dot orange"></span>Search / decisions / orchestration</span>
+          <span class="item"><span class="dot green"></span>Data / rules</span>
+          <span class="item">→ flow of data&nbsp;&nbsp; &middot; &middot; &middot;&nbsp;<em>uses</em>&nbsp;relationship</span>
+        </div>
+
+        <div class="callout">
+          <strong>Key invariants (easy bugs to plant):</strong>
+          (1) self-play uses <code class="code-inline">best_net</code>, training updates <code class="code-inline">candidate_net</code> — never confuse the two.
+          (2) Dirichlet noise: root only, self-play only.
+          (3) Backup flips sign at each ply (zero-sum games).
+          (4) z-per-ply is from <em>that ply's mover's</em> POV, not the final-mover's.
+          (5) Replay buffer is never reset between iterations.
+        </div>
+      </section>
+
+      <!-- ============================ Glossary ============================ -->
+      <section class="animation-panel glossary" id="glossary">
+        <p class="kicker">Reference</p>
+        <h2>Glossary</h2>
+        <p>Terms that appear repeatedly. Grouped by area. Use this as a quick lookup while reading code or the design doc.</p>
+
+        <!-- Group 1: Core RL / game concepts -->
+        <div class="glossary-group">
+          <p class="glossary-heading">Core RL &amp; game concepts</p>
+          <div class="glossary-grid">
+            <div>
+              <strong>State (s)</strong>
+              <p>The full board position at a point in the game. For TTT: a 3×3 array; for chess: piece placement + castling rights + en-passant + counters.</p>
+            </div>
+            <div>
+              <strong>Action (a)</strong>
+              <p>A legal move from a state. Represented as an integer index into the action space (0–8 for TTT, ~4672 for chess).</p>
+            </div>
+            <div>
+              <strong>Policy (π)</strong>
+              <p>A probability distribution over actions. Two flavors: the NN's prior <code>P</code>, and the MCTS-improved policy <code>π</code> used as a training target.</p>
+            </div>
+            <div>
+              <strong>Value (v / z)</strong>
+              <p>Expected game outcome in [−1, +1]. <code>v</code> is the NN's predicted value; <code>z</code> is the actual realized outcome of the game.</p>
+            </div>
+            <div>
+              <strong>Self-play</strong>
+              <p>Agent plays against itself to generate training data. Each ply produces one (s, π, z) tuple. Source of all training signal.</p>
+            </div>
+            <div>
+              <strong>Iteration</strong>
+              <p>One full cycle: self-play games → buffer → training steps → arena → (loop). NOT the same as a training "epoch."</p>
+            </div>
+            <div>
+              <strong>Episode / game</strong>
+              <p>One complete self-play game from <code>initial_state</code> to a terminal position. Produces a batch of training tuples sharing the same outcome z.</p>
+            </div>
+            <div>
+              <strong>Canonical state</strong>
+              <p>Board rewritten from the current player's POV so the NN always "plays as +1." Halves the effective state space the NN must learn.</p>
+            </div>
+            <div>
+              <strong>Symmetries</strong>
+              <p>Game-equivalent transformations (rotations, reflections) used for data augmentation. TTT has 8; Connect 4 has 2; chess has none.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 2: MCTS terms -->
+        <div class="glossary-group">
+          <p class="glossary-heading">MCTS terms</p>
+          <div class="glossary-grid">
+            <div>
+              <strong>Prior (P)</strong>
+              <p>The NN's pre-search probability for each move at a node. Set once when the node is expanded; never updated by search.</p>
+            </div>
+            <div>
+              <strong>Visit count (N)</strong>
+              <p>How many MCTS simulations have descended through a node. The final visit distribution at the root is the MCTS-improved policy π.</p>
+            </div>
+            <div>
+              <strong>Q-value</strong>
+              <p>Average value seen for an action so far: <code>Q = W / N</code> where W is the summed value. The "exploit" half of PUCT.</p>
+            </div>
+            <div>
+              <strong>U (exploration term)</strong>
+              <p><code>c_puct · P · √(ΣN) / (1+N)</code>. Decays as the action's N grows. The "explore" half of PUCT.</p>
+            </div>
+            <div>
+              <strong>c_puct</strong>
+              <p>Exploration constant. Higher = more exploration. Typically 1.0–4.0. We use 1.5 for TTT.</p>
+            </div>
+            <div>
+              <strong>Dirichlet noise</strong>
+              <p>Random perturbation of root priors during self-play: <code>P' = 0.75·P + 0.25·Dir(α)</code>. Ensures diverse openings. α=1.0 for TTT.</p>
+            </div>
+            <div>
+              <strong>Temperature (τ)</strong>
+              <p>Controls how the visit distribution is converted to an action. τ=1: sample proportional to visits. τ=0: argmax (greedy).</p>
+            </div>
+            <div>
+              <strong>Backup</strong>
+              <p>Propagating a leaf's value up the search path, with sign flips per ply (zero-sum). Updates N, W (and so Q) along the path.</p>
+            </div>
+            <div>
+              <strong>eval_fn</strong>
+              <p>The function MCTS calls at every leaf: <code>(state) → (priors, value)</code>. In practice it's the NN, but MCTS doesn't know that.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 3: NN / training -->
+        <div class="glossary-group">
+          <p class="glossary-heading">Neural network &amp; training</p>
+          <div class="glossary-grid">
+            <div>
+              <strong>Backbone</strong>
+              <p>The main body of the NN — stacked residual blocks that produce a shared feature representation consumed by both heads.</p>
+            </div>
+            <div>
+              <strong>Head</strong>
+              <p>A small final sub-network on top of the backbone. AlphaZero has two: <em>policy head</em> (action logits) and <em>value head</em> (scalar in [−1,+1]).</p>
+            </div>
+            <div>
+              <strong>Residual block</strong>
+              <p><code>y = ReLU(x + F(x))</code> where F is two convs + BatchNorm + ReLU. The <code>+x</code> is the skip connection.</p>
+            </div>
+            <div>
+              <strong>Skip connection</strong>
+              <p>The <code>+x</code> path that lets gradients flow through deep networks. Makes the derivative <code>∂y/∂x = 1 + ∂F/∂x</code> — the "1" prevents vanishing gradients.</p>
+            </div>
+            <div>
+              <strong>Channel</strong>
+              <p>One feature map produced by a conv layer. "32 channels" = 32 different feature maps per spatial position. More channels = wider network.</p>
+            </div>
+            <div>
+              <strong>Filter / kernel</strong>
+              <p>The weights of one convolution — a small grid (3×3 typically) slid across the input to produce one channel of output.</p>
+            </div>
+            <div>
+              <strong>BatchNorm</strong>
+              <p>Normalizes activations across the batch to stabilize training. Sits between conv and activation in residual blocks.</p>
+            </div>
+            <div>
+              <strong>Cross-entropy loss</strong>
+              <p>Used for the policy head. Measures distance between predicted distribution and target <code>π</code>: <code>−Σ π · log(softmax(logits))</code>.</p>
+            </div>
+            <div>
+              <strong>MSE loss</strong>
+              <p>Mean squared error. Used for the value head: <code>(v − z)²</code> averaged across the batch.</p>
+            </div>
+            <div>
+              <strong>Weight decay (L2)</strong>
+              <p>Penalizes large weights to prevent overfitting. Applied via <code>AdamW(weight_decay=1e-4)</code>.</p>
+            </div>
+            <div>
+              <strong>AdamW</strong>
+              <p>Optimizer = Adam + decoupled weight decay. The modern default; converges faster than plain SGD on small games. The paper used SGD+momentum.</p>
+            </div>
+            <div>
+              <strong>Replay buffer</strong>
+              <p>FIFO queue of recent training tuples. Capacity 50K for TTT, 1M for chess. Uniform random sampling — no prioritization.</p>
+            </div>
+            <div>
+              <strong>best_net vs candidate_net</strong>
+              <p>Two copies of the NN. <em>best_net</em> is the frozen network used for self-play and as arena opponent. <em>candidate_net</em> is the one being trained.</p>
+            </div>
+            <div>
+              <strong>Arena threshold</strong>
+              <p>The win-rate cutoff (e.g., 0.55) above which the candidate replaces the best. Below it, training is reverted.</p>
+            </div>
+            <div>
+              <strong>Training step</strong>
+              <p>One minibatch: sample from buffer → forward → loss → backward → optimizer.step. Hundreds happen per iteration.</p>
+            </div>
+          </div>
         </div>
       </section>
     </main>
