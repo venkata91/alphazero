@@ -89,6 +89,11 @@ def _render_action_help() -> str:
 def _cmd_play(args: argparse.Namespace) -> int:
     """Interactive play against best_net loaded from a checkpoint."""
     config = _config_for_checkpoint(args.checkpoint, args.config)
+    if args.num_simulations is not None:
+        # Override MCTS depth at inference time. More sims = stronger play
+        # even with the same trained NN.
+        from dataclasses import replace
+        config = replace(config, num_simulations=args.num_simulations)
     game = TicTacToe()
     trainer = Trainer(game, config)
 
@@ -177,6 +182,10 @@ def main(argv: list[str] | None = None) -> int:
     p_play.add_argument("--config", type=Path, default=None,
                         help="Override architecture config (needed for older checkpoints "
                              "that didn't save their config inline).")
+    p_play.add_argument("--num-simulations", type=int, default=None,
+                        help="Override MCTS simulations per move at play time. "
+                             "Default uses the config's value. Crank to 200-1000 for "
+                             "much stronger play even with a weak network.")
     p_play.add_argument("--as", dest="as_player", choices=["x", "o", "X", "O"], default="x",
                         help="Play as X (moves first) or O (moves second). Default: x.")
     p_play.set_defaults(func=_cmd_play)
