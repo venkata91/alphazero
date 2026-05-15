@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import copy
+import time
 from pathlib import Path
 from typing import Callable
 
 import numpy as np
 import torch
+from tqdm import tqdm
 
 from .config import TrainingConfig
 from .games.base import Game
@@ -64,10 +66,17 @@ class Trainer:
                 return priors.astype(np.float32), float(value.item())
         return fn
 
-    def _run_self_play_iteration(self) -> None:
+    def _run_self_play_iteration(self, verbose: bool = True) -> None:
         """Generate games_per_iteration games using best_net; push to buffer."""
         eval_fn = self._make_eval_fn(self.best_net)
-        for _ in range(self.config.games_per_iteration):
+        iterator = range(self.config.games_per_iteration)
+        if verbose:
+            iterator = tqdm(
+                iterator,
+                desc=f"  self-play (iter {self.iteration})",
+                leave=False,
+            )
+        for _ in iterator:
             examples = run_one_game(
                 self.game, eval_fn,
                 num_simulations=self.config.num_simulations,
@@ -166,15 +175,57 @@ class Trainer:
         }, path)
         return path
 
-    def run(self) -> None:
+    def run(self, verbose: bool = True) -> None:
+        if verbose:
+            print(
+                f"Starting training: {self.config.num_iterations} iterations | "
+                f"{self.config.games_per_iteration} games/iter, "
+                f"{self.config.num_simulations} MCTS sims, "
+                f"net {self.config.n_blocks} blocks × {self.config.n_channels} ch | "
+                f"device={self.device}",
+                flush=True,
+            )
         for _ in range(self.config.num_iterations):
             self.iteration += 1
-            self._run_self_play_iteration()
+            iter_start = time.time()
+            if verbose:
+                print(f"\n[iter {self.iteration}/{self.config.num_iterations}]", flush=True)
+
+            self._run_self_play_iteration(verbose=verbose)
+            if verbose:
+                print(f"  buffer size: {len(self.replay_buffer)}", flush=True)
+
             if len(self.replay_buffer) >= self.config.min_buffer_size:
-                for _step in range(self.config.training_steps_per_iteration):
-                    self._train_step()
+                loss_sum, loss_count = 0.0, 0
+                step_iter = range(self.config.training_steps_per_iteration)
+                if verbose:
+                    step_iter = tqdm(step_iter, desc="  training", leave=False)
+                for _step in step_iter:
+                    loss_sum += self._train_step()
+                    loss_count += 1
+                if verbose and loss_count > 0:
+                    print(f"  avg loss: {loss_sum / loss_count:.4f}", flush=True)
+            elif verbose:
+                print(f"  (skipping training — buffer < {self.config.min_buffer_size})", flush=True)
+
             if self.iteration % self.config.arena_interval == 0:
-                self._maybe_accept_candidate()
+                if verbose:
+                    print(f"  arena: candidate vs best ({self.config.arena_games} games)...",
+                          flush=True)
+                accepted = self._maybe_accept_candidate()
+                if verbose:
+                    print(f"  arena: {'ACCEPTED — new best_net' if accepted else 'rejected — reverted'}",
+                          flush=True)
+
             if self.iteration % self.config.eval_interval == 0:
-                _ = self._eval_vs_solver()
-            self._save_checkpoint()
+                if verbose:
+                    print(f"  eval vs solver ({self.config.eval_games} games)...", flush=True)
+                result = self._eval_vs_solver()
+                if verbose:
+                    print(f"  eval: wins={result['wins']} draws={result['draws']} "
+                          f"losses={result['losses']}", flush=True)
+
+            ckpt_path = self._save_checkpoint()
+            if verbose:
+                elapsed = time.time() - iter_start
+                print(f"  checkpoint: {ckpt_path} ({elapsed:.1f}s)", flush=True)
