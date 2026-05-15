@@ -145,5 +145,19 @@ class MCTS:
     def _add_dirichlet_noise(
         self, priors: np.ndarray, legal_mask: np.ndarray
     ) -> np.ndarray:
-        """Stub — implemented in Task 14."""
-        return priors
+        """Mix Dirichlet noise into priors at the root (self-play exploration).
+
+        priors are already legal-masked and renormalized.
+        Only legal actions get noise; illegal positions stay at zero.
+        """
+        legal_indices = np.where(legal_mask)[0]
+        if len(legal_indices) == 0:
+            return priors
+        noise = np.random.dirichlet([self.dirichlet_alpha] * len(legal_indices))
+        new_priors = priors.copy()
+        for idx, n in zip(legal_indices, noise):
+            new_priors[idx] = (
+                (1 - self.dirichlet_weight) * priors[idx]
+                + self.dirichlet_weight * n
+            )
+        return new_priors.astype(np.float32)

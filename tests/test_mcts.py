@@ -110,3 +110,23 @@ def test_backup_flips_sign_per_ply(ttt):
     assert root.visit_count == 1
     assert root.value_sum == -1.0
     assert root.Q == -1.0
+
+
+def test_dirichlet_noise_changes_priors_when_enabled(ttt):
+    """With add_root_noise=True and a fixed seed, root priors should differ."""
+    np.random.seed(0)
+    eval_fn = make_eval_fn(np.full(9, 1/9), 0.0)
+    mcts = MCTS(ttt, eval_fn, dirichlet_alpha=1.0, dirichlet_weight=0.5)
+    pi_noisy = mcts.search(ttt.initial_state(), num_simulations=1, add_root_noise=True)
+    np.random.seed(0)
+    pi_clean = mcts.search(ttt.initial_state(), num_simulations=1, add_root_noise=False)
+    assert not np.allclose(pi_noisy, pi_clean)
+
+
+def test_dirichlet_noise_disabled_yields_one_hot_at_one_sim(ttt):
+    """With no noise, 1 simulation should give exactly one visit somewhere."""
+    eval_fn = make_eval_fn(np.full(9, 1/9), 0.0)
+    mcts = MCTS(ttt, eval_fn)
+    pi = mcts.search(ttt.initial_state(), num_simulations=1, add_root_noise=False)
+    assert pi.sum() == pytest.approx(1.0)
+    assert (pi > 0).sum() == 1
