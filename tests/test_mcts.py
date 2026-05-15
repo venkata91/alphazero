@@ -69,3 +69,44 @@ def test_search_more_simulations_means_more_total_visits(ttt):
     pi_b = mcts.search(ttt.initial_state(), num_simulations=40, add_root_noise=False)
     assert pi_a.sum() == pytest.approx(1.0)
     assert pi_b.sum() == pytest.approx(1.0)
+
+
+def test_search_value_favoring_child_concentrates_visits(ttt):
+    """If the NN values action 0 highly, visits should concentrate on action 0.
+
+    The eval_fn returns value=+1 when it sees a board where the opponent (planes[1])
+    has a piece at (0,0) — that's the state after X plays action 0.
+    """
+
+    def biased_eval_fn(encoded: np.ndarray) -> tuple[np.ndarray, float]:
+        prior = np.full(9, 1/9, dtype=np.float32)
+        opp_corner = encoded[1, 0, 0]
+        value = 1.0 if opp_corner > 0.5 else 0.0
+        return prior, value
+
+    mcts = MCTS(ttt, biased_eval_fn)
+    pi = mcts.search(ttt.initial_state(), num_simulations=80, add_root_noise=False)
+    assert pi.argmax() == 0
+
+
+def test_backup_flips_sign_per_ply(ttt):
+    """Direct unit test on a known tree shape.
+
+    Set up: root with one child, whose value backs up.
+    Backing up +1 from the child should make root.Q = -1 (zero-sum).
+    """
+    eval_fn = make_eval_fn(np.full(9, 1/9), 0.5)
+    mcts = MCTS(ttt, eval_fn)
+    root = Node()
+    root.is_expanded = True
+    child = Node(prior=1.0)
+    root.children[0] = child
+
+    mcts._backup([root, child], leaf_value=1.0)
+
+    assert child.visit_count == 1
+    assert child.value_sum == 1.0
+    assert child.Q == 1.0
+    assert root.visit_count == 1
+    assert root.value_sum == -1.0
+    assert root.Q == -1.0
