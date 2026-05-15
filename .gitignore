@@ -29,3 +29,14 @@ wandb/
 *.pth
 *.ckpt
 logs/
+
+# Test artifacts
+checkpoints_test/
+runs_test/
+.pytest_cache/
+
+# Build
+build/
+dist/
+*.egg-info/
+src/*.egg-info/
