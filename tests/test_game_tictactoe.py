@@ -127,3 +127,41 @@ def test_terminal_value_draw_returns_zero(ttt: TicTacToe):
         [-1, 1, 1],
     ])
     assert ttt.terminal_value(state) == 0.0
+
+
+def test_canonical_state_is_identity_when_current_player_plus_one(ttt: TicTacToe):
+    s = ttt.initial_state()
+    np.testing.assert_array_equal(ttt.canonical_state(s), s)
+
+
+def test_canonical_state_inverts_when_current_player_minus_one(ttt: TicTacToe):
+    s = ttt.apply(ttt.initial_state(), 4)  # X plays center; now O's turn
+    canon = ttt.canonical_state(s)
+    expected = np.zeros((3, 3), dtype=np.int8)
+    expected[1, 1] = -1
+    np.testing.assert_array_equal(canon, expected)
+
+
+def test_encode_shape_matches_input_shape(ttt: TicTacToe):
+    s = ttt.initial_state()
+    enc = ttt.encode(ttt.canonical_state(s))
+    assert enc.shape == ttt.input_shape
+    assert enc.dtype == np.float32
+
+
+def test_encode_initial_state_my_and_opp_planes_empty(ttt: TicTacToe):
+    enc = ttt.encode(ttt.canonical_state(ttt.initial_state()))
+    assert enc[0].sum() == 0
+    assert enc[1].sum() == 0
+    np.testing.assert_array_equal(enc[2], np.ones((3, 3), dtype=np.float32))
+
+
+def test_encode_treats_current_player_as_my_pieces(ttt: TicTacToe):
+    """After X plays center, from O's canonical perspective:
+       O's pieces (none) on plane 0; X's piece (center) on plane 1."""
+    s = ttt.apply(ttt.initial_state(), 4)
+    canon = ttt.canonical_state(s)
+    enc = ttt.encode(canon)
+    assert enc[0].sum() == 0
+    assert enc[1, 1, 1] == 1
+    assert enc[1].sum() == 1
