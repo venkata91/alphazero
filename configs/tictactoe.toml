@@ -1,0 +1,29 @@
+# AlphaZero training config for Tic-Tac-Toe.
+# Values omitted use defaults from TrainingConfig.
+
+n_blocks = 4
+n_channels = 32
+
+num_simulations = 50
+c_puct = 1.5
+
+games_per_iteration = 100
+temperature_threshold = 6
+
+training_steps_per_iteration = 500
+batch_size = 64
+learning_rate = 1e-3
+
+replay_buffer_capacity = 50_000
+min_buffer_size = 5_000
+
+arena_interval = 5
+arena_games = 40
+arena_threshold = 0.55
+
+eval_interval = 5
+eval_games = 200
+
+num_iterations = 50
+seed = 42
+device = "auto"
