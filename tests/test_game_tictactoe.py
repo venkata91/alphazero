@@ -60,3 +60,70 @@ def test_legal_actions_mask_after_one_move(ttt: TicTacToe):
     mask = ttt.legal_actions_mask(s)
     assert mask.sum() == 8
     assert not mask[4]
+
+
+def _board(rows: list[list[int]]) -> np.ndarray:
+    return np.array(rows, dtype=np.int8)
+
+
+def test_terminal_value_none_when_in_progress(ttt: TicTacToe):
+    assert ttt.terminal_value(ttt.initial_state()) is None
+    s = ttt.apply(ttt.initial_state(), 4)
+    assert ttt.terminal_value(s) is None
+
+
+def test_terminal_value_x_wins_row_returns_minus_one_for_o(ttt: TicTacToe):
+    # X just played and won; now O's turn → from O's POV, X won → -1
+    state = _board([
+        [1, 1, 1],
+        [-1, -1, 0],
+        [0, 0, 0],
+    ])
+    assert ttt.current_player(state) == -1
+    assert ttt.terminal_value(state) == -1.0
+
+
+def test_terminal_value_x_wins_col(ttt: TicTacToe):
+    state = _board([
+        [1, -1, 0],
+        [1, -1, 0],
+        [1, 0, 0],
+    ])
+    assert ttt.terminal_value(state) == -1.0
+
+
+def test_terminal_value_x_wins_diag(ttt: TicTacToe):
+    state = _board([
+        [1, -1, 0],
+        [-1, 1, 0],
+        [0, 0, 1],
+    ])
+    assert ttt.terminal_value(state) == -1.0
+
+
+def test_terminal_value_x_wins_antidiag(ttt: TicTacToe):
+    state = _board([
+        [0, -1, 1],
+        [-1, 1, 0],
+        [1, 0, 0],
+    ])
+    assert ttt.terminal_value(state) == -1.0
+
+
+def test_terminal_value_o_wins_returns_minus_one_for_x(ttt: TicTacToe):
+    state = _board([
+        [-1, -1, -1],
+        [1, 1, 0],
+        [1, 0, 0],
+    ])
+    assert ttt.current_player(state) == 1
+    assert ttt.terminal_value(state) == -1.0
+
+
+def test_terminal_value_draw_returns_zero(ttt: TicTacToe):
+    state = _board([
+        [1, -1, 1],
+        [1, -1, -1],
+        [-1, 1, 1],
+    ])
+    assert ttt.terminal_value(state) == 0.0

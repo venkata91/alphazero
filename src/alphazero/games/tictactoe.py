@@ -46,7 +46,26 @@ class TicTacToe(Game):
 
     # Filled in by later tasks:
     def terminal_value(self, state: State) -> float | None:
-        raise NotImplementedError  # Task 5
+        winner = self._find_winner(state)
+        if winner is not None:
+            return 1.0 if winner == self.current_player(state) else -1.0
+        if np.all(state != 0):
+            return 0.0  # board full, no winner → draw
+        return None
+
+    def _find_winner(self, state: State) -> int | None:
+        for player in (1, -1):
+            for r in range(3):
+                if np.all(state[r, :] == player):
+                    return player
+            for c in range(3):
+                if np.all(state[:, c] == player):
+                    return player
+            if np.all(np.diag(state) == player):
+                return player
+            if np.all(np.diag(np.fliplr(state)) == player):
+                return player
+        return None
 
     def encode(self, state: State) -> np.ndarray:
         raise NotImplementedError  # Task 6
