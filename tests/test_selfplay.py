@@ -84,3 +84,31 @@ def test_z_assignment_draw_assigns_zero_to_every_ply():
 
     zs = _assign_z(history, final_value, final_state, ttt)
     assert zs == [0.0] * 9
+
+
+def test_symmetry_augmentation_multiplies_tuples_by_8():
+    """With augment=True (TTT), each ply produces 8 symmetric tuples."""
+    np.random.seed(123)
+    examples_aug = run_one_game(
+        TicTacToe(), uniform_eval_fn,
+        num_simulations=3, temperature_threshold=6, augment=True,
+    )
+
+    np.random.seed(123)
+    examples_raw = run_one_game(
+        TicTacToe(), uniform_eval_fn,
+        num_simulations=3, temperature_threshold=6, augment=False,
+    )
+
+    assert len(examples_aug) == 8 * len(examples_raw)
+
+
+def test_z_values_are_consistent_within_a_game():
+    """Every ply of a single game has z ∈ {+1, 0, -1}."""
+    np.random.seed(7)
+    examples = run_one_game(
+        TicTacToe(), uniform_eval_fn,
+        num_simulations=4, temperature_threshold=6, augment=False,
+    )
+    zs = {e[2] for e in examples}
+    assert zs.issubset({1.0, -1.0, 0.0})
