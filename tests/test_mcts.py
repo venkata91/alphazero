@@ -130,3 +130,35 @@ def test_dirichlet_noise_disabled_yields_one_hot_at_one_sim(ttt):
     pi = mcts.search(ttt.initial_state(), num_simulations=1, add_root_noise=False)
     assert pi.sum() == pytest.approx(1.0)
     assert (pi > 0).sum() == 1
+
+
+def test_terminal_leaf_uses_terminal_value_not_eval_fn(ttt):
+    """If a simulation reaches a terminal state, the leaf value MUST come from
+    Game.terminal_value, not from a (possibly wrong) NN forward pass."""
+
+    def tracking_eval_fn(state: np.ndarray) -> tuple[np.ndarray, float]:
+        return np.full(9, 1/9, dtype=np.float32), -0.99
+
+    mcts = MCTS(ttt, tracking_eval_fn)
+
+    # Build a near-terminal position: X needs action 8 to win the diagonal.
+    state = ttt.initial_state()
+    state = ttt.apply(state, 0)  # X(0,0)
+    state = ttt.apply(state, 1)  # O(0,1)
+    state = ttt.apply(state, 4)  # X(1,1)
+    state = ttt.apply(state, 6)  # O(2,0)
+    # X to move. Action 8 → completes diagonal {(0,0), (1,1), (2,2)}.
+    pi = mcts.search(state, num_simulations=40, add_root_noise=False)
+    assert pi[8] > 0.4
+
+
+def test_legal_actions_only_get_children(ttt):
+    """After expanding the root of a partially-played game, children dict
+    should only contain legal actions."""
+    eval_fn = make_eval_fn(np.full(9, 1/9), 0.0)
+    mcts = MCTS(ttt, eval_fn)
+    state = ttt.apply(ttt.initial_state(), 4)
+    pi = mcts.search(state, num_simulations=2, add_root_noise=False)
+    assert pi[4] == 0.0
+    legal = ttt.legal_actions_mask(state)
+    np.testing.assert_allclose(pi[legal].sum(), 1.0, rtol=1e-6)

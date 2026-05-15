@@ -86,7 +86,14 @@ class MCTS:
         # Evaluate / expand
         terminal = self.game.terminal_value(state)
         if terminal is not None:
-            leaf_value = terminal
+            # terminal_value is from the current player's (node's) perspective.
+            # Backup will store this directly at the leaf node, so child.Q
+            # reflects the leaf-player's outcome.  PUCT at the parent reads
+            # child.Q as "how good is this action for *me* (the parent player)".
+            # Because the parent and child alternate players, we negate so that
+            # a win for the player who TOOK the action appears as a positive Q
+            # at the child node (the parent's action choice).
+            leaf_value = -terminal
         else:
             leaf_value = self._expand(node, state, add_root_noise=False)
 
