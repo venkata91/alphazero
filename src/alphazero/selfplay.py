@@ -69,5 +69,14 @@ def run_one_game(
 
 
 def _assign_z(history, final_value, final_state, game) -> list[float]:
-    """Stub — implemented in Task 17."""
-    return [0.0] * len(history)
+    """Compute z for each ply from THAT PLY'S MOVER'S POV.
+
+    final_value is terminal_value(final_state), from current_player(final_state)'s POV.
+    For each ply k with mover P_k, z_k = final_value if P_k == final_current_player
+    else -final_value (zero-sum).
+    """
+    final_current = game.current_player(final_state)
+    return [
+        final_value if player == final_current else -final_value
+        for (_s, _pi, player) in history
+    ]
