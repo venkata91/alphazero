@@ -165,3 +165,50 @@ def test_encode_treats_current_player_as_my_pieces(ttt: TicTacToe):
     assert enc[0].sum() == 0
     assert enc[1, 1, 1] == 1
     assert enc[1].sum() == 1
+
+
+def test_symmetries_yields_8_distinct_tuples(ttt: TicTacToe):
+    """Asymmetric input → all 8 D₄ symmetries are distinct."""
+    s = ttt.initial_state()
+    s = ttt.apply(s, 0)  # X corner top-left — asymmetric
+    canon = ttt.canonical_state(s)
+    enc = ttt.encode(canon)
+    policy = np.array([0.1, 0.05, 0.05, 0.05, 0.6, 0.05, 0.05, 0.05, 0.0], dtype=np.float32)
+    syms = ttt.symmetries(enc, policy)
+    assert len(syms) == 8
+    seen = set()
+    for enc_s, _ in syms:
+        seen.add(enc_s.tobytes())
+    assert len(seen) == 8
+
+
+def test_symmetries_includes_identity_first(ttt: TicTacToe):
+    """The first symmetry is (encoded, policy) unchanged."""
+    enc = ttt.encode(ttt.canonical_state(ttt.initial_state()))
+    pol = np.zeros(9, dtype=np.float32)
+    pol[4] = 1.0
+    syms = ttt.symmetries(enc, pol)
+    np.testing.assert_array_equal(syms[0][0], enc)
+    np.testing.assert_array_equal(syms[0][1], pol)
+
+
+def test_symmetries_preserves_policy_sum(ttt: TicTacToe):
+    enc = ttt.encode(ttt.canonical_state(ttt.initial_state()))
+    pol = np.full(9, 1 / 9, dtype=np.float32)
+    syms = ttt.symmetries(enc, pol)
+    for _, p in syms:
+        np.testing.assert_allclose(p.sum(), 1.0, rtol=1e-6)
+
+
+def test_symmetries_action_index_follows_board_rotation(ttt: TicTacToe):
+    """All-mass-on-corner stays all-mass-on-a-corner under symmetries."""
+    enc = ttt.encode(ttt.canonical_state(ttt.initial_state()))
+    pol = np.zeros(9, dtype=np.float32)
+    pol[0] = 1.0  # top-left
+    syms = ttt.symmetries(enc, pol)
+    found = False
+    for _, p in syms:
+        if p[2] == 1.0:
+            found = True
+            break
+    assert found

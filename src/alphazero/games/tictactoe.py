@@ -82,3 +82,27 @@ class TicTacToe(Game):
         opp = (state == -1).astype(np.float32)
         ones = np.ones((3, 3), dtype=np.float32)
         return np.stack([my, opp, ones], axis=0)
+
+    def symmetries(
+        self, encoded: np.ndarray, policy: np.ndarray
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
+        """All 8 D₄ symmetries of a TTT board (4 rotations × 2 mirrors).
+
+        encoded shape: (C, H, W) = (3, 3, 3); policy shape: (9,) row-major.
+        Returns list of (encoded_sym, policy_sym) pairs; element 0 is identity.
+        """
+        results: list[tuple[np.ndarray, np.ndarray]] = []
+        pi_grid = policy.reshape(3, 3)
+        # Generate all 8 D4 symmetries: rotations alternating with reflections
+        for k in range(4):
+            # Rotation by k*90 degrees
+            rot_enc = np.rot90(encoded, k=k, axes=(1, 2)).copy()
+            rot_pi = np.rot90(pi_grid, k=k).copy()
+            results.append((rot_enc, rot_pi.flatten()))
+
+            # Reflection after this rotation (vertical axis flip)
+            refl_enc = np.flip(rot_enc, axis=2).copy()
+            refl_pi = np.flip(rot_pi, axis=1).copy()
+            results.append((refl_enc, refl_pi.flatten()))
+
+        return results
