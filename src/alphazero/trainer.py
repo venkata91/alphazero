@@ -167,8 +167,12 @@ class Trainer:
         ckpt_dir = Path(self.config.checkpoint_dir)
         ckpt_dir.mkdir(parents=True, exist_ok=True)
         path = ckpt_dir / f"iter_{self.iteration:04d}.pt"
+        # Save config as a dict so checkpoints are self-describing (the loader
+        # can reconstruct the network with matching architecture).
+        from dataclasses import asdict
         torch.save({
             "iteration": self.iteration,
+            "config": asdict(self.config),
             "best_net": self.best_net.state_dict(),
             "candidate_net": self.candidate_net.state_dict(),
             "optimizer": self.optimizer.state_dict(),

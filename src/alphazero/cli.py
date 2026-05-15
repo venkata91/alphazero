@@ -25,12 +25,32 @@ def _cmd_train(args: argparse.Namespace) -> int:
     return 0
 
 
+def _config_for_checkpoint(checkpoint_path: Path, override_path: Path | None) -> TrainingConfig:
+    """Reconstruct the right config to load a checkpoint.
+
+    Order of precedence: (1) --config override, (2) config saved in checkpoint,
+    (3) defaults. The architecture knobs (n_blocks, n_channels) must match what
+    the checkpoint was saved with or load_state_dict will fail.
+    """
+    if override_path is not None:
+        return load_config(override_path)
+    ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    saved = ckpt.get("config")
+    if saved is None:
+        # Older checkpoint without saved config — fall back to defaults
+        # (force CPU for compatibility with non-MPS environments).
+        return TrainingConfig(device="cpu")
+    # Override device to cpu for inference unless caller forces it.
+    saved = {**saved, "device": "cpu"}
+    return TrainingConfig(**saved)
+
+
 def _cmd_eval(args: argparse.Namespace) -> int:
-    config = TrainingConfig(device="cpu")
+    config = _config_for_checkpoint(args.checkpoint, args.config)
     game = TicTacToe()
     trainer = Trainer(game, config)
 
-    ckpt = torch.load(args.checkpoint, map_location=trainer.device)
+    ckpt = torch.load(args.checkpoint, map_location=trainer.device, weights_only=False)
     trainer.best_net.load_state_dict(ckpt["best_net"])
     trainer.best_net.eval()
 
@@ -68,7 +88,7 @@ def _render_action_help() -> str:
 
 def _cmd_play(args: argparse.Namespace) -> int:
     """Interactive play against best_net loaded from a checkpoint."""
-    config = TrainingConfig(device="cpu")
+    config = _config_for_checkpoint(args.checkpoint, args.config)
     game = TicTacToe()
     trainer = Trainer(game, config)
 
@@ -146,11 +166,17 @@ def main(argv: list[str] | None = None) -> int:
 
     p_eval = subs.add_parser("eval", help="Evaluate a checkpoint vs perfect solver")
     p_eval.add_argument("--checkpoint", type=Path, required=True)
+    p_eval.add_argument("--config", type=Path, default=None,
+                        help="Override architecture config (needed for older checkpoints "
+                             "that didn't save their config inline).")
     p_eval.add_argument("--num-games", type=int, default=200)
     p_eval.set_defaults(func=_cmd_eval)
 
     p_play = subs.add_parser("play", help="Play interactively against best_net")
     p_play.add_argument("--checkpoint", type=Path, required=True)
+    p_play.add_argument("--config", type=Path, default=None,
+                        help="Override architecture config (needed for older checkpoints "
+                             "that didn't save their config inline).")
     p_play.add_argument("--as", dest="as_player", choices=["x", "o", "X", "O"], default="x",
                         help="Play as X (moves first) or O (moves second). Default: x.")
     p_play.set_defaults(func=_cmd_play)
