@@ -84,18 +84,18 @@ class MCTS:
             path.append(node)
 
         # Evaluate / expand
+        # Both terminal_value and eval_fn (via _expand) return the leaf value
+        # from the LEAF player's perspective. PUCT at the parent reads
+        # child.Q as "how good is this action for me (the parent player)".
+        # Parent and child alternate players in a zero-sum game, so we
+        # negate the leaf value here to convert leaf-POV → parent-POV.
+        # Backup then stores child.value_sum in parent's POV, consistent
+        # with PUCT's `child.Q + U` formula.
         terminal = self.game.terminal_value(state)
         if terminal is not None:
-            # terminal_value is from the current player's (node's) perspective.
-            # Backup will store this directly at the leaf node, so child.Q
-            # reflects the leaf-player's outcome.  PUCT at the parent reads
-            # child.Q as "how good is this action for *me* (the parent player)".
-            # Because the parent and child alternate players, we negate so that
-            # a win for the player who TOOK the action appears as a positive Q
-            # at the child node (the parent's action choice).
             leaf_value = -terminal
         else:
-            leaf_value = self._expand(node, state, add_root_noise=False)
+            leaf_value = -self._expand(node, state, add_root_noise=False)
 
         # Backup
         self._backup(path, leaf_value)

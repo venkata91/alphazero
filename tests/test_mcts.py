@@ -72,16 +72,18 @@ def test_search_more_simulations_means_more_total_visits(ttt):
 
 
 def test_search_value_favoring_child_concentrates_visits(ttt):
-    """If the NN values action 0 highly, visits should concentrate on action 0.
+    """If the NN values action 0 highly (for parent), visits should concentrate on action 0.
 
-    The eval_fn returns value=+1 when it sees a board where the opponent (planes[1])
-    has a piece at (0,0) — that's the state after X plays action 0.
+    eval_fn returns value from the LEAF player's POV. After X plays action 0 the
+    leaf is in O's perspective: from O's POV, having X at (0,0) is BAD → value = -1.
+    MCTS negates leaf-POV → parent-POV, so child.Q at the parent for action 0
+    becomes +1, and PUCT prefers it.
     """
 
     def biased_eval_fn(encoded: np.ndarray) -> tuple[np.ndarray, float]:
         prior = np.full(9, 1/9, dtype=np.float32)
         opp_corner = encoded[1, 0, 0]
-        value = 1.0 if opp_corner > 0.5 else 0.0
+        value = -1.0 if opp_corner > 0.5 else 0.0
         return prior, value
 
     mcts = MCTS(ttt, biased_eval_fn)
