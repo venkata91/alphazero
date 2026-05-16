@@ -1,0 +1,2672 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chess on the AlphaZero Framework Implementation Plan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav">
+      <a href="../../../index.html">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; Plans · Chess</span>
+    </nav>
+    <header class="hero">
+      <p class="kicker">Notes</p>
+      <h1>Chess on the AlphaZero Framework Implementation Plan</h1>
+
+    </header>
+    <article class="spec"><blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Implement chess on the existing AlphaZero framework + parallel self-play infrastructure, then train an agent that wins ≥50% of 100 games against Stockfish ELO=1500.</p>
+<p><strong>Architecture:</strong> Add <code>Chess(Game)</code> wrapping <code>python-chess</code> + AlphaZero 8×8×73 move encoding + 20-plane input + <code>StockfishOpponent</code> via UCI. New <code>parallel_selfplay</code> module with process pool + central NN-server batching inference. Trainer extended to dispatch parallel path when <code>num_workers &gt; 1</code>. All framework code (MCTS, network, replay buffer, etc.) reused unchanged.</p>
+<p><strong>Tech Stack:</strong> Same as previous sub-projects + <code>python-chess&gt;=1.10</code> (game rules) + <code>stockfish</code> binary (eval baseline, system-installed).</p>
+<p><strong>Spec:</strong> <a href="../specs/2026-05-16-chess-design.md"><code>docs/superpowers/specs/2026-05-16-chess-design.md</code></a></p>
+<hr>
+<h2 id="file-structure">File Structure</h2>
+<pre><code>src/alphazero/games/chess_game.py                 ← new (~300 lines) Chess(Game)
+src/alphazero/games/chess_move_encoding.py        ← new (~250 lines) 8×8×73 encoding
+src/alphazero/opponents/stockfish.py              ← new (~80 lines) StockfishOpponent
+src/alphazero/parallel_selfplay.py                ← new (~400 lines) worker pool + NN-server
+src/alphazero/trainer.py                          ← small extend (dispatch parallel)
+src/alphazero/cli.py                              ← small extend (--game chess)
+configs/chess.toml                                ← new
+bin/setup.sh                                      ← new (portable install)
+Dockerfile                                        ← new (optional, for cloud reproducibility)
+tests/test_move_encoding.py                       ← new
+tests/test_game_chess.py                          ← new
+tests/test_chess_minimax.py                       ← new
+tests/test_parallel_selfplay.py                   ← new
+tests/test_invariants_chess.py                    ← new
+tests/test_e2e_chess.py                           ← new (@pytest.mark.slow)
+</code></pre>
+<p>Tasks proceed bottom-up: dependencies + scaffolding first, then move encoding (foundation for Chess), then Chess game, then Stockfish opponent, then parallel self-play (the big new piece), then integration (Trainer + CLI), then tests + E2E kill criterion.</p>
+<hr>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li>Commit messages: HEREDOC with <code>Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;</code> footer.</li>
+<li>TDD: red → green → commit. Each task has its own commit.</li>
+<li>All paths absolute from repo root unless noted.</li>
+</ul>
+<hr>
+<h2 id="task-1-dependencies-stockfish-smoke-test">Task 1: Dependencies + Stockfish smoke test</h2>
+<p><strong>Files:</strong>
+- Modify: <code>pyproject.toml</code>
+- Create: <code>bin/setup.sh</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add <code>python-chess</code> dependency to <code>pyproject.toml</code></strong></li>
+</ul>
+<p>Edit <code>pyproject.toml</code>, locate the <code>dependencies = [...]</code> list, add <code>"python-chess&gt;=1.10",</code> so it reads:</p>
+<pre><code class="language-toml">dependencies = [
+    &quot;torch&gt;=2.2&quot;,
+    &quot;numpy&gt;=1.26&quot;,
+    &quot;tomli&gt;=2.0&quot;,
+    &quot;tqdm&gt;=4.66&quot;,
+    &quot;tensorboard&gt;=2.16&quot;,
+    &quot;python-chess&gt;=1.10&quot;,
+]
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Create <code>bin/setup.sh</code></strong></li>
+</ul>
+<pre><code class="language-bash">mkdir -p bin
+cat &gt; bin/setup.sh &lt;&lt;'EOF'
+#!/usr/bin/env bash
+# Install all dependencies for AlphaZero (incl. Stockfish for chess eval).
+# Idempotent; safe to re-run.
+set -euo pipefail
+
+# Detect platform and install Stockfish binary
+if [[ &quot;$(uname)&quot; == &quot;Darwin&quot; ]]; then
+    if ! command -v stockfish &amp;&gt;/dev/null; then
+        echo &quot;Installing Stockfish via Homebrew...&quot;
+        brew install stockfish
+    fi
+elif [[ -f /etc/debian_version ]]; then
+    if ! dpkg -s stockfish &amp;&gt;/dev/null; then
+        echo &quot;Installing Stockfish via apt...&quot;
+        sudo apt-get update &amp;&amp; sudo apt-get install -y stockfish
+    fi
+else
+    echo &quot;Unknown platform; please install stockfish manually.&quot; &gt;&amp;2
+fi
+
+# Python deps
+pip install -e &quot;.[dev]&quot;
+
+# Verify Stockfish is usable from python-chess
+python3 -c &quot;
+import chess.engine
+eng = chess.engine.SimpleEngine.popen_uci('stockfish')
+eng.configure({'UCI_LimitStrength': True, 'UCI_Elo': 1500})
+print('✓ Stockfish OK; UCI_Elo configurable')
+eng.quit()
+&quot;
+EOF
+chmod +x bin/setup.sh
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Run setup</strong></li>
+</ul>
+<pre><code class="language-bash">bash bin/setup.sh
+</code></pre>
+<p>Expected: ends with <code>✓ Stockfish OK; UCI_Elo configurable</code>. If Stockfish isn't installable on your platform, install it manually per its README before continuing.</p>
+<ul>
+<li>[ ] <strong>Step 4: Verify python-chess installs and imports</strong></li>
+</ul>
+<pre><code class="language-bash">python3 -c &quot;import chess; print('chess version:', chess.__version__)&quot;
+</code></pre>
+<p>Expected: prints a version like <code>1.10.0</code> or higher.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add pyproject.toml bin/setup.sh
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add python-chess dependency + bin/setup.sh installer
+
+Sub-project 3 prep: chess needs python-chess for game rules and the
+stockfish binary for eval. bin/setup.sh is portable across macOS
+(brew), Debian/Ubuntu (apt), and verifies Stockfish supports the
+UCI_LimitStrength + UCI_Elo configuration we'll use as the eval bar.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-2-move-encoding-queen-like-moves">Task 2: Move encoding — queen-like moves</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/games/chess_move_encoding.py</code>
+- Create: <code>tests/test_move_encoding.py</code></p>
+<p>This is the trickiest piece of chess. We implement the AlphaZero 8×8×73 = 4672 action space. Task 2 covers the 56 queen-like move types; Tasks 3 and 4 add knights and underpromotions; Task 5 ties them together with round-trip tests.</p>
+<ul>
+<li>[ ] <strong>Step 1: Write failing tests</strong></li>
+</ul>
+<pre><code class="language-python"># tests/test_move_encoding.py
+import chess
+import pytest
+
+from alphazero.games.chess_move_encoding import (
+    ACTION_SIZE,
+    move_to_index,
+    index_to_move,
+)
+
+
+def test_action_size_is_4672():
+    assert ACTION_SIZE == 4672  # 64 squares × 73 move types
+
+
+def test_white_pawn_e2_e4_encodes():
+    &quot;&quot;&quot;Famous opening: e2-e4 = queen-direction N, distance 2, source e2.&quot;&quot;&quot;
+    board = chess.Board()
+    move = chess.Move.from_uci(&quot;e2e4&quot;)
+    idx = move_to_index(board, move)
+    assert 0 &lt;= idx &lt; ACTION_SIZE
+
+
+def test_white_pawn_e2_e4_round_trip():
+    board = chess.Board()
+    move = chess.Move.from_uci(&quot;e2e4&quot;)
+    idx = move_to_index(board, move)
+    back = index_to_move(board, idx)
+    assert back == move
+
+
+def test_white_rook_a1_a8_round_trip():
+    &quot;&quot;&quot;Rook move along a-file (7 squares N).&quot;&quot;&quot;
+    board = chess.Board(&quot;4k3/8/8/8/8/8/8/R3K3 w - - 0 1&quot;)
+    move = chess.Move.from_uci(&quot;a1a8&quot;)
+    idx = move_to_index(board, move)
+    back = index_to_move(board, idx)
+    assert back == move
+
+
+def test_white_bishop_diagonal_round_trip():
+    &quot;&quot;&quot;Bishop move along the long diagonal.&quot;&quot;&quot;
+    board = chess.Board(&quot;8/8/8/8/8/8/8/B6k w - - 0 1&quot;)
+    move = chess.Move.from_uci(&quot;a1h8&quot;)
+    idx = move_to_index(board, move)
+    back = index_to_move(board, idx)
+    assert back == move
+
+
+def test_white_queen_all_8_directions_round_trip():
+    &quot;&quot;&quot;A queen in the middle can move in 8 directions. All encode/decode.&quot;&quot;&quot;
+    board = chess.Board(&quot;8/8/8/4Q3/8/8/8/4K2k w - - 0 1&quot;)
+    # 8 destinations, one per direction
+    destinations = [&quot;e6&quot;, &quot;f6&quot;, &quot;f5&quot;, &quot;f4&quot;, &quot;e4&quot;, &quot;d4&quot;, &quot;d5&quot;, &quot;d6&quot;]
+    for dst in destinations:
+        move = chess.Move.from_uci(f&quot;e5{dst}&quot;)
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f&quot;Failed for queen move e5-{dst}&quot;
+
+
+def test_white_king_one_square_each_direction_round_trip():
+    &quot;&quot;&quot;King is queen-distance-1 in our encoding.&quot;&quot;&quot;
+    board = chess.Board(&quot;8/8/8/8/8/4K3/8/4k3 w - - 0 1&quot;)
+    destinations = [&quot;e4&quot;, &quot;f4&quot;, &quot;f3&quot;, &quot;f2&quot;, &quot;e2&quot;, &quot;d2&quot;, &quot;d3&quot;, &quot;d4&quot;]
+    for dst in destinations:
+        move = chess.Move.from_uci(f&quot;e3{dst}&quot;)
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f&quot;Failed for king move e3-{dst}&quot;
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run, verify ImportError</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_move_encoding.py -v
+</code></pre>
+<p>Expected: ImportError on <code>alphazero.games.chess_move_encoding</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement queen-like encoding in <code>src/alphazero/games/chess_move_encoding.py</code></strong></li>
+</ul>
+<pre><code class="language-python">&quot;&quot;&quot;AlphaZero 8×8×73 = 4672 action-space encoding for chess.
+
+Each chess move is encoded as (source_square, move_type) where:
+- source_square ∈ [0, 64): standard python-chess square indexing (a1=0, ..., h8=63)
+- move_type ∈ [0, 73): one of three categories
+    - Queen-like (8 directions × 7 distances): indices [0, 56)
+    - Knight moves (8 L-shapes):                 indices [56, 64)
+    - Underpromotions (3 pieces × 3 file dirs):  indices [64, 73)
+
+Flat action index = source_square * 73 + move_type, range [0, 4672).
+
+NOTE: this module currently implements only queen-like moves. Knight moves
+and underpromotions are added in Tasks 3 and 4.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import chess
+
+# 8 compass directions as (drank, dfile) deltas
+# Order matters: matches the original AlphaZero paper for reproducibility
+QUEEN_DIRECTIONS: list[tuple[int, int]] = [
+    ( 1,  0),  # N    (rank increases)
+    ( 1,  1),  # NE
+    ( 0,  1),  # E    (file increases)
+    (-1,  1),  # SE
+    (-1,  0),  # S
+    (-1, -1),  # SW
+    ( 0, -1),  # W
+    ( 1, -1),  # NW
+]
+
+ACTION_SIZE = 64 * 73  # 4672
+
+
+def _queen_move_to_type(drank: int, dfile: int) -&gt; int | None:
+    &quot;&quot;&quot;Return move_type ∈ [0, 56) for a queen-like move, or None if not queen-like.&quot;&quot;&quot;
+    if drank == 0 and dfile == 0:
+        return None  # null move
+    distance = max(abs(drank), abs(dfile))
+    if distance &gt; 7:
+        return None
+    # Direction sign (normalized)
+    dr_sign = (drank &gt; 0) - (drank &lt; 0)
+    df_sign = (dfile &gt; 0) - (dfile &lt; 0)
+    # Must move in a straight line (rank, file, or diagonal)
+    if drank != 0 and dfile != 0 and abs(drank) != abs(dfile):
+        return None  # not queen-like
+    try:
+        direction_idx = QUEEN_DIRECTIONS.index((dr_sign, df_sign))
+    except ValueError:
+        return None
+    return direction_idx * 7 + (distance - 1)
+
+
+def _type_to_queen_move(move_type: int) -&gt; tuple[int, int] | None:
+    &quot;&quot;&quot;Inverse of _queen_move_to_type. Returns (drank, dfile) or None if not queen-like.&quot;&quot;&quot;
+    if not (0 &lt;= move_type &lt; 56):
+        return None
+    direction_idx, distance_idx = divmod(move_type, 7)
+    distance = distance_idx + 1
+    dr_sign, df_sign = QUEEN_DIRECTIONS[direction_idx]
+    return dr_sign * distance, df_sign * distance
+
+
+def move_to_index(board: chess.Board, move: chess.Move) -&gt; int:
+    &quot;&quot;&quot;Convert a python-chess Move to a flat action index in [0, 4672).
+
+    Only handles queen-like moves so far. Knights and underpromotions raise.
+    &quot;&quot;&quot;
+    src = move.from_square
+    dst = move.to_square
+    drank = chess.square_rank(dst) - chess.square_rank(src)
+    dfile = chess.square_file(dst) - chess.square_file(src)
+
+    queen_type = _queen_move_to_type(drank, dfile)
+    if queen_type is not None and move.promotion in (None, chess.QUEEN):
+        # Queen promotion is encoded as a queen-direction move (not as an underpromotion)
+        return src * 73 + queen_type
+
+    raise NotImplementedError(
+        f&quot;Knight and underpromotion encoding not implemented yet &quot;
+        f&quot;(move={move}, drank={drank}, dfile={dfile})&quot;
+    )
+
+
+def index_to_move(board: chess.Board, index: int) -&gt; chess.Move:
+    &quot;&quot;&quot;Convert a flat action index back to a python-chess Move.
+
+    Only handles queen-like moves so far.
+    &quot;&quot;&quot;
+    if not (0 &lt;= index &lt; ACTION_SIZE):
+        raise ValueError(f&quot;index {index} out of range [0, {ACTION_SIZE})&quot;)
+    src, move_type = divmod(index, 73)
+    delta = _type_to_queen_move(move_type)
+    if delta is None:
+        raise NotImplementedError(
+            f&quot;index {index} decodes to non-queen-like move_type {move_type}&quot;
+        )
+    drank, dfile = delta
+    dst_rank = chess.square_rank(src) + drank
+    dst_file = chess.square_file(src) + dfile
+    if not (0 &lt;= dst_rank &lt; 8 and 0 &lt;= dst_file &lt; 8):
+        raise ValueError(f&quot;index {index} decodes to off-board destination&quot;)
+    dst = chess.square(dst_file, dst_rank)
+    # Detect promotion: a pawn moving onto rank 0 or 7 (white pawn → rank 7, black pawn → rank 0)
+    promotion = None
+    piece = board.piece_at(src)
+    if piece is not None and piece.piece_type == chess.PAWN:
+        if (piece.color == chess.WHITE and dst_rank == 7) or \
+           (piece.color == chess.BLACK and dst_rank == 0):
+            promotion = chess.QUEEN  # default; underpromotions handled separately
+    return chess.Move(src, dst, promotion=promotion)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_move_encoding.py -v
+</code></pre>
+<p>Expected: 7 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/__init__.py 2&gt;/dev/null || true
+git add src/alphazero/games/chess_move_encoding.py tests/test_move_encoding.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add chess move encoding (queen-like moves: 56 of 73 move types)
+
+8×8×73 = 4672 action space. Queen-like moves cover sliding pieces
+(rooks, bishops, queens), king moves, all pawn pushes/captures, and
+queen promotions. Knights and underpromotions in subsequent tasks.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-3-move-encoding-knight-moves">Task 3: Move encoding — knight moves</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/chess_move_encoding.py</code>
+- Modify: <code>tests/test_move_encoding.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_knight_round_trip_all_8_directions():
+    &quot;&quot;&quot;A knight at e4 has 8 possible destinations.&quot;&quot;&quot;
+    board = chess.Board(&quot;8/8/8/8/4N3/8/8/4K2k w - - 0 1&quot;)
+    destinations = [&quot;g5&quot;, &quot;f6&quot;, &quot;d6&quot;, &quot;c5&quot;, &quot;c3&quot;, &quot;d2&quot;, &quot;f2&quot;, &quot;g3&quot;]
+    for dst in destinations:
+        move = chess.Move.from_uci(f&quot;e4{dst}&quot;)
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f&quot;Failed for knight move e4-{dst}&quot;
+
+
+def test_knight_at_corner_partial_round_trip():
+    &quot;&quot;&quot;A knight at a1 has fewer legal moves but encoding must still work.&quot;&quot;&quot;
+    board = chess.Board(&quot;4k3/8/8/8/8/8/8/N6K w - - 0 1&quot;)
+    for dst in [&quot;b3&quot;, &quot;c2&quot;]:
+        move = chess.Move.from_uci(f&quot;a1{dst}&quot;)
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the new tests fail (<code>NotImplementedError</code>)</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_move_encoding.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Add knight constants and extend the encoding/decoding functions</strong></li>
+</ul>
+<p>In <code>src/alphazero/games/chess_move_encoding.py</code>, add the knight delta table just after <code>QUEEN_DIRECTIONS</code>:</p>
+<pre><code class="language-python"># 8 knight L-shapes as (drank, dfile) deltas
+KNIGHT_DELTAS: list[tuple[int, int]] = [
+    ( 2,  1),  # NNE
+    ( 1,  2),  # ENE
+    (-1,  2),  # ESE
+    (-2,  1),  # SSE
+    (-2, -1),  # SSW
+    (-1, -2),  # WSW
+    ( 1, -2),  # WNW
+    ( 2, -1),  # NNW
+]
+</code></pre>
+<p>Replace <code>move_to_index</code> and <code>index_to_move</code> with versions that handle knights:</p>
+<pre><code class="language-python">def move_to_index(board: chess.Board, move: chess.Move) -&gt; int:
+    src = move.from_square
+    dst = move.to_square
+    drank = chess.square_rank(dst) - chess.square_rank(src)
+    dfile = chess.square_file(dst) - chess.square_file(src)
+
+    # Queen-like (and queen-promotions)
+    queen_type = _queen_move_to_type(drank, dfile)
+    if queen_type is not None and move.promotion in (None, chess.QUEEN):
+        return src * 73 + queen_type
+
+    # Knight
+    if (drank, dfile) in KNIGHT_DELTAS:
+        knight_idx = KNIGHT_DELTAS.index((drank, dfile))
+        return src * 73 + (56 + knight_idx)
+
+    raise NotImplementedError(
+        f&quot;Underpromotion encoding not implemented yet &quot;
+        f&quot;(move={move}, drank={drank}, dfile={dfile})&quot;
+    )
+
+
+def index_to_move(board: chess.Board, index: int) -&gt; chess.Move:
+    if not (0 &lt;= index &lt; ACTION_SIZE):
+        raise ValueError(f&quot;index {index} out of range [0, {ACTION_SIZE})&quot;)
+    src, move_type = divmod(index, 73)
+
+    if 0 &lt;= move_type &lt; 56:
+        delta = _type_to_queen_move(move_type)
+        drank, dfile = delta
+        return _build_move_with_promotion(board, src, drank, dfile)
+
+    if 56 &lt;= move_type &lt; 64:
+        knight_idx = move_type - 56
+        drank, dfile = KNIGHT_DELTAS[knight_idx]
+        dst_rank = chess.square_rank(src) + drank
+        dst_file = chess.square_file(src) + dfile
+        if not (0 &lt;= dst_rank &lt; 8 and 0 &lt;= dst_file &lt; 8):
+            raise ValueError(f&quot;index {index} decodes off-board&quot;)
+        dst = chess.square(dst_file, dst_rank)
+        return chess.Move(src, dst)
+
+    raise NotImplementedError(f&quot;index {index} (move_type {move_type}) is an underpromotion (not impl yet)&quot;)
+
+
+def _build_move_with_promotion(board: chess.Board, src: int, drank: int, dfile: int) -&gt; chess.Move:
+    &quot;&quot;&quot;Build a queen-like move from src + delta, auto-detecting queen promotion.&quot;&quot;&quot;
+    dst_rank = chess.square_rank(src) + drank
+    dst_file = chess.square_file(src) + dfile
+    if not (0 &lt;= dst_rank &lt; 8 and 0 &lt;= dst_file &lt; 8):
+        raise ValueError(&quot;off-board destination&quot;)
+    dst = chess.square(dst_file, dst_rank)
+    promotion = None
+    piece = board.piece_at(src)
+    if piece is not None and piece.piece_type == chess.PAWN:
+        if (piece.color == chess.WHITE and dst_rank == 7) or \
+           (piece.color == chess.BLACK and dst_rank == 0):
+            promotion = chess.QUEEN
+    return chess.Move(src, dst, promotion=promotion)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify all 9 tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_move_encoding.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/chess_move_encoding.py tests/test_move_encoding.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add knight moves to chess encoding (64 of 73 move types covered)
+
+8 knight L-shapes occupy move_type indices [56, 64). Underpromotions
+in [64, 73) come next.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-4-move-encoding-underpromotions-bijective-round-trip">Task 4: Move encoding — underpromotions + bijective round-trip</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/chess_move_encoding.py</code>
+- Modify: <code>tests/test_move_encoding.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_underpromotion_round_trip_all_combinations():
+    &quot;&quot;&quot;Pawn on 7th rank: 3 promotion pieces × 3 file directions = 9 underpromotions.&quot;&quot;&quot;
+    # White pawn on e7; possible promotions: knight, bishop, rook (queen is auto via queen direction)
+    # File directions: capture-left (d8), forward (e8), capture-right (f8)
+    board = chess.Board(&quot;3rkr2/4P3/8/8/8/8/8/4K3 w - - 0 1&quot;)
+    for piece in (chess.KNIGHT, chess.BISHOP, chess.ROOK):
+        for dst_file in (&quot;d&quot;, &quot;e&quot;, &quot;f&quot;):
+            try:
+                move = chess.Move.from_uci(f&quot;e7{dst_file}8{chess.piece_symbol(piece)}&quot;)
+            except Exception:
+                continue
+            if move not in board.legal_moves:
+                continue
+            idx = move_to_index(board, move)
+            back = index_to_move(board, idx)
+            assert back == move, f&quot;Underpromotion round-trip failed for {move.uci()}&quot;
+
+
+def test_bijective_every_legal_move_in_initial_position():
+    &quot;&quot;&quot;Every legal move in the starting position round-trips perfectly.&quot;&quot;&quot;
+    board = chess.Board()
+    for move in board.legal_moves:
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f&quot;Round-trip failed for {move.uci()}&quot;
+
+
+def test_bijective_after_random_play():
+    &quot;&quot;&quot;100 moves of random play; every legal move at every position round-trips.&quot;&quot;&quot;
+    import random
+    rng = random.Random(42)
+    board = chess.Board()
+    for _ in range(100):
+        if board.is_game_over():
+            break
+        for move in board.legal_moves:
+            idx = move_to_index(board, move)
+            back = index_to_move(board, idx)
+            assert back == move, f&quot;Round-trip failed for {move.uci()} at fen={board.fen()}&quot;
+        moves = list(board.legal_moves)
+        board.push(rng.choice(moves))
+
+
+def test_index_to_move_rejects_out_of_range():
+    board = chess.Board()
+    with pytest.raises(ValueError):
+        index_to_move(board, -1)
+    with pytest.raises(ValueError):
+        index_to_move(board, ACTION_SIZE)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the 4 new tests fail</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_move_encoding.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Add underpromotion encoding</strong></li>
+</ul>
+<p>In <code>src/alphazero/games/chess_move_encoding.py</code>, add the underpromotion constants near <code>KNIGHT_DELTAS</code>:</p>
+<pre><code class="language-python"># Underpromotion pieces (in this order): index 0=knight, 1=bishop, 2=rook
+UNDERPROMO_PIECES: list[int] = [chess.KNIGHT, chess.BISHOP, chess.ROOK]
+# Underpromotion file deltas (relative to forward direction of the moving pawn)
+# index 0 = capture-left, 1 = forward (push), 2 = capture-right
+UNDERPROMO_FILE_DELTAS: list[int] = [-1, 0, 1]
+</code></pre>
+<p>Replace <code>move_to_index</code> to handle underpromotions:</p>
+<pre><code class="language-python">def move_to_index(board: chess.Board, move: chess.Move) -&gt; int:
+    src = move.from_square
+    dst = move.to_square
+    drank = chess.square_rank(dst) - chess.square_rank(src)
+    dfile = chess.square_file(dst) - chess.square_file(src)
+
+    # Underpromotion (knight, bishop, rook only — queen is encoded as queen move)
+    if move.promotion is not None and move.promotion != chess.QUEEN:
+        piece = board.piece_at(src)
+        # Black pawns move &quot;down&quot; (drank=-1); flip drank to canonical &quot;forward&quot; for index
+        forward_drank = drank if piece.color == chess.WHITE else -drank
+        forward_dfile = dfile if piece.color == chess.WHITE else -dfile
+        assert forward_drank == 1, f&quot;Expected pawn promotion drank=1, got {forward_drank}&quot;
+        try:
+            piece_idx = UNDERPROMO_PIECES.index(move.promotion)
+        except ValueError:
+            raise ValueError(f&quot;Bad underpromotion piece: {move.promotion}&quot;)
+        try:
+            file_idx = UNDERPROMO_FILE_DELTAS.index(forward_dfile)
+        except ValueError:
+            raise ValueError(f&quot;Bad underpromotion file delta: {forward_dfile}&quot;)
+        move_type = 64 + piece_idx * 3 + file_idx
+        return src * 73 + move_type
+
+    # Queen-like (and queen-promotions)
+    queen_type = _queen_move_to_type(drank, dfile)
+    if queen_type is not None and move.promotion in (None, chess.QUEEN):
+        return src * 73 + queen_type
+
+    # Knight
+    if (drank, dfile) in KNIGHT_DELTAS:
+        knight_idx = KNIGHT_DELTAS.index((drank, dfile))
+        return src * 73 + (56 + knight_idx)
+
+    raise ValueError(f&quot;Cannot encode move {move} (drank={drank}, dfile={dfile})&quot;)
+</code></pre>
+<p>Replace <code>index_to_move</code> to handle underpromotions:</p>
+<pre><code class="language-python">def index_to_move(board: chess.Board, index: int) -&gt; chess.Move:
+    if not (0 &lt;= index &lt; ACTION_SIZE):
+        raise ValueError(f&quot;index {index} out of range [0, {ACTION_SIZE})&quot;)
+    src, move_type = divmod(index, 73)
+
+    if 0 &lt;= move_type &lt; 56:
+        delta = _type_to_queen_move(move_type)
+        drank, dfile = delta
+        return _build_move_with_promotion(board, src, drank, dfile)
+
+    if 56 &lt;= move_type &lt; 64:
+        knight_idx = move_type - 56
+        drank, dfile = KNIGHT_DELTAS[knight_idx]
+        dst_rank = chess.square_rank(src) + drank
+        dst_file = chess.square_file(src) + dfile
+        if not (0 &lt;= dst_rank &lt; 8 and 0 &lt;= dst_file &lt; 8):
+            raise ValueError(f&quot;index {index} decodes off-board&quot;)
+        dst = chess.square(dst_file, dst_rank)
+        return chess.Move(src, dst)
+
+    if 64 &lt;= move_type &lt; 73:
+        underpromo = move_type - 64
+        piece_idx, file_idx = divmod(underpromo, 3)
+        promotion_piece = UNDERPROMO_PIECES[piece_idx]
+        forward_dfile = UNDERPROMO_FILE_DELTAS[file_idx]
+        # Determine pawn color from source square's piece
+        piece = board.piece_at(src)
+        if piece is None or piece.piece_type != chess.PAWN:
+            raise ValueError(f&quot;Underpromotion at square {src} but no pawn there&quot;)
+        if piece.color == chess.WHITE:
+            drank = 1
+            dfile = forward_dfile
+        else:
+            drank = -1
+            dfile = -forward_dfile  # flip for black pawn moving &quot;down&quot;
+        dst_rank = chess.square_rank(src) + drank
+        dst_file = chess.square_file(src) + dfile
+        if not (0 &lt;= dst_rank &lt; 8 and 0 &lt;= dst_file &lt; 8):
+            raise ValueError(f&quot;index {index} decodes off-board&quot;)
+        dst = chess.square(dst_file, dst_rank)
+        return chess.Move(src, dst, promotion=promotion_piece)
+
+    raise ValueError(f&quot;Unreachable: move_type {move_type}&quot;)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify all tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_move_encoding.py -v
+</code></pre>
+<p>Expected: 13 tests pass. The bijective tests cover starting position + 100 random plies.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/chess_move_encoding.py tests/test_move_encoding.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add underpromotion encoding + bijective round-trip property test
+
+All 73 move types (56 queen + 8 knight + 9 underpromotion) now covered.
+Property test exercises every legal move at every position over 100
+random plies — confirms bijective invariant in practice, not just
+hand-picked cases.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-5-chessgame-core-state-current_player-apply-legal_actions_mask">Task 5: Chess(Game) — core (state, current_player, apply, legal_actions_mask)</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/games/chess_game.py</code>
+- Create: <code>tests/test_game_chess.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write failing tests</strong></li>
+</ul>
+<pre><code class="language-python"># tests/test_game_chess.py
+import chess
+import numpy as np
+import pytest
+
+from alphazero.games.chess_game import Chess
+
+
+@pytest.fixture
+def game():
+    return Chess()
+
+
+def test_input_shape_and_action_size(game):
+    assert game.input_shape == (20, 8, 8)
+    assert game.action_size == 4672
+
+
+def test_initial_state_is_starting_position(game):
+    s = game.initial_state()
+    assert isinstance(s, chess.Board)
+    assert s.fen() == chess.STARTING_FEN
+
+
+def test_current_player_white_first(game):
+    assert game.current_player(game.initial_state()) == 1
+
+
+def test_apply_advances_state(game):
+    s = game.initial_state()
+    # e2-e4 = action index 12*73 + 1 = 877 (queen direction N, distance 2 from e2)
+    from alphazero.games.chess_move_encoding import move_to_index
+    move = chess.Move.from_uci(&quot;e2e4&quot;)
+    idx = move_to_index(s, move)
+    s_after = game.apply(s, idx)
+    assert s_after.turn == chess.BLACK
+    assert s.turn == chess.WHITE  # original not mutated
+    assert s_after.piece_at(chess.E4) is not None
+    assert s_after.piece_at(chess.E4).piece_type == chess.PAWN
+
+
+def test_legal_actions_mask_initial_position_has_20_legal(game):
+    &quot;&quot;&quot;At the starting position, white has 20 legal moves (16 pawn + 4 knight).&quot;&quot;&quot;
+    s = game.initial_state()
+    mask = game.legal_actions_mask(s)
+    assert mask.shape == (4672,)
+    assert mask.dtype == bool
+    assert mask.sum() == 20
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify ImportError</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_chess.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>src/alphazero/games/chess_game.py</code></strong></li>
+</ul>
+<pre><code class="language-python">&quot;&quot;&quot;Chess: AlphaZero-on-chess Game implementation.
+
+Wraps python-chess for rules; uses AlphaZero's 8×8×73 = 4672 action space.
+State is a chess.Board (mutable; we copy + push to advance).
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import chess
+import numpy as np
+
+from .base import Game
+from .chess_move_encoding import ACTION_SIZE, index_to_move, move_to_index
+
+State = chess.Board
+
+NUM_PLANES = 20
+
+
+class Chess(Game):
+    @property
+    def input_shape(self) -&gt; tuple[int, int, int]:
+        return (NUM_PLANES, 8, 8)
+
+    @property
+    def action_size(self) -&gt; int:
+        return ACTION_SIZE
+
+    def initial_state(self) -&gt; State:
+        return chess.Board()
+
+    def current_player(self, state: State) -&gt; int:
+        return 1 if state.turn == chess.WHITE else -1
+
+    def legal_actions_mask(self, state: State) -&gt; np.ndarray:
+        mask = np.zeros(ACTION_SIZE, dtype=bool)
+        for move in state.legal_moves:
+            try:
+                idx = move_to_index(state, move)
+            except ValueError:
+                continue  # shouldn't happen for any legal move; safe fallback
+            mask[idx] = True
+        return mask
+
+    def apply(self, state: State, action: int) -&gt; State:
+        move = index_to_move(state, action)
+        new_state = state.copy()
+        new_state.push(move)
+        return new_state
+
+    # Filled in by later tasks
+    def terminal_value(self, state: State) -&gt; float | None:
+        raise NotImplementedError  # Task 6
+
+    def encode(self, state: State) -&gt; np.ndarray:
+        raise NotImplementedError  # Task 7
+
+    def canonical_state(self, state: State) -&gt; State:
+        raise NotImplementedError  # Task 8
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify 5 tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_chess.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/chess_game.py tests/test_game_chess.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Chess(Game) core: state, current_player, apply, legal_actions_mask
+
+Wraps python-chess for rules. terminal_value, encode, and canonical_state
+are stubs filled in by Tasks 6-8.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-6-chess-terminal_value-all-draw-types">Task 6: Chess — terminal_value (all draw types)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/chess_game.py</code>
+- Modify: <code>tests/test_game_chess.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_terminal_value_initial_in_progress(game):
+    assert game.terminal_value(game.initial_state()) is None
+
+
+def test_terminal_value_white_checkmate_returns_minus_one_for_black(game):
+    &quot;&quot;&quot;Fool's mate: white plays f3, g4; black plays Qh4# winning.
+    The terminal position has white to move (and being checkmated).&quot;&quot;&quot;
+    s = chess.Board(&quot;rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3&quot;)
+    assert s.is_checkmate()
+    # current player (white) is the one being mated
+    assert game.terminal_value(s) == -1.0
+
+
+def test_terminal_value_stalemate_returns_zero(game):
+    &quot;&quot;&quot;Classic stalemate position.&quot;&quot;&quot;
+    s = chess.Board(&quot;7k/5Q2/6K1/8/8/8/8/8 b - - 0 1&quot;)
+    assert s.is_stalemate()
+    assert game.terminal_value(s) == 0.0
+
+
+def test_terminal_value_insufficient_material_returns_zero(game):
+    &quot;&quot;&quot;King vs King: insufficient material, must be a draw.&quot;&quot;&quot;
+    s = chess.Board(&quot;8/8/8/4k3/8/8/8/4K3 w - - 0 1&quot;)
+    assert s.is_insufficient_material()
+    assert game.terminal_value(s) == 0.0
+
+
+def test_terminal_value_50_move_rule_returns_zero(game):
+    &quot;&quot;&quot;Halfmove clock at 100 (50 full moves without capture/pawn move) is a draw.&quot;&quot;&quot;
+    s = chess.Board(&quot;4k3/8/8/8/8/8/8/4K3 w - - 100 75&quot;)
+    # Note: chess.Board considers this a draw under can_claim_draw
+    assert game.terminal_value(s) == 0.0
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 2: Verify the 5 new tests fail (NotImplementedError)</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 3: Replace <code>terminal_value</code> stub in <code>src/alphazero/games/chess_game.py</code></strong></p>
+</li>
+</ul>
+<pre><code class="language-python">    def terminal_value(self, state: State) -&gt; float | None:
+        if not state.is_game_over(claim_draw=True):
+            return None
+        outcome = state.outcome(claim_draw=True)
+        if outcome is None:
+            # is_game_over said True but no outcome: edge case, treat as draw
+            return 0.0
+        if outcome.winner is None:
+            return 0.0  # draw (stalemate, 3-fold rep, 50-move, insufficient material)
+        # winner is chess.WHITE or chess.BLACK; compare against current player to move
+        winner_is_current = (outcome.winner == state.turn)
+        return 1.0 if winner_is_current else -1.0
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify all 10 tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_chess.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/chess_game.py tests/test_game_chess.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Chess.terminal_value (mate, stalemate, insufficient material, 50-move)
+
+Uses python-chess's outcome(claim_draw=True) which handles all draw
+conditions: 3-fold repetition, 50-move rule, insufficient material,
+stalemate. Returns from current-player POV per Game ABC convention.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-7-chess-encode-20-plane-input">Task 7: Chess — encode (20-plane input)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/chess_game.py</code>
+- Modify: <code>tests/test_game_chess.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_encode_shape_and_dtype(game):
+    s = game.initial_state()
+    enc = game.encode(s)
+    assert enc.shape == (20, 8, 8)
+    assert enc.dtype == np.float32
+
+
+def test_encode_initial_position_my_pawns_on_rank_2(game):
+    &quot;&quot;&quot;White to move at start: my pawns (plane 0) on rank 2 (board row index 1).&quot;&quot;&quot;
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Plane 0 = my pawns. python-chess square_rank(): a2=8 → rank 1 (0-indexed)
+    # We pack squares into (8, 8) as enc[plane][rank][file]
+    assert (enc[0, 1, :] == 1).all()           # all 8 files of rank 2 have my pawns
+    assert (enc[0, 0, :] == 0).all()           # rank 1 has no my-pawns
+
+
+def test_encode_initial_position_opp_pawns_on_rank_7(game):
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Plane 6 = opponent's pawns. Rank 7 = board index 6.
+    assert (enc[6, 6, :] == 1).all()
+
+
+def test_encode_ones_plane_all_ones(game):
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Plane 12 = ones plane
+    assert (enc[12] == 1).all()
+
+
+def test_encode_castling_rights_initial_all_one(game):
+    &quot;&quot;&quot;At the starting position, all 4 castling rights are present.&quot;&quot;&quot;
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Planes 13-16: my-K, my-Q, opp-K, opp-Q castling
+    for plane in (13, 14, 15, 16):
+        assert (enc[plane] == 1).all()
+
+
+def test_encode_castling_rights_after_white_kingside_zero(game):
+    &quot;&quot;&quot;After Ke1-e2, white has lost both castling rights.&quot;&quot;&quot;
+    s = game.initial_state()
+    s.push(chess.Move.from_uci(&quot;e2e3&quot;))
+    s.push(chess.Move.from_uci(&quot;e7e6&quot;))
+    s.push(chess.Move.from_uci(&quot;e1e2&quot;))
+    s.push(chess.Move.from_uci(&quot;e8e7&quot;))
+    # Now back to white; current player's K and Q castling are both lost
+    enc = game.encode(s)
+    assert (enc[13] == 0).all()
+    assert (enc[14] == 0).all()
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 2: Verify the new tests fail</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 3: Implement encode</strong></p>
+</li>
+</ul>
+<p>Replace the <code>encode</code> stub in <code>src/alphazero/games/chess_game.py</code>:</p>
+<pre><code class="language-python">    def encode(self, state: State) -&gt; np.ndarray:
+        &quot;&quot;&quot;Encode the board as a 20-plane (channels, 8, 8) float32 tensor.
+
+        Planes:
+            0-5:   my pieces (pawn, knight, bishop, rook, queen, king)
+            6-11:  opp pieces (same order)
+            12:    ones plane (constant 1)
+            13-16: castling rights (my-K, my-Q, opp-K, opp-Q)
+            17:    en-passant target square (1-hot at the en-passant square, if any)
+            18:    halfmove clock for 50-move rule (normalized: clock / 100)
+            19:    fullmove number normalized: fullmove_number / 100
+        &quot;&quot;&quot;
+        enc = np.zeros((NUM_PLANES, 8, 8), dtype=np.float32)
+        my_color = state.turn  # current player
+        opp_color = not my_color
+        piece_types = [chess.PAWN, chess.KNIGHT, chess.BISHOP,
+                       chess.ROOK, chess.QUEEN, chess.KING]
+
+        # Planes 0-5: my pieces
+        for plane_idx, pt in enumerate(piece_types):
+            for sq in state.pieces(pt, my_color):
+                r, f = chess.square_rank(sq), chess.square_file(sq)
+                enc[plane_idx, r, f] = 1.0
+        # Planes 6-11: opp pieces
+        for plane_idx, pt in enumerate(piece_types):
+            for sq in state.pieces(pt, opp_color):
+                r, f = chess.square_rank(sq), chess.square_file(sq)
+                enc[6 + plane_idx, r, f] = 1.0
+        # Plane 12: ones
+        enc[12, :, :] = 1.0
+        # Planes 13-16: castling rights
+        if state.has_kingside_castling_rights(my_color):
+            enc[13, :, :] = 1.0
+        if state.has_queenside_castling_rights(my_color):
+            enc[14, :, :] = 1.0
+        if state.has_kingside_castling_rights(opp_color):
+            enc[15, :, :] = 1.0
+        if state.has_queenside_castling_rights(opp_color):
+            enc[16, :, :] = 1.0
+        # Plane 17: en passant target
+        if state.ep_square is not None:
+            r, f = chess.square_rank(state.ep_square), chess.square_file(state.ep_square)
+            enc[17, r, f] = 1.0
+        # Plane 18: halfmove clock normalized
+        enc[18, :, :] = min(state.halfmove_clock / 100.0, 1.0)
+        # Plane 19: fullmove number normalized
+        enc[19, :, :] = min(state.fullmove_number / 100.0, 1.0)
+        return enc
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify all 16 tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_chess.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/chess_game.py tests/test_game_chess.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Chess.encode (20-plane input)
+
+12 piece planes (6 my + 6 opp) + ones + 4 castling + en passant +
+halfmove clock + fullmove number. NO history planes (paper uses 8 prev
+positions × 14 planes = 112 more). Threefold repetition handled by
+terminal_value via python-chess; history can be added in Sub-project 4
+if needed.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-8-chess-canonical_state-mirror-symmetries-identity">Task 8: Chess — canonical_state (mirror) + symmetries (identity)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/chess_game.py</code>
+- Modify: <code>tests/test_game_chess.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_canonical_state_identity_when_white_to_move(game):
+    s = game.initial_state()
+    canon = game.canonical_state(s)
+    assert canon.fen() == s.fen()
+
+
+def test_canonical_state_mirrors_when_black_to_move(game):
+    &quot;&quot;&quot;After white plays e2-e4, it's black to move. Canonical state should be the
+    board mirrored (white pawn at e4 → black pawn at e5).&quot;&quot;&quot;
+    s = game.initial_state()
+    s.push(chess.Move.from_uci(&quot;e2e4&quot;))
+    assert s.turn == chess.BLACK
+    canon = game.canonical_state(s)
+    # In the mirrored board, the previously-white pawn at e4 is now a (canonical-)
+    # &quot;white&quot; pawn at e5 (mirrored row 4 → row 5).
+    assert canon.turn == chess.WHITE
+    assert canon.piece_at(chess.E5) is not None
+    assert canon.piece_at(chess.E5).color == chess.WHITE
+
+
+def test_symmetries_identity_only(game):
+    &quot;&quot;&quot;Chess has no symmetries.&quot;&quot;&quot;
+    s = game.initial_state()
+    enc = game.encode(s)
+    policy = np.full(4672, 1.0 / 4672, dtype=np.float32)
+    syms = game.symmetries(enc, policy)
+    assert len(syms) == 1
+    np.testing.assert_array_equal(syms[0][0], enc)
+    np.testing.assert_array_equal(syms[0][1], policy)
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 2: Verify failures (NotImplementedError)</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 3: Implement canonical_state</strong></p>
+</li>
+</ul>
+<p>Replace the <code>canonical_state</code> stub in <code>src/alphazero/games/chess_game.py</code>:</p>
+<pre><code class="language-python">    def canonical_state(self, state: State) -&gt; State:
+        &quot;&quot;&quot;Return state from the current player's POV.
+
+        For chess: when Black is to move, mirror the board so the network
+        always sees the to-move player as &quot;White at the bottom.&quot; python-chess's
+        Board.mirror() handles castling rights and en passant correctly.
+        &quot;&quot;&quot;
+        if state.turn == chess.BLACK:
+            return state.mirror()
+        return state
+</code></pre>
+<p>The <code>Game</code> ABC already defines <code>symmetries</code> as <code>lambda encoded, policy: [(encoded, policy)]</code> by default, so we don't need to override it for chess. But override anyway for explicitness:</p>
+<pre><code class="language-python">    def symmetries(self, encoded, policy):
+        &quot;&quot;&quot;Chess has no symmetries (castling rights and pawn direction
+        break left-right mirror; player asymmetry breaks rotation).&quot;&quot;&quot;
+        return [(encoded, policy)]
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify all 19 tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_chess.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/chess_game.py tests/test_game_chess.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Chess.canonical_state (mirror when Black to move) + explicit symmetries=identity
+
+Chess has no exploitable symmetries (castling rights and pawn direction
+break left-right; player asymmetry breaks rotation). The canonical_state
+mirror normalizes &quot;Black to move&quot; boards into a &quot;White at bottom&quot; view,
+which halves the effective state space the NN must model.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-9-stockfishopponent">Task 9: StockfishOpponent</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/opponents/stockfish.py</code>
+- Create: <code>tests/test_chess_minimax.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write failing tests</strong></li>
+</ul>
+<pre><code class="language-python"># tests/test_chess_minimax.py
+import chess
+import pytest
+
+from alphazero.games.chess_game import Chess
+from alphazero.opponents.stockfish import StockfishOpponent
+
+
+@pytest.fixture
+def game():
+    return Chess()
+
+
+@pytest.fixture
+def opp():
+    o = StockfishOpponent(elo=1500, time_per_move=0.1)
+    yield o
+    o.close()
+
+
+def test_stockfish_plays_legal_move(game, opp):
+    s = game.initial_state()
+    action = opp(game, s)
+    mask = game.legal_actions_mask(s)
+    assert mask[action], f&quot;Stockfish proposed illegal action {action}&quot;
+
+
+def test_stockfish_makes_different_moves_at_different_elos(game):
+    &quot;&quot;&quot;Sanity: Stockfish at 1320 vs 2000 should disagree at least sometimes.&quot;&quot;&quot;
+    # Use a position with multiple reasonable moves
+    s = chess.Board(&quot;rnbqkb1r/pppppppp/5n2/8/2P5/8/PP1PPPPP/RNBQKBNR w KQkq - 1 2&quot;)
+    weak = StockfishOpponent(elo=1320, time_per_move=0.1)
+    strong = StockfishOpponent(elo=2400, time_per_move=0.1)
+    try:
+        # Different ELOs may produce different moves; not guaranteed each call but
+        # likely over several positions. Just verify both return valid actions.
+        weak_action = weak(game, s)
+        strong_action = strong(game, s)
+        mask = game.legal_actions_mask(s)
+        assert mask[weak_action]
+        assert mask[strong_action]
+    finally:
+        weak.close()
+        strong.close()
+
+
+def test_stockfish_clean_close(game):
+    &quot;&quot;&quot;Calling close() twice should not crash.&quot;&quot;&quot;
+    o = StockfishOpponent(elo=1500, time_per_move=0.1)
+    o(game, game.initial_state())  # use it
+    o.close()
+    o.close()  # second close is no-op
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failures (ImportError)</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_chess_minimax.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>src/alphazero/opponents/stockfish.py</code></strong></li>
+</ul>
+<pre><code class="language-python">&quot;&quot;&quot;StockfishOpponent — UCI wrapper for the Stockfish engine, used as the
+chess eval baseline at a configured ELO.
+
+Requires 'stockfish' binary on PATH. See bin/setup.sh for install instructions.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import chess
+import chess.engine
+
+from ..games.chess_game import Chess
+from ..games.chess_move_encoding import move_to_index
+
+
+class StockfishOpponent:
+    def __init__(
+        self,
+        elo: int = 1500,
+        time_per_move: float = 0.5,
+        stockfish_path: str = &quot;stockfish&quot;,
+    ):
+        self.engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+        self.engine.configure({
+            &quot;UCI_LimitStrength&quot;: True,
+            &quot;UCI_Elo&quot;: elo,
+        })
+        self.time_per_move = time_per_move
+        self._closed = False
+
+    def __call__(self, game: Chess, state: chess.Board) -&gt; int:
+        result = self.engine.play(state, chess.engine.Limit(time=self.time_per_move))
+        return move_to_index(state, result.move)
+
+    def reset(self) -&gt; None:
+        # Stockfish handles fresh games internally; no per-game setup needed.
+        pass
+
+    def close(self) -&gt; None:
+        if self._closed:
+            return
+        try:
+            self.engine.quit()
+        except (chess.engine.EngineTerminatedError, BrokenPipeError):
+            pass
+        self._closed = True
+
+    def __del__(self):
+        try:
+            self.close()
+        except Exception:
+            pass
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_chess_minimax.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/opponents/stockfish.py tests/test_chess_minimax.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add StockfishOpponent (UCI wrapper, ELO-configurable)
+
+Used as the chess eval baseline. Configure UCI_LimitStrength + UCI_Elo
+to play at a target rating (1500 for the SP3 kill criterion).
+
+Requires stockfish binary on PATH; see bin/setup.sh.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-10-verify-chess-works-in-trainer-serial-fallback">Task 10: Verify chess works in Trainer (serial fallback)</h2>
+<p>Before building parallel self-play, confirm the chess code works with the existing serial Trainer. This validates Tasks 5-9 end-to-end before adding the complexity of parallel execution.</p>
+<p><strong>Files:</strong>
+- No new files; just a smoke test</p>
+<ul>
+<li>[ ] <strong>Step 1: Smoke test — single iteration of serial chess training</strong></li>
+</ul>
+<p>Run this from the repo root (a brief test, not a full training):</p>
+<pre><code class="language-bash">python3 -c &quot;
+from alphazero.config import TrainingConfig
+from alphazero.games.chess_game import Chess
+from alphazero.trainer import Trainer
+from dataclasses import replace
+
+# Tiny config so this finishes in ~1-2 minutes
+cfg = TrainingConfig(
+    n_blocks=1, n_channels=4,
+    num_simulations=5, num_iterations=1,
+    games_per_iteration=2, batch_size=4,
+    min_buffer_size=4, replay_buffer_capacity=100,
+    training_steps_per_iteration=2,
+    temperature_threshold=3,
+    eval_interval=999,  # skip eval
+    device='cpu', checkpoint_dir='/tmp/chess_smoke',
+)
+t = Trainer(Chess(), cfg)
+t.run(verbose=False)
+print('✓ Chess serial training smoke test passed')
+&quot;
+</code></pre>
+<p>Expected: prints <code>✓ Chess serial training smoke test passed</code>. Wall time: 1-3 minutes on M4 Pro.</p>
+<p>If this fails, the error tells you where the Chess wiring went wrong — fix before continuing. Most likely failure modes:
+- <code>Tensor</code> dtype mismatch in encode → wrong return type
+- Illegal-move mask wrong → MCTS picks invalid actions
+- Move encoding non-bijective → trained policy doesn't decode back to legal moves</p>
+<ul>
+<li>[ ] <strong>Step 2: No commit needed — this is a checkpoint, not a code change</strong></li>
+</ul>
+<hr>
+<h2 id="task-11-parallel_selfplay-nn-server-skeleton">Task 11: parallel_selfplay — NN-server skeleton</h2>
+<p>Now the big new module. We break it into three tasks: server (this one) + workers (Task 12) + orchestrator (Task 13). Plus stress tests in Task 14.</p>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/parallel_selfplay.py</code>
+- Create: <code>tests/test_parallel_selfplay.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write a failing test for the NN-server contract</strong></li>
+</ul>
+<pre><code class="language-python"># tests/test_parallel_selfplay.py
+import numpy as np
+import pytest
+import torch
+import torch.multiprocessing as mp
+
+from alphazero.games.tictactoe import TicTacToe   # smaller game for fast tests
+from alphazero.network import AlphaZeroNet
+from alphazero.parallel_selfplay import (
+    InferenceRequest,
+    InferenceResponse,
+    nn_server_loop,
+)
+
+
+def test_nn_server_responds_to_a_single_request():
+    &quot;&quot;&quot;Spin up an NN-server in a thread, send 1 request, get 1 response.&quot;&quot;&quot;
+    request_q = mp.Queue()
+    response_qs = {0: mp.Queue()}   # one worker (id=0)
+    shutdown = mp.Event()
+
+    net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+    net.eval()
+    state_dict = {k: v.clone() for k, v in net.state_dict().items()}
+
+    # Run server in a separate thread for testing (avoid spawn overhead)
+    import threading
+    t = threading.Thread(
+        target=nn_server_loop,
+        args=(state_dict, (3, 3, 3), 9, 1, 4, request_q, response_qs, shutdown),
+        kwargs={&quot;batch_size&quot;: 1, &quot;wait_timeout_ms&quot;: 5, &quot;device&quot;: &quot;cpu&quot;},
+    )
+    t.start()
+
+    encoded = np.zeros((3, 3, 3), dtype=np.float32)
+    request_q.put(InferenceRequest(worker_id=0, request_id=42, encoded=encoded))
+    response: InferenceResponse = response_qs[0].get(timeout=5.0)
+
+    assert response.request_id == 42
+    assert response.priors.shape == (9,)
+    assert isinstance(response.value, float)
+
+    shutdown.set()
+    t.join(timeout=5.0)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failures</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_parallel_selfplay.py -v
+</code></pre>
+<p>Expected: ImportError on <code>alphazero.parallel_selfplay</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement the NN-server (and the request/response types)</strong></li>
+</ul>
+<pre><code class="language-python">&quot;&quot;&quot;Parallel self-play with central NN-server batching inference.
+
+Architecture:
+    N worker processes each run MCTS + Game logic on different self-play games.
+    1 central NN-server process owns the GPU and batches inference requests
+    from workers. Workers send (encoded_state, request_id) to a shared request
+    queue; the server pulls batches up to `batch_size`, runs one forward pass,
+    and routes (priors, value) back to each worker's reply queue.
+
+This decouples Python-bound MCTS work (parallelized across CPU cores) from
+GPU-bound NN inference (batched for utilization). Required for chess at
+scale — serial self-play is wall-time infeasible.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass
+from typing import Any
+
+import numpy as np
+import torch
+import torch.multiprocessing as mp
+
+from .network import AlphaZeroNet
+
+
+@dataclass
+class InferenceRequest:
+    worker_id: int
+    request_id: int
+    encoded: np.ndarray   # shape: (C, H, W); the canonical encoded state
+
+
+@dataclass
+class InferenceResponse:
+    request_id: int
+    priors: np.ndarray    # shape: (action_size,)
+    value: float          # scalar
+
+
+def nn_server_loop(
+    state_dict: dict,
+    input_shape: tuple[int, int, int],
+    action_size: int,
+    n_blocks: int,
+    n_channels: int,
+    request_q: mp.Queue,
+    response_qs: dict[int, mp.Queue],
+    shutdown_event: Any,                    # mp.Event or threading.Event
+    *,
+    batch_size: int = 64,
+    wait_timeout_ms: int = 5,
+    device: str = &quot;cpu&quot;,
+) -&gt; None:
+    &quot;&quot;&quot;Run as a thread or process: serve batched inference until shutdown_event is set.
+
+    Workers send InferenceRequest objects to request_q. The server collects
+    up to `batch_size` requests OR waits `wait_timeout_ms`, runs one batched
+    forward pass, and routes InferenceResponse back via response_qs[worker_id].
+    &quot;&quot;&quot;
+    dev = torch.device(device)
+    net = AlphaZeroNet(
+        input_shape=input_shape,
+        action_size=action_size,
+        n_blocks=n_blocks,
+        n_channels=n_channels,
+    )
+    net.load_state_dict(state_dict)
+    net.to(dev)
+    net.eval()
+
+    wait_timeout_s = wait_timeout_ms / 1000.0
+    while not shutdown_event.is_set():
+        batch: list[InferenceRequest] = []
+        # Block briefly for first request; non-blocking for the rest
+        try:
+            first = request_q.get(timeout=wait_timeout_s)
+            batch.append(first)
+        except Exception:
+            continue
+        while len(batch) &lt; batch_size:
+            try:
+                req = request_q.get_nowait()
+                batch.append(req)
+            except Exception:
+                break
+
+        # Stack and run
+        x = torch.from_numpy(np.stack([r.encoded for r in batch])).to(dev)
+        with torch.inference_mode():
+            logits, values = net(x)
+            priors = torch.softmax(logits, dim=-1).cpu().numpy()
+            values = values.cpu().numpy()
+
+        # Route back
+        for i, req in enumerate(batch):
+            response_qs[req.worker_id].put(
+                InferenceResponse(
+                    request_id=req.request_id,
+                    priors=priors[i].astype(np.float32),
+                    value=float(values[i]),
+                )
+            )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify the test passes</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_parallel_selfplay.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/parallel_selfplay.py tests/test_parallel_selfplay.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add parallel_selfplay NN-server skeleton
+
+Central NN-server that batches inference requests from worker processes.
+Owns the GPU; workers submit encoded states via mp.Queue and block on
+their reply queue. Server collects up to batch_size requests OR waits
+wait_timeout_ms before running one batched forward pass.
+
+Workers + orchestrator come in next tasks.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-12-parallel_selfplay-worker-process">Task 12: parallel_selfplay — worker process</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/parallel_selfplay.py</code>
+- Modify: <code>tests/test_parallel_selfplay.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<pre><code class="language-python">def test_worker_plays_one_complete_game():
+    &quot;&quot;&quot;A worker process plays one self-play game and returns training tuples.
+
+    Use TicTacToe for speed. The worker uses a remote eval_fn that sends
+    requests to a server thread.
+    &quot;&quot;&quot;
+    import threading
+    from alphazero.parallel_selfplay import worker_play_one_game
+
+    request_q = mp.Queue()
+    response_qs = {0: mp.Queue()}
+    shutdown = mp.Event()
+
+    net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+    net.eval()
+    state_dict = {k: v.clone() for k, v in net.state_dict().items()}
+
+    server_thread = threading.Thread(
+        target=nn_server_loop,
+        args=(state_dict, (3, 3, 3), 9, 1, 4, request_q, response_qs, shutdown),
+        kwargs={&quot;batch_size&quot;: 4, &quot;wait_timeout_ms&quot;: 2, &quot;device&quot;: &quot;cpu&quot;},
+        daemon=True,
+    )
+    server_thread.start()
+
+    examples = worker_play_one_game(
+        worker_id=0,
+        game_name=&quot;tictactoe&quot;,
+        num_simulations=5,
+        temperature_threshold=6,
+        c_puct=1.5,
+        dirichlet_alpha=1.0,
+        dirichlet_weight=0.25,
+        request_q=request_q,
+        response_q=response_qs[0],
+        augment=True,
+    )
+
+    shutdown.set()
+    server_thread.join(timeout=2.0)
+
+    assert len(examples) &gt; 0
+    for s, pi, z in examples:
+        assert s.shape == (3, 3, 3)
+        assert pi.shape == (9,)
+        assert z in (-1.0, 0.0, 1.0)
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 2: Verify failure</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 3: Append <code>worker_play_one_game</code> to <code>src/alphazero/parallel_selfplay.py</code></strong></p>
+</li>
+</ul>
+<pre><code class="language-python"># Game registry — extend as new games are added
+def _make_game(game_name: str):
+    if game_name == &quot;tictactoe&quot;:
+        from .games.tictactoe import TicTacToe
+        return TicTacToe()
+    if game_name == &quot;connect4&quot;:
+        from .games.connect4 import Connect4
+        return Connect4()
+    if game_name == &quot;chess&quot;:
+        from .games.chess_game import Chess
+        return Chess()
+    raise ValueError(f&quot;Unknown game: {game_name}&quot;)
+
+
+def worker_play_one_game(
+    *,
+    worker_id: int,
+    game_name: str,
+    num_simulations: int,
+    temperature_threshold: int,
+    c_puct: float,
+    dirichlet_alpha: float,
+    dirichlet_weight: float,
+    request_q: mp.Queue,
+    response_q: mp.Queue,
+    augment: bool = True,
+    request_id_offset: int = 0,
+) -&gt; list[tuple[np.ndarray, np.ndarray, float]]:
+    &quot;&quot;&quot;Run one self-play game using a remote NN-server for inference.
+
+    Returns a list of (state, π, z) training tuples (symmetry-augmented if
+    augment=True and the game has symmetries).
+    &quot;&quot;&quot;
+    from .mcts import MCTS
+    from .selfplay import _assign_z
+
+    game = _make_game(game_name)
+    request_counter = [request_id_offset]
+
+    def eval_fn(encoded: np.ndarray) -&gt; tuple[np.ndarray, float]:
+        rid = request_counter[0]
+        request_counter[0] += 1
+        request_q.put(InferenceRequest(worker_id=worker_id, request_id=rid, encoded=encoded))
+        # Wait for the response with our exact request_id (the server returns
+        # ID-tagged responses; the queue is per-worker so we just pull next)
+        response: InferenceResponse = response_q.get(timeout=60.0)
+        assert response.request_id == rid, (
+            f&quot;Worker {worker_id} expected request_id {rid}, got {response.request_id}&quot;
+        )
+        return response.priors, response.value
+
+    mcts = MCTS(
+        game, eval_fn,
+        c_puct=c_puct,
+        dirichlet_alpha=dirichlet_alpha,
+        dirichlet_weight=dirichlet_weight,
+    )
+
+    state = game.initial_state()
+    history: list[tuple[np.ndarray, np.ndarray, int]] = []
+    move_idx = 0
+    while game.terminal_value(state) is None:
+        pi = mcts.search(state, num_simulations=num_simulations, add_root_noise=True)
+        if move_idx &lt; temperature_threshold:
+            action = int(np.random.choice(len(pi), p=pi))
+        else:
+            action = int(np.argmax(pi))
+        canon = game.canonical_state(state)
+        encoded = game.encode(canon)
+        history.append((encoded, pi.astype(np.float32), game.current_player(state)))
+        state = game.apply(state, action)
+        move_idx += 1
+
+    z_per_ply = _assign_z(history, game.terminal_value(state), state, game)
+    examples = []
+    for (encoded, pi, _player), z in zip(history, z_per_ply):
+        if augment:
+            for sym_enc, sym_pi in game.symmetries(encoded, pi):
+                examples.append((sym_enc.astype(np.float32), sym_pi.astype(np.float32), z))
+        else:
+            examples.append((encoded, pi, z))
+    return examples
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 4: Verify the test passes</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 5: Commit</strong></p>
+</li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/parallel_selfplay.py tests/test_parallel_selfplay.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add parallel_selfplay worker_play_one_game
+
+Worker runs MCTS + Game locally; sends encoded states to a remote
+NN-server via mp.Queue and blocks on the reply. Returns training
+tuples (s, π, z) just like the serial run_one_game.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-13-parallel_selfplay-orchestrator-run_parallel_self_play">Task 13: parallel_selfplay — orchestrator (<code>run_parallel_self_play</code>)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/parallel_selfplay.py</code>
+- Modify: <code>tests/test_parallel_selfplay.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<pre><code class="language-python">def test_run_parallel_self_play_returns_tuples():
+    &quot;&quot;&quot;End-to-end: spawn 2 workers, play 4 games of TTT, get all tuples back.&quot;&quot;&quot;
+    from alphazero.parallel_selfplay import run_parallel_self_play
+
+    net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+    state_dict = {k: v.clone() for k, v in net.state_dict().items()}
+
+    examples = run_parallel_self_play(
+        game_name=&quot;tictactoe&quot;,
+        state_dict=state_dict,
+        input_shape=(3, 3, 3),
+        action_size=9,
+        n_blocks=1,
+        n_channels=4,
+        num_games=4,
+        num_workers=2,
+        inference_batch_size=4,
+        num_simulations=5,
+        temperature_threshold=6,
+        c_puct=1.5,
+        dirichlet_alpha=1.0,
+        dirichlet_weight=0.25,
+        device=&quot;cpu&quot;,
+    )
+    assert len(examples) &gt; 0
+    for s, pi, z in examples:
+        assert s.shape == (3, 3, 3)
+        assert pi.shape == (9,)
+        assert z in (-1.0, 0.0, 1.0)
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 2: Verify failure</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 3: Append <code>run_parallel_self_play</code> to <code>src/alphazero/parallel_selfplay.py</code></strong></p>
+</li>
+</ul>
+<pre><code class="language-python">def run_parallel_self_play(
+    *,
+    game_name: str,
+    state_dict: dict,
+    input_shape: tuple[int, int, int],
+    action_size: int,
+    n_blocks: int,
+    n_channels: int,
+    num_games: int,
+    num_workers: int,
+    inference_batch_size: int,
+    num_simulations: int,
+    temperature_threshold: int,
+    c_puct: float,
+    dirichlet_alpha: float,
+    dirichlet_weight: float,
+    device: str = &quot;cpu&quot;,
+) -&gt; list[tuple[np.ndarray, np.ndarray, float]]:
+    &quot;&quot;&quot;Run num_games self-play games across num_workers processes.
+
+    Spawns one NN-server thread (owns the model) and num_workers worker
+    processes (each runs one game at a time until num_games are done).
+    Workers report back via a result queue; orchestrator collects.
+
+    Returns a flat list of (state, π, z) training tuples.
+    &quot;&quot;&quot;
+    import threading
+    import queue as queue_mod
+    import multiprocessing as std_mp
+
+    # Use spawn (safer with CUDA + cleaner than fork)
+    ctx = mp.get_context(&quot;spawn&quot;)
+    request_q = ctx.Queue()
+    response_qs = {wid: ctx.Queue() for wid in range(num_workers)}
+    result_q = ctx.Queue()
+    work_q = ctx.Queue()   # holds &quot;play one game&quot; job tokens
+
+    # Pre-load work queue with num_games jobs (just dummy tokens)
+    for game_idx in range(num_games):
+        work_q.put(game_idx)
+    # Sentinel: each worker exits when it pulls one
+    for _ in range(num_workers):
+        work_q.put(None)
+
+    shutdown_event = ctx.Event()
+
+    # Start the NN-server in a thread (in this process — server uses GPU)
+    server_thread = threading.Thread(
+        target=nn_server_loop,
+        args=(state_dict, input_shape, action_size, n_blocks, n_channels,
+              request_q, response_qs, shutdown_event),
+        kwargs={&quot;batch_size&quot;: inference_batch_size,
+                &quot;wait_timeout_ms&quot;: 5, &quot;device&quot;: device},
+        daemon=True,
+    )
+    server_thread.start()
+
+    # Start workers
+    workers = []
+    for wid in range(num_workers):
+        p = ctx.Process(
+            target=_worker_loop,
+            args=(wid, game_name, num_simulations, temperature_threshold,
+                  c_puct, dirichlet_alpha, dirichlet_weight,
+                  work_q, request_q, response_qs[wid], result_q),
+        )
+        p.start()
+        workers.append(p)
+
+    # Collect num_games batches of training tuples
+    all_examples: list[tuple[np.ndarray, np.ndarray, float]] = []
+    games_collected = 0
+    while games_collected &lt; num_games:
+        batch = result_q.get(timeout=600.0)
+        all_examples.extend(batch)
+        games_collected += 1
+
+    # Shutdown
+    shutdown_event.set()
+    for p in workers:
+        p.join(timeout=10.0)
+        if p.is_alive():
+            p.terminate()
+    server_thread.join(timeout=5.0)
+
+    return all_examples
+
+
+def _worker_loop(
+    worker_id: int,
+    game_name: str,
+    num_simulations: int,
+    temperature_threshold: int,
+    c_puct: float,
+    dirichlet_alpha: float,
+    dirichlet_weight: float,
+    work_q: mp.Queue,
+    request_q: mp.Queue,
+    response_q: mp.Queue,
+    result_q: mp.Queue,
+) -&gt; None:
+    &quot;&quot;&quot;Worker entry point. Pulls 'play a game' tokens from work_q, runs one
+    game using worker_play_one_game, pushes results back via result_q. Exits
+    when it pulls a None sentinel.&quot;&quot;&quot;
+    request_id_offset = worker_id * 1_000_000  # avoid request_id collisions across workers
+    while True:
+        token = work_q.get()
+        if token is None:
+            break
+        examples = worker_play_one_game(
+            worker_id=worker_id,
+            game_name=game_name,
+            num_simulations=num_simulations,
+            temperature_threshold=temperature_threshold,
+            c_puct=c_puct,
+            dirichlet_alpha=dirichlet_alpha,
+            dirichlet_weight=dirichlet_weight,
+            request_q=request_q,
+            response_q=response_q,
+            augment=True,
+            request_id_offset=request_id_offset,
+        )
+        request_id_offset += 100_000   # bump for next game from this worker
+        result_q.put(examples)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify all 3 tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_parallel_selfplay.py -v
+</code></pre>
+<p>This may take 30-90 seconds because each test spawns workers.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/parallel_selfplay.py tests/test_parallel_selfplay.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add run_parallel_self_play orchestrator
+
+Spawns NN-server thread + N worker processes; distributes num_games
+via a work queue; collects training tuples. Uses 'spawn' start method
+(CUDA-safe). Clean shutdown via sentinels + Event.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-14-parallel_selfplay-invariant-tests">Task 14: parallel_selfplay — invariant tests</h2>
+<p><strong>Files:</strong>
+- Create: <code>tests/test_invariants_chess.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the 4 chess-specific invariant tests</strong></li>
+</ul>
+<pre><code class="language-python"># tests/test_invariants_chess.py
+&quot;&quot;&quot;Invariant tests for chess-specific behaviors.
+
+Inherits the 6 framework invariants from tests/test_invariants.py
+(those operate on TicTacToe but cover the framework code which is
+unchanged for chess). Adds 4 chess-specific guards.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import chess
+import numpy as np
+import pytest
+
+
+def test_invariant_7_move_encoding_bijective_in_initial_position():
+    &quot;&quot;&quot;Round-trip: every legal move at the starting position encodes/decodes correctly.&quot;&quot;&quot;
+    from alphazero.games.chess_move_encoding import move_to_index, index_to_move
+    board = chess.Board()
+    for move in board.legal_moves:
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f&quot;Round-trip failed for {move.uci()}&quot;
+
+
+def test_invariant_7_move_encoding_bijective_after_random_play():
+    &quot;&quot;&quot;Round-trip holds after 100 plies of random play.&quot;&quot;&quot;
+    import random
+    from alphazero.games.chess_move_encoding import move_to_index, index_to_move
+    rng = random.Random(42)
+    board = chess.Board()
+    for _ in range(100):
+        if board.is_game_over():
+            break
+        for move in board.legal_moves:
+            idx = move_to_index(board, move)
+            back = index_to_move(board, idx)
+            assert back == move, f&quot;Round-trip failed for {move.uci()} at {board.fen()}&quot;
+        moves = list(board.legal_moves)
+        board.push(rng.choice(moves))
+
+
+def test_invariant_8_workers_dont_share_state():
+    &quot;&quot;&quot;Run 2 workers playing 4 games. Confirm independence of game state objects.&quot;&quot;&quot;
+    import torch.multiprocessing as mp
+    from alphazero.network import AlphaZeroNet
+    from alphazero.parallel_selfplay import run_parallel_self_play
+
+    net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+    state_dict = {k: v.clone() for k, v in net.state_dict().items()}
+
+    examples = run_parallel_self_play(
+        game_name=&quot;tictactoe&quot;,
+        state_dict=state_dict,
+        input_shape=(3, 3, 3),
+        action_size=9,
+        n_blocks=1, n_channels=4,
+        num_games=4, num_workers=2, inference_batch_size=4,
+        num_simulations=5, temperature_threshold=6,
+        c_puct=1.5, dirichlet_alpha=1.0, dirichlet_weight=0.25,
+        device=&quot;cpu&quot;,
+    )
+    # Sanity: each game produced reasonable training tuples
+    assert len(examples) &gt; 4   # at least 1 tuple per game
+    # Sanity: outcomes span all 3 possible z values OR show a sensible distribution
+    z_values = {e[2] for e in examples}
+    assert z_values.issubset({-1.0, 0.0, 1.0})
+
+
+def test_invariant_9_nn_server_preserves_batch_ordering():
+    &quot;&quot;&quot;Send 4 requests with different request_ids; verify responses come back
+    paired with the correct ID (this is the bug surface in the NN-server).&quot;&quot;&quot;
+    import threading
+    import torch.multiprocessing as mp
+    from alphazero.network import AlphaZeroNet
+    from alphazero.parallel_selfplay import (
+        InferenceRequest, InferenceResponse, nn_server_loop,
+    )
+
+    request_q = mp.Queue()
+    response_qs = {0: mp.Queue(), 1: mp.Queue()}
+    shutdown = mp.Event()
+
+    net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+    state_dict = {k: v.clone() for k, v in net.state_dict().items()}
+
+    server_thread = threading.Thread(
+        target=nn_server_loop,
+        args=(state_dict, (3, 3, 3), 9, 1, 4, request_q, response_qs, shutdown),
+        kwargs={&quot;batch_size&quot;: 4, &quot;wait_timeout_ms&quot;: 5, &quot;device&quot;: &quot;cpu&quot;},
+        daemon=True,
+    )
+    server_thread.start()
+
+    # 4 distinct requests, 2 per worker
+    requests = [
+        InferenceRequest(worker_id=0, request_id=100, encoded=np.zeros((3, 3, 3), dtype=np.float32)),
+        InferenceRequest(worker_id=1, request_id=200, encoded=np.zeros((3, 3, 3), dtype=np.float32)),
+        InferenceRequest(worker_id=0, request_id=101, encoded=np.zeros((3, 3, 3), dtype=np.float32)),
+        InferenceRequest(worker_id=1, request_id=201, encoded=np.zeros((3, 3, 3), dtype=np.float32)),
+    ]
+    for r in requests:
+        request_q.put(r)
+
+    # Collect from each reply queue. Worker 0 should get IDs 100 + 101; worker 1 → 200 + 201.
+    w0_ids = sorted([response_qs[0].get(timeout=5.0).request_id for _ in range(2)])
+    w1_ids = sorted([response_qs[1].get(timeout=5.0).request_id for _ in range(2)])
+
+    shutdown.set()
+    server_thread.join(timeout=2.0)
+
+    assert w0_ids == [100, 101]
+    assert w1_ids == [200, 201]
+
+
+def test_invariant_10_stockfish_clean_shutdown():
+    &quot;&quot;&quot;Open and close StockfishOpponent multiple times; no zombies left.&quot;&quot;&quot;
+    from alphazero.opponents.stockfish import StockfishOpponent
+
+    for _ in range(3):
+        opp = StockfishOpponent(elo=1500, time_per_move=0.05)
+        opp.close()
+    # If clean_shutdown were broken, after-close calls would block or crash
+    opp = StockfishOpponent(elo=1500, time_per_move=0.05)
+    opp.close()
+    opp.close()  # second close is no-op
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run the tests</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_invariants_chess.py -v
+</code></pre>
+<p>Expected: 5 tests pass. (4 invariants but #7 has two tests — initial + random.)</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add tests/test_invariants_chess.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add chess-specific invariant tests (#7–#10)
+
+Inv 7: move encoding is bijective (initial + random play)
+Inv 8: parallel workers don't share state
+Inv 9: NN-server preserves batch ordering across worker reply queues
+Inv 10: Stockfish opponent clean shutdown (no zombies)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-15-trainer-dispatch-parallel-self-play-when-num_workers-1">Task 15: Trainer — dispatch parallel self-play when <code>num_workers &gt; 1</code></h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/config.py</code>
+- Modify: <code>src/alphazero/trainer.py</code>
+- Modify: <code>tests/conftest.py</code>
+- Modify: <code>tests/test_trainer.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add new config fields</strong></li>
+</ul>
+<p>Edit <code>src/alphazero/config.py</code> and add to the <code>TrainingConfig</code> dataclass (just after <code>num_iterations</code>):</p>
+<pre><code class="language-python">    # NEW: parallel self-play (scale-invariant knobs)
+    num_workers: int = 1                 # 1 = serial fallback (existing behavior)
+    inference_batch_size: int = 64       # NN-server batches up to N states per forward
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Update <code>tests/conftest.py</code> to include the new fields</strong></li>
+</ul>
+<p>Edit <code>tests/conftest.py</code>'s <code>tiny_config</code> fixture, add to the <code>TrainingConfig(...)</code> call:</p>
+<pre><code class="language-python">        num_workers=1,
+        inference_batch_size=4,
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Append failing test</strong></li>
+</ul>
+<p>In <code>tests/test_trainer.py</code>:</p>
+<pre><code class="language-python">def test_trainer_dispatches_parallel_when_num_workers_gt_1(tiny_config, tmp_path, monkeypatch):
+    &quot;&quot;&quot;When num_workers &gt; 1, Trainer.run uses parallel_selfplay instead of run_one_game.&quot;&quot;&quot;
+    from dataclasses import replace
+    monkeypatch.chdir(tmp_path)
+    cfg = replace(tiny_config, num_workers=2, games_per_iteration=4,
+                  inference_batch_size=4, num_iterations=1, eval_interval=999)
+    trainer = Trainer(TicTacToe(), cfg)
+    trainer.run(verbose=False)
+    # If we got here, the parallel path ran. Verify checkpoint exists.
+    assert (tmp_path / cfg.checkpoint_dir / &quot;iter_0001.pt&quot;).exists()
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify the new test fails (Trainer still uses serial path)</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_trainer.py::test_trainer_dispatches_parallel_when_num_workers_gt_1 -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Modify <code>Trainer._run_self_play_iteration</code> to dispatch parallel when <code>num_workers &gt; 1</code></strong></li>
+</ul>
+<p>In <code>src/alphazero/trainer.py</code>, find the <code>_run_self_play_iteration</code> method. Replace its body:</p>
+<pre><code class="language-python">    def _run_self_play_iteration(self, verbose: bool = True) -&gt; None:
+        &quot;&quot;&quot;Generate games_per_iteration games using best_net; push to buffer.
+
+        When config.num_workers &gt; 1, dispatches to parallel_selfplay. Otherwise
+        falls back to serial run_one_game.
+        &quot;&quot;&quot;
+        if self.config.num_workers &gt; 1:
+            self._run_parallel_self_play_iteration(verbose=verbose)
+            return
+        # Serial fallback (existing behavior, unchanged)
+        eval_fn = self._make_eval_fn(self.best_net)
+        iterator = range(self.config.games_per_iteration)
+        if verbose:
+            iterator = tqdm(
+                iterator,
+                desc=f&quot;  self-play (iter {self.iteration})&quot;,
+                leave=False,
+            )
+        for _ in iterator:
+            examples = run_one_game(
+                self.game, eval_fn,
+                num_simulations=self.config.num_simulations,
+                temperature_threshold=self.config.temperature_threshold,
+                c_puct=self.config.c_puct,
+                dirichlet_alpha=self.config.dirichlet_alpha,
+                dirichlet_weight=self.config.dirichlet_weight,
+                augment=True,
+            )
+            self.replay_buffer.add(examples)
+
+    def _run_parallel_self_play_iteration(self, verbose: bool = True) -&gt; None:
+        &quot;&quot;&quot;Use parallel_selfplay with N workers + central NN-server.&quot;&quot;&quot;
+        from .parallel_selfplay import run_parallel_self_play
+
+        # game_name registry (the parallel module needs a string to import the game)
+        game_class_to_name = {
+            &quot;TicTacToe&quot;: &quot;tictactoe&quot;,
+            &quot;Connect4&quot;: &quot;connect4&quot;,
+            &quot;Chess&quot;: &quot;chess&quot;,
+        }
+        game_name = game_class_to_name.get(type(self.game).__name__)
+        if game_name is None:
+            raise ValueError(
+                f&quot;Parallel self-play not configured for game {type(self.game).__name__}&quot;
+            )
+
+        if verbose:
+            print(
+                f&quot;  parallel self-play (iter {self.iteration}): &quot;
+                f&quot;{self.config.num_workers} workers × &quot;
+                f&quot;{self.config.games_per_iteration} games&quot;,
+                flush=True,
+            )
+
+        examples = run_parallel_self_play(
+            game_name=game_name,
+            state_dict={k: v.cpu() for k, v in self.best_net.state_dict().items()},
+            input_shape=self.game.input_shape,
+            action_size=self.game.action_size,
+            n_blocks=self.config.n_blocks,
+            n_channels=self.config.n_channels,
+            num_games=self.config.games_per_iteration,
+            num_workers=self.config.num_workers,
+            inference_batch_size=self.config.inference_batch_size,
+            num_simulations=self.config.num_simulations,
+            temperature_threshold=self.config.temperature_threshold,
+            c_puct=self.config.c_puct,
+            dirichlet_alpha=self.config.dirichlet_alpha,
+            dirichlet_weight=self.config.dirichlet_weight,
+            device=str(self.device),
+        )
+        self.replay_buffer.add(examples)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 6: Verify all trainer tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_trainer.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/config.py src/alphazero/trainer.py tests/conftest.py tests/test_trainer.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Trainer: dispatch parallel_selfplay when num_workers &gt; 1
+
+Adds num_workers and inference_batch_size to TrainingConfig. When
+num_workers &gt; 1, Trainer._run_self_play_iteration delegates to
+run_parallel_self_play; otherwise the existing serial path runs.
+
+This is the scale-invariance hinge: same code, more workers = more
+parallel game-playing throughput. No refactoring needed to push to
+Sub-project 4's higher target.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-16-cli-game-chess-dispatch-config">Task 16: CLI — <code>--game chess</code> dispatch + config</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/cli.py</code>
+- Create: <code>configs/chess.toml</code>
+- Modify: <code>tests/test_cli.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add chess to the CLI GAMES registry</strong></li>
+</ul>
+<p>In <code>src/alphazero/cli.py</code>, near the top where TTT and Connect4 are imported, add:</p>
+<pre><code class="language-python">from .games.chess_game import Chess
+</code></pre>
+<p>Update the <code>GAMES</code> dict:</p>
+<pre><code class="language-python">GAMES = {
+    &quot;tictactoe&quot;: TicTacToe,
+    &quot;connect4&quot;: Connect4,
+    &quot;chess&quot;: Chess,
+}
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Wire up the chess eval opponent in <code>_cmd_train</code></strong></li>
+</ul>
+<p>Locate the eval-opponent construction in <code>_cmd_train</code>. Extend the if-chain:</p>
+<pre><code class="language-python">    # Build the per-game eval opponent.
+    eval_opponent = None
+    if args.game == &quot;connect4&quot;:
+        from .opponents.connect4_minimax import Connect4MinimaxOpponent
+        eval_opponent = Connect4MinimaxOpponent(depth=8)
+    elif args.game == &quot;chess&quot;:
+        from .opponents.stockfish import StockfishOpponent
+        eval_opponent = StockfishOpponent(elo=1500, time_per_move=0.5)
+    # For tictactoe, leave eval_opponent=None.
+</code></pre>
+<p>Do the same in <code>_cmd_eval</code>:</p>
+<pre><code class="language-python">    if args.game == &quot;tictactoe&quot;:
+        def opponent(_g, state):
+            return solve_tictactoe_action(state)
+        label = &quot;perfect solver&quot;
+    elif args.game == &quot;connect4&quot;:
+        from .opponents.connect4_minimax import Connect4MinimaxOpponent
+        opponent = Connect4MinimaxOpponent(depth=8)
+        label = &quot;minimax-depth-8&quot;
+    elif args.game == &quot;chess&quot;:
+        from .opponents.stockfish import StockfishOpponent
+        opponent = StockfishOpponent(elo=1500, time_per_move=0.5)
+        label = &quot;Stockfish ELO=1500&quot;
+    else:
+        raise ValueError(f&quot;No eval opponent defined for game={args.game}&quot;)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Append failing test</strong></li>
+</ul>
+<p>In <code>tests/test_cli.py</code>:</p>
+<pre><code class="language-python">def test_cmd_train_wires_chess_eval_opponent(tmp_path, monkeypatch):
+    &quot;&quot;&quot;Regression test: --game chess must construct a StockfishOpponent.&quot;&quot;&quot;
+    from alphazero.opponents.stockfish import StockfishOpponent
+    monkeypatch.chdir(tmp_path)
+
+    captured: dict = {}
+    def fake_run(self, verbose=True, eval_opponent=None):
+        captured[&quot;eval_opponent&quot;] = eval_opponent
+
+    with patch(&quot;alphazero.trainer.Trainer.run&quot;, fake_run):
+        exit_code = _cmd_train(_stub_args(game=&quot;chess&quot;))
+
+    assert exit_code == 0
+    assert isinstance(captured[&quot;eval_opponent&quot;], StockfishOpponent)
+    captured[&quot;eval_opponent&quot;].close()
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify the test passes</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_cli.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Create <code>configs/chess.toml</code></strong></li>
+</ul>
+<pre><code class="language-toml"># Chess training config — Sub-project 3.
+# Target: ≥50% win rate vs Stockfish ELO=1500 over 100 games.
+
+# Network — ~5M params. Scale n_blocks/n_channels for Sub-project 4.
+n_blocks = 10
+n_channels = 128
+
+# MCTS
+num_simulations = 200
+c_puct = 2.5
+dirichlet_alpha = 0.3
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 30
+
+# Training
+training_steps_per_iteration = 2000
+batch_size = 256
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer
+replay_buffer_capacity = 500_000
+min_buffer_size = 50_000
+
+# Eval (vs Stockfish ELO=1500)
+eval_interval = 5
+eval_games = 100
+
+# Schedule
+num_iterations = 80
+
+# Parallel self-play
+num_workers = 8
+inference_batch_size = 64
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+checkpoint_dir = &quot;checkpoints&quot;
+log_dir = &quot;runs&quot;
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 6: Verify the config loads</strong></li>
+</ul>
+<pre><code class="language-bash">python3 -c &quot;from alphazero.config import load_config; c = load_config('configs/chess.toml'); print(f'n_blocks={c.n_blocks} n_channels={c.n_channels} num_workers={c.num_workers}')&quot;
+</code></pre>
+<p>Expected: prints <code>n_blocks=10 n_channels=128 num_workers=8</code>.</p>
+<ul>
+<li>[ ] <strong>Step 7: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/cli.py configs/chess.toml tests/test_cli.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add --game chess CLI dispatch + chess config + integration test
+
+Wires StockfishOpponent(elo=1500) into _cmd_train and _cmd_eval when
+args.game == 'chess'. The same regression test pattern from Connect 4
+guards against forgetting to wire the eval opponent.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-17-e2e-kill-criterion-test">Task 17: E2E kill-criterion test</h2>
+<p><strong>Files:</strong>
+- Create: <code>tests/test_e2e_chess.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the E2E test</strong></li>
+</ul>
+<pre><code class="language-python">&quot;&quot;&quot;End-to-end test: train + ≥50% win rate vs Stockfish ELO=1500 over 100 games.
+
+This is the kill criterion for Sub-project 3. Marked slow — a full
+training run takes 3-8 hours on M4 Pro MPS / Colab L4 / Lambda A6000.
+
+Run with:
+    pytest -m slow tests/test_e2e_chess.py -v -s
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from alphazero.arena import play_match
+from alphazero.config import load_config
+from alphazero.games.chess_game import Chess
+from alphazero.opponents.stockfish import StockfishOpponent
+from alphazero.trainer import Trainer
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.mark.slow
+def test_e2e_chess_beats_stockfish_1500(tmp_path, monkeypatch):
+    &quot;&quot;&quot;Train an AlphaZero chess agent. Play 100 games vs Stockfish ELO=1500.
+    Pass criterion: win_rate &gt;= 0.50 (alternating colors).&quot;&quot;&quot;
+    monkeypatch.chdir(tmp_path)
+
+    config = load_config(REPO_ROOT / &quot;configs/chess.toml&quot;)
+    opponent = StockfishOpponent(elo=1500, time_per_move=0.5)
+
+    trainer = Trainer(Chess(), config)
+    trainer.run(eval_opponent=opponent)
+
+    agent = trainer._make_argmax_mcts_agent(trainer.best_net)
+    result = play_match(Chess(), agent, opponent, num_games=100)
+    opponent.close()
+
+    print(
+        f&quot;\nFinal: wins={result.wins_a} draws={result.draws} &quot;
+        f&quot;losses={result.losses_a} win_rate={result.win_rate:.2%}&quot;
+    )
+    assert result.win_rate &gt;= 0.50, (
+        f&quot;Agent win rate {result.win_rate:.2%} below 0.50 target. &quot;
+        &quot;Increase num_iterations or num_simulations in configs/chess.toml.&quot;
+    )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the test is properly marked slow + collects correctly</strong></li>
+</ul>
+<pre><code class="language-bash">pytest --collect-only -m &quot;not slow&quot; 2&gt;&amp;1 | grep test_e2e_chess || echo &quot;(excluded ✓)&quot;
+pytest --collect-only -m slow tests/test_e2e_chess.py 2&gt;&amp;1 | tail -3
+</code></pre>
+<p>Expected: first prints <code>(excluded ✓)</code>; second collects 1 test.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add tests/test_e2e_chess.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add E2E kill-criterion test (win_rate ≥ 0.50 vs Stockfish ELO=1500)
+
+This is the success bar for Sub-project 3. Marked slow — a full
+training run takes 3-8 hours on consumer hardware.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-18-final-sweep-push">Task 18: Final sweep + push</h2>
+<ul>
+<li>[ ] <strong>Step 1: Run all non-slow tests</strong></li>
+</ul>
+<pre><code class="language-bash">pytest -m &quot;not slow&quot; 2&gt;&amp;1 | tail -10
+</code></pre>
+<p>Expected: all tests pass. Estimated count: ~120 baseline + ~40 new chess tests = ~160 total.</p>
+<ul>
+<li>[ ] <strong>Step 2: Run linter</strong></li>
+</ul>
+<pre><code class="language-bash">ruff check src tests 2&gt;&amp;1 | tail -10
+</code></pre>
+<p>If there are real errors, fix before continuing. Ignore minor style suggestions.</p>
+<ul>
+<li>[ ] <strong>Step 3: Push everything</strong></li>
+</ul>
+<pre><code class="language-bash">git push 2&gt;&amp;1 | tail -3
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4 (Optional): Run the slow E2E test</strong></li>
+</ul>
+<p>This is the formal Sub-project 3 success bar. Takes 3-8 hours.</p>
+<pre><code class="language-bash">pytest -m slow tests/test_e2e_chess.py -v -s
+</code></pre>
+<p>Pass criterion: <code>win_rate ≥ 0.50</code> against Stockfish ELO=1500 over 100 games.</p>
+<p>If it fails, investigate in order:
+1. Are training iterations actually completing? <code>ls checkpoints/</code> should show ~80 files.
+2. Are eval cycles showing improvement over time? Read iter_NNNN's stdout for the eval line.
+3. Is best_net actually changing between iterations? (Diagnostic from SP1: compare iter_0010 vs iter_0050's first weight.)
+4. Increase <code>num_iterations</code> or <code>num_simulations</code> in <code>configs/chess.toml</code> and resume.</p>
+<hr>
+<h2 id="final-state">Final state</h2>
+<p>After Task 17, the repo has:</p>
+<ul>
+<li><code>Chess(Game)</code> wrapping python-chess; 20 input planes; 4672 action space</li>
+<li><code>chess_move_encoding.py</code> with the AlphaZero 8×8×73 scheme</li>
+<li><code>StockfishOpponent</code> with UCI ELO configuration</li>
+<li><code>parallel_selfplay.py</code> (NN-server + worker processes + orchestrator)</li>
+<li>Trainer extended to dispatch parallel path when <code>num_workers &gt; 1</code></li>
+<li>CLI extended for <code>--game chess</code></li>
+<li>Config + setup script + 6 new test files</li>
+</ul>
+<p>The framework's "only the Game class changes" property is preserved — <code>MCTS</code>, <code>AlphaZeroNet</code>, <code>ReplayBuffer</code>, <code>Arena</code>, <code>Trainer</code> are reused unchanged. The new infrastructure (parallel_selfplay, Stockfish opponent) is purely additive.</p>
+<p><strong>Sub-project 3 is done when</strong> <code>pytest -m slow tests/test_e2e_chess.py</code> reaches <code>win_rate ≥ 0.50</code> vs Stockfish ELO=1500. Then Sub-project 4 (productionize: UCI engine, scale to 2000+ ELO) can begin — and again, only config knobs need to change (n_blocks=19, n_channels=256, num_simulations=800, num_iterations=200), no code rewrites.</p></article>
+  </main>
+</body>
+</html>
