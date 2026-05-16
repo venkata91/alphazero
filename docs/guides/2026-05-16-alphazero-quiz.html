@@ -1,0 +1,966 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AlphaZero Quiz · Self-assessment</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #fbf3e2;
+        --bg-soft: #fff8ec;
+        --paper: #ffffff;
+        --paper-tint: #fffaf0;
+        --ink: #1f2547;
+        --ink-soft: #4a5680;
+        --ink-faint: #6b7290;
+        --blue: #3a55c4;
+        --blue-deep: #2a3f9a;
+        --blue-soft: rgba(58, 85, 196, 0.18);
+        --blue-bg: rgba(58, 85, 196, 0.08);
+        --orange: #ee8a30;
+        --orange-deep: #d6741e;
+        --orange-soft: rgba(238, 138, 48, 0.22);
+        --orange-bg: rgba(238, 138, 48, 0.08);
+        --green: #3aa860;
+        --green-bg: rgba(58, 168, 96, 0.15);
+        --green-soft: rgba(58, 168, 96, 0.35);
+        --red: #c64a3a;
+        --red-bg: rgba(198, 74, 58, 0.12);
+        --line: #2a3a8a;
+        --line-faint: rgba(42, 58, 138, 0.20);
+        --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+        --shadow-strong: 6px 6px 0 rgba(31, 37, 71, 0.10);
+        --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+        --cursive: 'Caveat', 'Patrick Hand', cursive;
+        --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: var(--hand);
+        font-size: 18px;
+        line-height: 1.6;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+          radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+          radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+          var(--bg);
+        background-attachment: fixed;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+        background-size: 22px 22px;
+        pointer-events: none;
+        z-index: -1;
+        opacity: 0.65;
+      }
+      a {
+        color: var(--blue);
+        text-decoration: none;
+        border-bottom: 2px dotted var(--line-faint);
+        padding-bottom: 1px;
+      }
+      a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+      .shell {
+        width: min(900px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0 80px;
+      }
+
+      .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 18px;
+        padding: 10px 16px;
+        background: var(--paper);
+        border: 2px solid var(--line-faint);
+        border-radius: 999px;
+        box-shadow: var(--shadow);
+      }
+      .page-nav a {
+        font-family: var(--cursive);
+        font-size: 1.1rem;
+        color: var(--blue);
+        border-bottom: none;
+      }
+      .page-nav .crumb {
+        color: var(--ink-soft);
+        font-size: 0.95rem;
+      }
+
+      .hero {
+        background: var(--paper);
+        border: 2.5px solid var(--line);
+        border-radius: 26px;
+        box-shadow: var(--shadow);
+        padding: 30px 38px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .hero::before, .hero::after {
+        content: "";
+        position: absolute;
+        width: 26px; height: 26px;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+        background-repeat: no-repeat;
+        background-size: contain;
+        opacity: 0.8;
+      }
+      .hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+      .hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+      .kicker {
+        margin: 0 0 6px;
+        font-family: var(--cursive);
+        font-weight: 700;
+        color: var(--orange);
+        font-size: 1.3rem;
+      }
+      .hero h1 {
+        margin: 0;
+        color: var(--blue);
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: clamp(2.2rem, 6vw, 3.6rem);
+        line-height: 1.1;
+      }
+      .lede {
+        max-width: 70ch;
+        color: var(--ink-soft);
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin: 12px 0 0;
+      }
+
+      .progress-bar {
+        margin-top: 18px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .progress-track {
+        flex: 1;
+        height: 12px;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+        border-radius: 999px;
+        overflow: hidden;
+      }
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--blue), var(--orange));
+        width: 0;
+        transition: width 0.4s ease-out;
+      }
+      .progress-text {
+        font-family: var(--cursive);
+        font-size: 1.2rem;
+        color: var(--blue-deep);
+        min-width: 100px;
+        text-align: right;
+      }
+
+      .panel {
+        background: var(--paper);
+        border: 2.5px solid var(--line);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+        padding: 28px 32px;
+        margin-bottom: 18px;
+      }
+
+      .q-number {
+        font-family: var(--cursive);
+        color: var(--orange);
+        font-size: 1.3rem;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+      .q-text {
+        font-size: 1.2rem;
+        line-height: 1.5;
+        color: var(--ink);
+        margin: 0 0 22px;
+      }
+      .q-text code, code.inline {
+        font-family: var(--mono);
+        font-size: 0.92em;
+        padding: 1.5px 6px;
+        border-radius: 6px;
+        background: var(--blue-bg);
+        border: 1.5px dashed var(--blue-soft);
+        color: var(--blue-deep);
+      }
+
+      .options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .option {
+        display: block;
+        padding: 14px 18px;
+        background: var(--paper-tint);
+        border: 2.5px solid var(--line-faint);
+        border-radius: 16px;
+        font-family: var(--hand);
+        font-size: 1.05rem;
+        color: var(--ink);
+        cursor: pointer;
+        transition: transform .15s ease, border-color .15s ease, background .15s ease;
+        text-align: left;
+        line-height: 1.45;
+      }
+      .option:hover:not(:disabled) {
+        transform: translate(-1px, -2px);
+        background: var(--orange-bg);
+        border-color: var(--orange);
+        box-shadow: 2px 2px 0 rgba(31, 37, 71, 0.08);
+      }
+      .option:disabled { cursor: default; }
+      .option.correct {
+        background: var(--green-bg);
+        border-color: var(--green);
+        color: var(--ink);
+      }
+      .option.wrong {
+        background: var(--red-bg);
+        border-color: var(--red);
+        color: var(--ink);
+      }
+      .option-label {
+        display: inline-block;
+        margin-right: 8px;
+        padding: 0 8px;
+        background: var(--blue-bg);
+        border: 1.5px dashed var(--blue-soft);
+        border-radius: 6px;
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--blue-deep);
+        min-width: 24px;
+        text-align: center;
+      }
+      .option.correct .option-label {
+        background: var(--green);
+        border-color: var(--green);
+        color: white;
+      }
+      .option.wrong .option-label {
+        background: var(--red);
+        border-color: var(--red);
+        color: white;
+      }
+
+      .explanation {
+        margin-top: 18px;
+        padding: 16px 20px;
+        background: var(--orange-bg);
+        border: 2px dashed var(--orange);
+        border-radius: 14px;
+        color: var(--ink);
+        font-size: 1.02rem;
+        line-height: 1.55;
+      }
+      .explanation.correct {
+        background: var(--green-bg);
+        border-color: var(--green);
+      }
+      .explanation strong { color: var(--blue-deep); }
+      .explanation code {
+        font-family: var(--mono);
+        font-size: 0.9em;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--paper-tint);
+        border: 1px solid var(--line-faint);
+      }
+
+      .actions {
+        display: flex;
+        gap: 14px;
+        margin-top: 22px;
+        justify-content: flex-end;
+        align-items: center;
+      }
+      .btn {
+        padding: 11px 24px;
+        background: var(--paper-tint);
+        border: 2.5px solid var(--line);
+        border-radius: 999px;
+        font-family: var(--cursive);
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--blue-deep);
+        cursor: pointer;
+        transition: transform .15s, background .15s, color .15s;
+      }
+      .btn:hover {
+        background: var(--orange);
+        color: white;
+        transform: translate(-1px, -1px);
+        box-shadow: 2px 2px 0 rgba(31, 37, 71, 0.10);
+      }
+      .btn.primary {
+        background: var(--blue);
+        color: white;
+        border-color: var(--blue-deep);
+      }
+      .btn.primary:hover { background: var(--orange); }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .topic-chip {
+        display: inline-block;
+        padding: 3px 12px;
+        background: var(--blue-bg);
+        border: 1.5px dashed var(--blue-soft);
+        border-radius: 999px;
+        font-family: var(--cursive);
+        font-size: 0.95rem;
+        color: var(--blue-deep);
+        margin-bottom: 8px;
+      }
+
+      .results {
+        text-align: center;
+      }
+      .results h2 {
+        font-family: var(--cursive);
+        font-size: 2.6rem;
+        color: var(--blue);
+        margin: 0 0 8px;
+      }
+      .score-big {
+        font-family: var(--cursive);
+        font-size: 4.5rem;
+        line-height: 1;
+        color: var(--orange);
+        margin: 18px 0 6px;
+      }
+      .score-label {
+        font-family: var(--cursive);
+        font-size: 1.3rem;
+        color: var(--ink-soft);
+      }
+      .verdict {
+        margin: 24px 0;
+        padding: 18px 24px;
+        background: var(--paper-tint);
+        border: 2px dashed var(--line-faint);
+        border-radius: 16px;
+        font-size: 1.1rem;
+        line-height: 1.6;
+        color: var(--ink);
+      }
+      .verdict strong { color: var(--blue-deep); }
+      .topic-breakdown {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin: 24px 0;
+      }
+      .topic-card {
+        padding: 16px 20px;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+        border-radius: 14px;
+        text-align: left;
+      }
+      .topic-card strong {
+        display: block;
+        font-family: var(--cursive);
+        font-size: 1.2rem;
+        color: var(--blue-deep);
+        margin-bottom: 4px;
+      }
+      .topic-card .score {
+        font-family: var(--cursive);
+        font-size: 1.4rem;
+        color: var(--orange);
+      }
+
+      @media (max-width: 720px) {
+        .shell { padding: 20px 0 56px; }
+        .hero, .panel { padding: 22px 22px; }
+        .actions { flex-direction: column-reverse; gap: 10px; }
+        .btn { width: 100%; text-align: center; }
+        .progress-bar { flex-direction: column; align-items: stretch; gap: 8px; }
+        .progress-text { text-align: left; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { animation: none !important; transition: none !important; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <nav class="page-nav" aria-label="Page navigation">
+        <a href="../../index.html">← All docs</a>
+        <span class="crumb">AlphaZero · Self-assessment quiz</span>
+      </nav>
+
+      <header class="hero">
+        <p class="kicker">Self-assessment</p>
+        <h1>AlphaZero Quiz</h1>
+        <p class="lede">
+          30 questions to check your understanding of the AlphaZero framework — from basics (ply, value head, ResNet)
+          through subtle implementation gotchas (BatchNorm modes, gradient flow, arena gating stagnation).
+          Click an answer to see why it's right or wrong. Take it as many times as you want.
+        </p>
+        <div class="progress-bar">
+          <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-text" id="progress-text">Q 1 / 30</div>
+        </div>
+      </header>
+
+      <section id="quiz" class="panel"></section>
+
+      <section id="results" class="panel results" style="display:none"></section>
+    </main>
+
+    <script>
+      // ============================================================
+      // The questions
+      // ============================================================
+      const QUESTIONS = [
+        {
+          topic: "Basics",
+          q: "What is a <strong>ply</strong> in game-playing AI?",
+          options: [
+            "A single move by one player",
+            "A complete back-and-forth (e.g., white + black) — one ply per full turn",
+            "A complete game from start to terminal state",
+            "A single MCTS simulation"
+          ],
+          correct: 0,
+          explanation: "A ply is exactly one player's move. A chess full-move (e.g., '1. e4 e5') = 2 plies. TTT games are 5–9 plies; Connect 4 averages ~25 plies. The distinction matters because <code>temperature_threshold = 15</code> means '15 plies' (15 individual moves), not '15 full turns'."
+        },
+        {
+          topic: "Basics",
+          q: "What does the <strong>value head</strong> of AlphaZeroNet output?",
+          options: [
+            "A probability distribution over all possible actions",
+            "A scalar in [−1, +1] predicting the game outcome from the current player's POV",
+            "The raw logits before softmax for each action",
+            "The visit count for each MCTS simulation"
+          ],
+          correct: 1,
+          explanation: "The value head outputs a single scalar squashed through tanh to land in [−1, +1]. +1 = 'I'll definitely win'; −1 = 'I'll definitely lose'; 0 = 'looks like a draw'. It's the network's predicted outcome from the current player's perspective. The policy head (separate) outputs the action distribution."
+        },
+        {
+          topic: "Basics",
+          q: "What does the <strong>policy head</strong> output?",
+          options: [
+            "A scalar value in [−1, +1]",
+            "Logits over all possible actions (apply softmax to get probabilities)",
+            "The optimal action as an integer index",
+            "The current player indicator (+1 or −1)"
+          ],
+          correct: 1,
+          explanation: "The policy head outputs <em>logits</em> — raw real numbers (one per action). To convert to probabilities, apply softmax: <code>prob[i] = exp(logit[i]) / Σ exp(logit[j])</code>. We work in logits internally because they're more numerically stable than direct probabilities."
+        },
+        {
+          topic: "Basics",
+          q: "What does <strong>softmax</strong> do?",
+          options: [
+            "Squashes values to [−1, +1] like tanh",
+            "Converts arbitrary real numbers to a probability distribution (positive, summing to 1)",
+            "Computes the maximum value of a vector (a 'soft' version of argmax)",
+            "Smooths gradient signal during backpropagation"
+          ],
+          correct: 1,
+          explanation: "<code>softmax(x)[i] = exp(x[i]) / Σ exp(x[j])</code> — exponentiates each entry and normalizes by the total. The result is a valid probability distribution (all positive, summing to 1). Despite the name, it's not really a 'soft max' — argmax would pick the single max, softmax assigns probability mass proportional to exp(value)."
+        },
+        {
+          topic: "Neural net",
+          q: "What is the <strong>backbone</strong> of a multi-head neural network?",
+          options: [
+            "The single largest layer in the network (e.g., the widest FC layer)",
+            "The shared feature extractor — everything before the output heads branch off",
+            "The output (final) layer",
+            "The loss function used during training"
+          ],
+          correct: 1,
+          explanation: "The backbone is the shared computation path that all heads consume. For AlphaZero: <code>input conv → N residual blocks</code>, after which the features fork into a policy head and a value head. The backbone learns features useful for both tasks; the heads convert features into task-specific outputs."
+        },
+        {
+          topic: "Neural net",
+          q: "What is a <strong>residual block</strong>?",
+          options: [
+            "A layer that has been removed but kept for backward compatibility",
+            "A composable unit computing <code>y = ReLU(x + F(x))</code> — convolutions plus a skip connection",
+            "A regularization technique to prevent overfitting",
+            "A type of attention mechanism for sequences"
+          ],
+          correct: 1,
+          explanation: "A residual block is the building unit of ResNet. <code>F(x)</code> is typically <code>conv → BN → ReLU → conv → BN</code>; the <code>+x</code> is the skip connection. Stacking these blocks creates a deep network that's actually trainable (without skip connections, gradients vanish through many layers)."
+        },
+        {
+          topic: "Neural net",
+          q: "Why does the <strong>skip connection</strong> (the +x in a residual block) matter so much for training deep networks?",
+          options: [
+            "It reduces the total parameter count, making training faster",
+            "It lets gradients flow through deep networks without vanishing — the gradient of the loss has a direct path back via the +x term",
+            "It makes the network faster at inference time",
+            "It's required for batch normalization to work correctly"
+          ],
+          correct: 1,
+          explanation: "The skip's contribution to <code>∂y/∂x</code> is exactly <strong>1</strong> (since <code>∂(x)/∂x = 1</code>). The total gradient through a block becomes <code>1 + ∂F/∂x</code>. Even if <code>∂F/∂x</code> is tiny (which causes vanishing gradients in classical deep nets), the <strong>1</strong> guarantees something flows back to earlier layers. This is what enables 50+ layer networks to train at all."
+        },
+        {
+          topic: "Neural net",
+          q: "What does <strong>BatchNorm</strong> do?",
+          options: [
+            "Reduces the batch size during training to fit in GPU memory",
+            "Normalizes activations across the batch dimension to stabilize training and let you use higher learning rates",
+            "Combines multiple batches into a single larger batch for efficiency",
+            "Computes batch statistics for the loss function"
+          ],
+          correct: 1,
+          explanation: "BatchNorm normalizes activations per-channel: <code>output = (x − batch_mean) / sqrt(batch_var + ε) · γ + β</code>. The learnable γ and β let the network re-scale if needed. BN keeps activations in a sane numeric range during training, which stabilizes gradient flow. Almost universal in modern CNNs."
+        },
+        {
+          topic: "Neural net",
+          q: "PyTorch's BatchNorm behaves differently in <code>train()</code> vs <code>eval()</code> mode. What goes wrong if you forget <code>model.eval()</code> before single-state inference (like MCTS calling eval_fn)?",
+          options: [
+            "Nothing important — just a small speed difference",
+            "BN uses batch statistics computed over the current batch. With batch_size=1, variance is near-degenerate and outputs become wildly wrong",
+            "The model raises an error during the forward pass",
+            "Backpropagation continues to track gradients, slightly slowing inference"
+          ],
+          correct: 1,
+          explanation: "In train mode, BN computes mean/variance over the current batch. With batch_size=1 (which MCTS does — one state at a time), variance over a single sample is degenerate. The normalization divides by near-zero, producing extreme outputs that don't match what the heads expect. In eval mode, BN uses running statistics accumulated during training — stable values that work regardless of batch size at inference. ALWAYS call <code>.eval()</code> before inference."
+        },
+        {
+          topic: "Neural net",
+          q: "What are <strong>logits</strong>?",
+          options: [
+            "Probabilities that sum to 1",
+            "Raw pre-softmax scores — arbitrary real numbers that softmax converts to probabilities",
+            "The output of a sigmoid activation",
+            "A name for the parameters of a logistic regression model"
+          ],
+          correct: 1,
+          explanation: "Logits are the raw outputs of a classification network before softmax. They can be any real number (positive, negative, large, small). Apply softmax to convert to a probability distribution. We work in logits because they're numerically more stable, and most loss functions (cross-entropy) operate directly on logits."
+        },
+        {
+          topic: "MCTS",
+          q: "What is MCTS used for in AlphaZero?",
+          options: [
+            "To replace the neural network entirely with traditional tree search",
+            "To plan ahead by simulating game futures, using the NN as an oracle at each leaf",
+            "To compute the policy and value loss functions during training",
+            "To handle random exploration of new positions"
+          ],
+          correct: 1,
+          explanation: "MCTS turns the NN's fast hunch into a sharper, deeper decision. Each simulation walks down the tree, evaluates a leaf via the NN, and backs up the value. After 50–800 simulations the visit distribution at the root is much more reliable than a single NN forward pass. MCTS doesn't replace the NN — it uses it."
+        },
+        {
+          topic: "MCTS",
+          q: "After MCTS runs N simulations, what does the <strong>visit distribution π</strong> represent?",
+          options: [
+            "The NN's raw policy output (one forward pass through the policy head)",
+            "The normalized visit count from MCTS — a sharper, MCTS-refined estimate of which action is best",
+            "The actual game outcome (+1, 0, or −1) from this position",
+            "Random exploration noise added to the search"
+          ],
+          correct: 1,
+          explanation: "π is computed as <code>π[a] = visits(s, a) / Σ_b visits(s, b)</code>. It aggregates ~50–800 NN evaluations + tree-walk reasoning, producing a distribution far sharper than any single NN forward. π is the training target for the policy head — the NN learns to predict its own MCTS-augmented future self."
+        },
+        {
+          topic: "MCTS",
+          q: "PUCT has two terms: <code>Q(s,a)</code> (exploitation) and <code>U(s,a)</code> (exploration). What does Q represent?",
+          options: [
+            "The NN's predicted policy probability for action a",
+            "The mean value seen for action a so far in MCTS (cumulative value ÷ visit count)",
+            "The total visit count at the root",
+            "The Dirichlet noise added to action a's prior"
+          ],
+          correct: 1,
+          explanation: "Q is a running average: <code>Q(s, a) = value_sum(s, a) / visit_count(s, a)</code>. It's the 'exploit' term — actions with consistently good outcomes get higher Q and become more attractive to revisit. The 'explore' term U boosts under-visited actions with high NN priors."
+        },
+        {
+          topic: "MCTS",
+          q: "As MCTS does more simulations and visit count <code>N(s,a)</code> grows large for a specific action a, what happens to its exploration term <code>U = c_puct · P · √ΣN / (1 + N(s,a))</code>?",
+          options: [
+            "It grows linearly — more total visits → more exploration of all actions",
+            "It shrinks — (1+N) grows linearly while √ΣN grows sublinearly, so the ratio decreases",
+            "It stays constant due to the c_puct normalization",
+            "It oscillates with each new visit"
+          ],
+          correct: 1,
+          explanation: "If action a has been visited 80 times out of 100 total: <code>U(a) ≈ P(a) · √100 / 81 ≈ 0.12·P(a)</code>. For a less-visited action with only 2 visits: <code>U ≈ P · √100 / 3 ≈ 3.3·P</code>. The poorly-visited action gets ~28× the exploration bonus, attracting attention. This is what creates the explore-vs-exploit balance — visited actions decay; unvisited actions stay attractive."
+        },
+        {
+          topic: "MCTS",
+          q: "When MCTS reaches a leaf and backs up the value, why is the value <strong>negated at each ply</strong>?",
+          options: [
+            "To handle the draw case (value = 0)",
+            "To convert from the leaf player's POV to the parent's POV — in a zero-sum game, your win is my loss",
+            "To regularize visit counts and prevent them from growing too fast",
+            "It's a historical artifact that could be removed"
+          ],
+          correct: 1,
+          explanation: "Q-values at each node are stored from THAT NODE'S current player's POV. As we walk up the tree, each step alternates players (it's 2-player). Flipping the sign keeps Q's POV consistent at each node. This is the most bug-prone part of MCTS implementations — we have a dedicated invariant test (<code>test_invariant_3_backup_flips_sign_per_ply</code>) that builds a 5-node path and asserts the sign alternation."
+        },
+        {
+          topic: "MCTS",
+          q: "Where is <strong>Dirichlet noise</strong> added in our MCTS?",
+          options: [
+            "At every node in the tree, during every simulation",
+            "Only at the root, only during self-play (not during eval/arena)",
+            "Only at the leaves during expansion",
+            "As an input to the loss function during training"
+          ],
+          correct: 1,
+          explanation: "Dirichlet noise perturbs the root priors during self-play to ensure game-to-game diversity. Without it, MCTS with a fixed network and fixed starting state would be deterministic — every self-play game would explore the same tree. We don't add noise during eval/arena because we want deterministic, fair strength measurements. We don't add it at deeper nodes because that would just be random distraction without purpose."
+        },
+        {
+          topic: "Self-play",
+          q: "Self-play uses a <strong>temperature schedule</strong>: τ=1 (sample from π) for early plies, τ=0 (argmax) for later plies. Why?",
+          options: [
+            "Early sampling explores varied openings (otherwise all self-play games start the same); later argmax ensures the endgame is played optimally",
+            "τ=1 is mathematically required for MCTS convergence in early plies",
+            "Early-game positions have uncertain values, so sampling is appropriate; late-game is tactical so argmax is appropriate",
+            "It prevents the network from memorizing specific game lines"
+          ],
+          correct: 0,
+          explanation: "Two distinct problems addressed: (1) without sampling early, every self-play game would converge on the same opening — narrow training data; (2) without argmax late, tactical sequences might be ruined by occasional exploration choices. The schedule (τ=1 early → τ=0 later) addresses both. For TTT: threshold=6 (almost whole game); Connect 4: 15; chess: ~30."
+        },
+        {
+          topic: "Self-play",
+          q: "Self-play records training tuples of the form <code>(s, π, z)</code>. What is <strong>z</strong>?",
+          options: [
+            "The NN's predicted value at state s",
+            "The eventual game outcome (+1, 0, −1) from THAT ply's mover's POV",
+            "The MCTS visit count distribution at state s",
+            "The optimal next action from state s"
+          ],
+          correct: 1,
+          explanation: "z is filled in <em>after the game ends</em>, per ply, from each ply's mover's perspective. If X won the game, plies where X moved get z=+1; plies where O moved get z=−1. All plies of a draw get z=0. Getting the sign wrong silently corrupts value-head training — our hand-traced tests in <code>test_selfplay.py</code> guard this exact bug surface."
+        },
+        {
+          topic: "Self-play",
+          q: "Why does AlphaZero training <strong>bootstrap from a randomly-initialized network</strong>?",
+          options: [
+            "Random networks happen to have game-specific biases at initialization",
+            "The MCTS-improved π is strictly better than the network that produced it, so each training step has a target slightly better than the current model",
+            "The training data includes human expert games as a starting bootstrap",
+            "The value head is initialized from a pre-trained classifier"
+          ],
+          correct: 1,
+          explanation: "This is the central magic of AlphaZero. At every step, MCTS uses the NN as an oracle ~50–100 times + tree-walks to produce π — strictly stronger than the NN's first-glance prediction. Training pushes the NN to be like its own future-MCTS-amplified self. Bootstrap from zero. (AlphaZero — note the Zero — explicitly does NOT use human games, unlike its predecessor AlphaGo.)"
+        },
+        {
+          topic: "Self-play",
+          q: "Symmetry augmentation in TTT multiplies training tuples by 8. What does this mean concretely?",
+          options: [
+            "There are 8 different starting positions in TTT",
+            "Each (state, π) gets transformed into all 8 D₄ dihedral group equivalents (4 rotations × 2 reflections), used as additional training data",
+            "8 is the maximum batch size for TTT data",
+            "Each TTT game has 8 distinct moves on average"
+          ],
+          correct: 1,
+          explanation: "TTT has 8 D₄ symmetries: 4 rotations (0°, 90°, 180°, 270°) × 2 (identity, horizontal mirror). For each (state, π) tuple from self-play, we generate all 8 equivalents — same compute cost (MCTS already ran), 8× the training data. The network learns the <em>concept</em> 'center is good' rather than 'square (1,1) is good'."
+        },
+        {
+          topic: "Self-play",
+          q: "When we apply a horizontal mirror to a Connect 4 board, what specifically must we transform alongside the encoded state?",
+          options: [
+            "The value target z (because the perspective changes)",
+            "The current_player indicator stored in history",
+            "Only the encoded state — π and z are invariant",
+            "The policy distribution π — column 0 ↔ column 6 under mirror, so π's entries reverse"
+          ],
+          correct: 3,
+          explanation: "Mirroring is a <em>spatial</em> transformation. The same player is to move; the same outcome occurs. So z stays the same, current_player stays the same. But the policy π refers to specific column indices — if original π puts 0.7 on col 3 (center, fixed under mirror) and 0.1 on col 6, the mirrored π puts 0.7 on col 3 and 0.1 on col 0. In code: <code>np.flip(policy, axis=0)</code>."
+        },
+        {
+          topic: "Training",
+          q: "What is the role of the <strong>replay buffer</strong>?",
+          options: [
+            "Stores model checkpoints between training iterations",
+            "Holds (s, π, z) tuples from many recent self-play games; training samples random minibatches from it",
+            "Records gradient updates so they can be replayed during evaluation",
+            "Caches MCTS tree state between simulations"
+          ],
+          correct: 1,
+          explanation: "The replay buffer is a FIFO queue of recent training tuples (capacity 50K–200K). Each iteration's self-play adds to the buffer; old tuples age out. Training samples random minibatches across many iterations — provides diversity, prevents overfitting to one iteration's quirks, and is standard RL hygiene to decorrelate consecutive samples."
+        },
+        {
+          topic: "Training",
+          q: "AlphaZero uses cross-entropy loss for the policy head and MSE loss for the value head. Why these specific choices?",
+          options: [
+            "They're the only loss functions PyTorch supports for multi-head networks",
+            "Each loss matches the statistical nature of its output: CE for categorical distributions (policy); MSE for continuous bounded scalars (value)",
+            "CE and MSE have similar magnitudes, so they combine cleanly without per-loss weighting",
+            "CE is faster to compute; MSE is more interpretable — the combo balances both"
+          ],
+          correct: 1,
+          explanation: "CE is the proper loss for matching probability distributions — it's the maximum-likelihood estimator. MSE is the natural loss for regression on bounded scalars. The gradient of CE through softmax simplifies beautifully (predicted − target). The two losses naturally come out at similar magnitudes for AlphaZero training so no manual weighting is needed."
+        },
+        {
+          topic: "Training",
+          q: "When <code>loss.backward()</code> is called, where does the gradient of the POLICY loss flow?",
+          options: [
+            "Only through the policy head's parameters — CE loss only sees the policy output",
+            "Through the policy head AND back through the entire shared backbone (input conv + all residual blocks)",
+            "Through both the policy and value heads simultaneously — they're connected",
+            "Only through the last residual block, then stops"
+          ],
+          correct: 1,
+          explanation: "The chain rule propagates gradient through every layer that contributed to the output. Policy loss → policy head's weights → backbone features → backbone weights → input layer. The value head doesn't receive policy gradient (it didn't contribute to the policy output). But the BACKBONE gets gradients from BOTH losses — that's the multi-task learning effect."
+        },
+        {
+          topic: "Training",
+          q: "Why does our framework include a constant <strong>ones plane</strong> alongside (my_pieces, opp_pieces) in encode()?",
+          options: [
+            "It serves as a learnable bias for the conv layers",
+            "It helps the network distinguish actual board cells from zero-padding at conv boundaries — convs with padding mix in zeros from outside the board, and the ones plane lets the network detect proximity to edges",
+            "It increases input dimensionality to match the policy head's expected shape",
+            "It's a leftover from earlier architecture experiments"
+          ],
+          correct: 1,
+          explanation: "Convolutions with <code>padding=1</code> treat positions outside the board as zeros. Without the ones plane, a corner cell looks like 'I have empty neighbors' — same as a middle cell with empty neighbors. With the ones plane (1 everywhere on the real board, 0 in padding), the network sees a different signal at edges vs middle. Edge detection comes 'for free'. This is a standard trick in board-game CNNs."
+        },
+        {
+          topic: "Architecture",
+          q: "Why does our framework support TTT, Connect 4, and (eventually) chess <strong>without changing the Trainer / MCTS / NN code</strong>?",
+          options: [
+            "The framework uses runtime reflection to detect game-specific behavior",
+            "The Game abstract base class defines a clean interface; concrete games provide game-specific behavior; the rest of the framework only uses the interface",
+            "Each game has its own Trainer subclass",
+            "The framework auto-generates game-specific code from a config file"
+          ],
+          correct: 1,
+          explanation: "The <code>Game</code> ABC defines methods like <code>initial_state</code>, <code>apply</code>, <code>terminal_value</code>, <code>encode</code>, <code>legal_actions_mask</code>, <code>symmetries</code>. The Trainer/MCTS/NN consume Game only through this interface. Adding a new game = writing one new subclass (~200 lines). This is the architectural payoff we get for the framework's discipline."
+        },
+        {
+          topic: "Architecture",
+          q: "What does <code>canonical_state(state)</code> do?",
+          options: [
+            "Validates that the state is legal",
+            "Rewrites the board so the current player's pieces appear as +1, regardless of whose turn it actually is",
+            "Returns the optimal move from the state",
+            "Normalizes the board across games (e.g., scaling values)"
+          ],
+          correct: 1,
+          explanation: "<code>canonical_state(state) = state · current_player(state)</code>. The NN never has to learn 'whose turn is it' — it always sees the board from the to-move player's POV (their pieces are +1, opponent's are −1). This roughly halves the effective state space the NN must model."
+        },
+        {
+          topic: "Architecture",
+          q: "Hypothetically: if you trained AlphaZero with ONLY the value loss (dropping policy loss entirely), what would go wrong?",
+          options: [
+            "Nothing important — MCTS would still work, just slightly slower",
+            "Without policy priors, PUCT's exploration becomes uniform — MCTS becomes orders of magnitude less sample-efficient",
+            "The value head would overfit to game outcomes (no regularization from policy loss)",
+            "PyTorch would error because the policy head has no gradient flowing into it"
+          ],
+          correct: 1,
+          explanation: "PUCT explicitly uses the prior P(s,a) to bias exploration. Without policy training, P would be untrained (essentially random). MCTS would explore all moves roughly equally regardless of their actual merit. Empirical AlphaGo Zero ablations showed ~10× drop in sample efficiency when the policy head was ablated."
+        },
+        {
+          topic: "Engineering",
+          q: "We REMOVED the arena gate (the 55%-win-rate gate before promoting candidate→best) from our Trainer. Why?",
+          options: [
+            "Arena was too slow — 40 games per iter was the bottleneck",
+            "On TTT, MCTS smoothed over small NN differences → most candidate-vs-best matches drew → win_rate hovered near 0.5 → gate never met its 0.55 threshold → best_net froze",
+            "The arena gate caused overfitting to training data",
+            "It used too much GPU memory keeping two networks loaded simultaneously"
+          ],
+          correct: 1,
+          explanation: "The exact bug we hit in Sub-project 1: after iter 5's acceptance, best_net was byte-identical for 41 iterations because arena kept rejecting. The frozen network had learned a 'defeatist O policy' (prior on center after X-corner = 0.095, below uniform 1/9) and lost 100% of O-side games. The AlphaZero paper (2017) deliberately dropped arena gating; AlphaGo Zero had used it. Switching to unconditional promotion fixed it."
+        },
+        {
+          topic: "Engineering",
+          q: "You're training Connect 4 and notice eval win-rate vs minimax-depth-8 isn't improving across iterations. What's the FIRST diagnostic to run?",
+          options: [
+            "Increase num_simulations — search isn't deep enough",
+            "Decrease the learning rate — training is unstable",
+            "Verify that best_net's weights actually change between iterations (i.e., promotion is happening, self-play data isn't stale)",
+            "Add more residual blocks — the network lacks capacity"
+          ],
+          correct: 2,
+          explanation: "Diagnose first, fix second. <code>torch.load(checkpoint).get('best_net')</code> from two checkpoints and compare a few weights — if they're identical, best_net is frozen, training data is stale, and no amount of changing other knobs will help. This is the exact pattern that caught the arena-gating bug; it's worth checking on any 'training stalled' symptom before reaching for hyperparameter changes."
+        },
+      ];
+
+      // ============================================================
+      // Quiz logic
+      // ============================================================
+      const state = {
+        idx: 0,
+        answers: [],       // index of user's chosen option, or null if skipped
+        topicScore: {},    // topic → {correct, total}
+      };
+
+      const quizEl = document.getElementById('quiz');
+      const resultsEl = document.getElementById('results');
+      const progressFill = document.getElementById('progress-fill');
+      const progressText = document.getElementById('progress-text');
+
+      function renderQuestion() {
+        const q = QUESTIONS[state.idx];
+        const total = QUESTIONS.length;
+        const num = state.idx + 1;
+        progressFill.style.width = `${((state.idx) / total) * 100}%`;
+        progressText.textContent = `Q ${num} / ${total}`;
+
+        quizEl.style.display = '';
+        resultsEl.style.display = 'none';
+
+        quizEl.innerHTML = `
+          <div class="topic-chip">${q.topic}</div>
+          <div class="q-number">Question ${num} of ${total}</div>
+          <p class="q-text">${q.q}</p>
+          <div class="options" id="options"></div>
+          <div id="explanation-slot"></div>
+          <div class="actions" id="actions"></div>
+        `;
+        const opts = quizEl.querySelector('#options');
+        const labels = ['A', 'B', 'C', 'D'];
+        q.options.forEach((text, i) => {
+          const btn = document.createElement('button');
+          btn.className = 'option';
+          btn.innerHTML = `<span class="option-label">${labels[i]}</span> ${text}`;
+          btn.onclick = () => onAnswer(i);
+          opts.appendChild(btn);
+        });
+
+        const actions = quizEl.querySelector('#actions');
+        if (state.idx > 0) {
+          const back = document.createElement('button');
+          back.className = 'btn';
+          back.textContent = '← Back';
+          back.onclick = () => { state.idx -= 1; renderQuestion(); };
+          actions.appendChild(back);
+        }
+      }
+
+      function onAnswer(chosen) {
+        const q = QUESTIONS[state.idx];
+        state.answers[state.idx] = chosen;
+
+        // Track topic score
+        if (!state.topicScore[q.topic]) state.topicScore[q.topic] = { correct: 0, total: 0 };
+        state.topicScore[q.topic].total += 1;
+        if (chosen === q.correct) state.topicScore[q.topic].correct += 1;
+
+        // Render result UI
+        const opts = quizEl.querySelectorAll('.option');
+        opts.forEach((btn, i) => {
+          btn.disabled = true;
+          if (i === q.correct) btn.classList.add('correct');
+          else if (i === chosen) btn.classList.add('wrong');
+        });
+
+        const slot = quizEl.querySelector('#explanation-slot');
+        const isCorrect = chosen === q.correct;
+        slot.innerHTML = `
+          <div class="explanation ${isCorrect ? 'correct' : ''}">
+            <strong>${isCorrect ? '✅ Correct.' : '❌ Not quite.'}</strong> ${q.explanation}
+          </div>
+        `;
+
+        const actions = quizEl.querySelector('#actions');
+        actions.innerHTML = '';
+        if (state.idx > 0) {
+          const back = document.createElement('button');
+          back.className = 'btn';
+          back.textContent = '← Back';
+          back.onclick = () => { state.idx -= 1; renderQuestion(); };
+          actions.appendChild(back);
+        }
+        const next = document.createElement('button');
+        next.className = 'btn primary';
+        next.textContent = state.idx === QUESTIONS.length - 1 ? 'See results →' : 'Next question →';
+        next.onclick = () => {
+          if (state.idx < QUESTIONS.length - 1) {
+            state.idx += 1;
+            renderQuestion();
+          } else {
+            renderResults();
+          }
+        };
+        actions.appendChild(next);
+      }
+
+      function renderResults() {
+        const total = QUESTIONS.length;
+        let correct = 0;
+        state.answers.forEach((a, i) => {
+          if (a === QUESTIONS[i].correct) correct += 1;
+        });
+        const pct = Math.round((correct / total) * 100);
+        progressFill.style.width = '100%';
+        progressText.textContent = `Complete`;
+
+        let verdict;
+        if (pct >= 90) {
+          verdict = `Excellent — you have a deep grasp of the framework, from the high-level intuition down to the subtle implementation gotchas. You'd be ready to implement an AlphaZero-style system from scratch.`;
+        } else if (pct >= 75) {
+          verdict = `Strong — solid conceptual understanding. The questions you missed are probably implementation-detail traps; review the explanations and re-take to lock them in.`;
+        } else if (pct >= 60) {
+          verdict = `Decent foundation, but with some gaps. Re-read the <a href="2026-05-16-foundational-concepts.html">Foundational Concepts</a> reference, especially the sections on the questions you missed.`;
+        } else {
+          verdict = `Worth revisiting the basics. The <a href="../../concepts.html">visual primer</a> and the <a href="2026-05-16-foundational-concepts.html">Foundational Concepts</a> reference together give the full picture. Then come back to this quiz.`;
+        }
+
+        // Topic breakdown
+        let topicHTML = '';
+        Object.keys(state.topicScore).sort().forEach((topic) => {
+          const { correct: c, total: t } = state.topicScore[topic];
+          topicHTML += `
+            <div class="topic-card">
+              <strong>${topic}</strong>
+              <div class="score">${c} / ${t}</div>
+            </div>
+          `;
+        });
+
+        quizEl.style.display = 'none';
+        resultsEl.style.display = '';
+        resultsEl.innerHTML = `
+          <h2>Quiz complete</h2>
+          <div class="score-big">${correct} / ${total}</div>
+          <div class="score-label">${pct}%</div>
+          <div class="verdict">${verdict}</div>
+          <h3 style="font-family: var(--cursive); color: var(--blue); margin: 24px 0 8px;">By topic</h3>
+          <div class="topic-breakdown">${topicHTML}</div>
+          <div class="actions" style="justify-content: center;">
+            <button class="btn" onclick="window.scrollTo({top:0,behavior:'smooth'}); restart()">Try again</button>
+            <a class="btn primary" href="../../index.html" style="text-decoration: none;">Back to docs</a>
+          </div>
+        `;
+      }
+
+      function restart() {
+        state.idx = 0;
+        state.answers = [];
+        state.topicScore = {};
+        renderQuestion();
+      }
+      window.restart = restart;
+
+      // Boot
+      renderQuestion();
+    </script>
+  </body>
+</html>
