@@ -281,6 +281,7 @@ a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
     </header>
     <article class="spec"><blockquote>
 <p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+<p><strong>⚠ Plan correction (post-implementation):</strong> This plan was written before we discovered that arena gating causes training stagnation. <strong>Tasks involving <code>_maybe_accept_candidate</code>, <code>arena_threshold</code>, and the arena-gating tests were superseded.</strong> The Trainer now unconditionally promotes the candidate to best after each iteration (AlphaZero 2017 paper). The arena-related portions of Task 22 and the invariant test referencing arena rejection are NOT in the current codebase. See <a href="../../../concepts.html"><code>concepts.html</code></a> concept card #3 or <a href="../specs/2026-05-15-connect4-design.md">Sub-project 2 spec §6</a> for the post-mortem.</p>
 </blockquote>
 <p><strong>Goal:</strong> Build a game-agnostic AlphaZero framework end-to-end, validated on Tic-Tac-Toe by reaching the kill criterion (zero losses out of 200 games against a perfect minimax solver).</p>
 <p><strong>Architecture:</strong> Four orthogonal layers — Game (rules) → AlphaZeroNet (PyTorch ResNet) → MCTS (PUCT search calling an <code>eval_fn</code>) → Trainer (orchestrates self-play → buffer → train → arena loop). Strict layer boundaries make every component independently testable; only the <code>Game</code> class changes when moving to Connect 4 or chess in later sub-projects.</p>
@@ -2994,7 +2995,7 @@ class Trainer:
 git commit -m &quot;Add Trainer init + self-play/train step (no arena yet)&quot;
 </code></pre>
 <hr>
-<h2 id="task-22-trainer-full-run-loop-with-arena-gate">Task 22: Trainer — full run loop with arena gate</h2>
+<h2 id="task-22-trainer-full-run-loop-with-arena-gate-superseded-removed-in-commit-413f42f">Task 22: Trainer — full run loop with arena gate (superseded — removed in commit 413f42f)</h2>
 <p><strong>Files:</strong>
 - Modify: <code>src/alphazero/trainer.py</code> (add <code>run()</code>, arena gate, eval, checkpointing)
 - Modify: <code>tests/test_trainer.py</code></p>
@@ -3015,7 +3016,7 @@ def test_trainer_run_writes_checkpoints(tiny_config, tmp_path, monkeypatch):
     assert len(ckpts) &gt;= 1
 
 
-def test_arena_acceptance_replaces_best_net(tiny_config):
+def test_arena_acceptance_replaces_best_net(tiny_config):  # superseded — removed in commit 413f42f
     &quot;&quot;&quot;If candidate wins enough, best_net adopts candidate weights.&quot;&quot;&quot;
     trainer = Trainer(TicTacToe(), tiny_config)
     trainer._run_self_play_iteration()
@@ -3034,7 +3035,7 @@ def test_arena_acceptance_replaces_best_net(tiny_config):
         torch.testing.assert_close(p_b, p_c)
 
 
-def test_arena_rejection_reverts_candidate_to_best(tiny_config):
+def test_arena_rejection_reverts_candidate_to_best(tiny_config):  # superseded — removed in commit 413f42f
     &quot;&quot;&quot;If candidate fails the gate, candidate is reset to best_net's weights.&quot;&quot;&quot;
     trainer = Trainer(TicTacToe(), tiny_config)
     trainer._run_self_play_iteration()

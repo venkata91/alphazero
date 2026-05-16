@@ -8,6 +8,8 @@ target: Game-agnostic AlphaZero framework, validated end-to-end on Tic-Tac-Toe
 
 # AlphaZero Framework + Tic-Tac-Toe (Sub-project 1)
 
+> **⚠ Design correction (post-implementation):** This spec describes the original design that included AlphaGo Zero-style arena gating. **We removed arena gating during implementation** after it caused training stagnation on TTT (`best_net` froze at iter 5; agent learned a defeatist O policy; lost 100% of O-side games against perfect play). The Trainer now matches the AlphaZero (2017) paper: `_promote_candidate_to_best` is called unconditionally after each iteration. See [`concepts.html`](../../../concepts.html) concept card #3 for the visual story, or [Sub-project 2 spec §6 "Lessons from Sub-project 1"](../specs/2026-05-15-connect4-design.md) for the technical post-mortem. The arena-related sections of this spec are preserved as historical record of the original design; the current code does not implement them.
+
 ## 1. Context
 
 This is the first of a multi-stage project to build an AlphaZero-style chess engine from scratch.
@@ -149,7 +151,7 @@ loss        = policy_loss + value_loss              # L2 regularization via Adam
 - **AdamW (not SGD+momentum).** The original AlphaZero paper used SGD+momentum, but AdamW is the modern pragmatic choice for replications: faster convergence on small games with no observable downside.
 - **Soft cross-entropy.** Target π is a *probability distribution* from MCTS (not a one-hot of "best move"). We compute `−sum(π * log_softmax(logits))` manually rather than using `nn.CrossEntropyLoss` (which expects class indices).
 - **Legal-action masking at inference**: set illegal action logits to −∞ before softmax. Not applied during training (loss is conditional on legal moves only, since π itself only has support on legal moves).
-- **Sizing for TTT**: 4 blocks × 32 channels (~250K params) is plenty. For chess later: 10–20 blocks × 128–256 channels.
+- **Sizing for TTT**: 4 blocks × 32 channels (~76K params) is plenty. For chess later: 10–20 blocks × 128–256 channels.
 
 ### 5.3 `MCTS`
 

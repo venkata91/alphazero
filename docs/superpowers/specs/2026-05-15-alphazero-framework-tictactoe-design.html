@@ -284,7 +284,10 @@ a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
       <span><strong>target:</strong>Game-agnostic AlphaZero framework, validated end-to-end on Tic-Tac-Toe</span>
       </div>
     </header>
-    <article class="spec"><h2 id="1-context">1. Context</h2>
+    <article class="spec"><blockquote>
+<p><strong>⚠ Design correction (post-implementation):</strong> This spec describes the original design that included AlphaGo Zero-style arena gating. <strong>We removed arena gating during implementation</strong> after it caused training stagnation on TTT (<code>best_net</code> froze at iter 5; agent learned a defeatist O policy; lost 100% of O-side games against perfect play). The Trainer now matches the AlphaZero (2017) paper: <code>_promote_candidate_to_best</code> is called unconditionally after each iteration. See <a href="../../../concepts.html"><code>concepts.html</code></a> concept card #3 for the visual story, or <a href="../specs/2026-05-15-connect4-design.md">Sub-project 2 spec §6 "Lessons from Sub-project 1"</a> for the technical post-mortem. The arena-related sections of this spec are preserved as historical record of the original design; the current code does not implement them.</p>
+</blockquote>
+<h2 id="1-context">1. Context</h2>
 <p>This is the first of a multi-stage project to build an AlphaZero-style chess engine from scratch.
 The user's primary goal is <strong>learning</strong>: build the full AlphaZero pipeline (board representation → neural network → MCTS → self-play → training loop), understand each component deeply, and let the achieved ELO emerge from the work — rather than chasing a target ELO via shortcuts.</p>
 <p>The project is decomposed into five sub-projects. This document specifies <strong>Sub-project 1</strong>.</p>
@@ -458,7 +461,7 @@ loss        = policy_loss + value_loss              # L2 regularization via Adam
 <li><strong>AdamW (not SGD+momentum).</strong> The original AlphaZero paper used SGD+momentum, but AdamW is the modern pragmatic choice for replications: faster convergence on small games with no observable downside.</li>
 <li><strong>Soft cross-entropy.</strong> Target π is a <em>probability distribution</em> from MCTS (not a one-hot of "best move"). We compute <code>−sum(π * log_softmax(logits))</code> manually rather than using <code>nn.CrossEntropyLoss</code> (which expects class indices).</li>
 <li><strong>Legal-action masking at inference</strong>: set illegal action logits to −∞ before softmax. Not applied during training (loss is conditional on legal moves only, since π itself only has support on legal moves).</li>
-<li><strong>Sizing for TTT</strong>: 4 blocks × 32 channels (~250K params) is plenty. For chess later: 10–20 blocks × 128–256 channels.</li>
+<li><strong>Sizing for TTT</strong>: 4 blocks × 32 channels (~76K params) is plenty. For chess later: 10–20 blocks × 128–256 channels.</li>
 </ul>
 <h3 id="53-mcts">5.3 <code>MCTS</code></h3>
 <p><strong>Role</strong>: from a given state, run N simulations, return an improved policy (visit distribution).</p>

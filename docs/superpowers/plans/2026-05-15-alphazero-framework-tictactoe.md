@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **⚠ Plan correction (post-implementation):** This plan was written before we discovered that arena gating causes training stagnation. **Tasks involving `_maybe_accept_candidate`, `arena_threshold`, and the arena-gating tests were superseded.** The Trainer now unconditionally promotes the candidate to best after each iteration (AlphaZero 2017 paper). The arena-related portions of Task 22 and the invariant test referencing arena rejection are NOT in the current codebase. See [`concepts.html`](../../../concepts.html) concept card #3 or [Sub-project 2 spec §6](../specs/2026-05-15-connect4-design.md) for the post-mortem.
+
 **Goal:** Build a game-agnostic AlphaZero framework end-to-end, validated on Tic-Tac-Toe by reaching the kill criterion (zero losses out of 200 games against a perfect minimax solver).
 
 **Architecture:** Four orthogonal layers — Game (rules) → AlphaZeroNet (PyTorch ResNet) → MCTS (PUCT search calling an `eval_fn`) → Trainer (orchestrates self-play → buffer → train → arena loop). Strict layer boundaries make every component independently testable; only the `Game` class changes when moving to Connect 4 or chess in later sub-projects.
@@ -2891,7 +2893,7 @@ git commit -m "Add Trainer init + self-play/train step (no arena yet)"
 
 ---
 
-## Task 22: Trainer — full run loop with arena gate
+## Task 22: Trainer — full run loop with arena gate (superseded — removed in commit 413f42f)
 
 **Files:**
 - Modify: `src/alphazero/trainer.py` (add `run()`, arena gate, eval, checkpointing)
@@ -2914,7 +2916,7 @@ def test_trainer_run_writes_checkpoints(tiny_config, tmp_path, monkeypatch):
     assert len(ckpts) >= 1
 
 
-def test_arena_acceptance_replaces_best_net(tiny_config):
+def test_arena_acceptance_replaces_best_net(tiny_config):  # superseded — removed in commit 413f42f
     """If candidate wins enough, best_net adopts candidate weights."""
     trainer = Trainer(TicTacToe(), tiny_config)
     trainer._run_self_play_iteration()
@@ -2933,7 +2935,7 @@ def test_arena_acceptance_replaces_best_net(tiny_config):
         torch.testing.assert_close(p_b, p_c)
 
 
-def test_arena_rejection_reverts_candidate_to_best(tiny_config):
+def test_arena_rejection_reverts_candidate_to_best(tiny_config):  # superseded — removed in commit 413f42f
     """If candidate fails the gate, candidate is reset to best_net's weights."""
     trainer = Trainer(TicTacToe(), tiny_config)
     trainer._run_self_play_iteration()
