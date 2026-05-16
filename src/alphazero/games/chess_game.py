@@ -62,7 +62,53 @@ class Chess(Game):
         return 1.0 if winner_is_current else -1.0
 
     def encode(self, state: State) -> np.ndarray:
-        raise NotImplementedError  # Task 7
+        """Encode the board as a 20-plane (channels, 8, 8) float32 tensor.
+
+        Planes:
+            0-5:   my pieces (pawn, knight, bishop, rook, queen, king)
+            6-11:  opp pieces (same order)
+            12:    ones plane (constant 1)
+            13-16: castling rights (my-K, my-Q, opp-K, opp-Q)
+            17:    en-passant target square (1-hot at the en-passant square, if any)
+            18:    halfmove clock for 50-move rule (normalized: clock / 100)
+            19:    fullmove number normalized: fullmove_number / 100
+        """
+        enc = np.zeros((NUM_PLANES, 8, 8), dtype=np.float32)
+        my_color = state.turn  # current player
+        opp_color = not my_color
+        piece_types = [chess.PAWN, chess.KNIGHT, chess.BISHOP,
+                       chess.ROOK, chess.QUEEN, chess.KING]
+
+        # Planes 0-5: my pieces
+        for plane_idx, pt in enumerate(piece_types):
+            for sq in state.pieces(pt, my_color):
+                r, f = chess.square_rank(sq), chess.square_file(sq)
+                enc[plane_idx, r, f] = 1.0
+        # Planes 6-11: opp pieces
+        for plane_idx, pt in enumerate(piece_types):
+            for sq in state.pieces(pt, opp_color):
+                r, f = chess.square_rank(sq), chess.square_file(sq)
+                enc[6 + plane_idx, r, f] = 1.0
+        # Plane 12: ones
+        enc[12, :, :] = 1.0
+        # Planes 13-16: castling rights
+        if state.has_kingside_castling_rights(my_color):
+            enc[13, :, :] = 1.0
+        if state.has_queenside_castling_rights(my_color):
+            enc[14, :, :] = 1.0
+        if state.has_kingside_castling_rights(opp_color):
+            enc[15, :, :] = 1.0
+        if state.has_queenside_castling_rights(opp_color):
+            enc[16, :, :] = 1.0
+        # Plane 17: en passant target
+        if state.ep_square is not None:
+            r, f = chess.square_rank(state.ep_square), chess.square_file(state.ep_square)
+            enc[17, r, f] = 1.0
+        # Plane 18: halfmove clock normalized
+        enc[18, :, :] = min(state.halfmove_clock / 100.0, 1.0)
+        # Plane 19: fullmove number normalized
+        enc[19, :, :] = min(state.fullmove_number / 100.0, 1.0)
+        return enc
 
     def canonical_state(self, state: State) -> State:
         raise NotImplementedError  # Task 8

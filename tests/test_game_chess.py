@@ -80,3 +80,56 @@ def test_terminal_value_50_move_rule_returns_zero(game):
     s = chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 100 75")
     # Note: chess.Board considers this a draw under can_claim_draw
     assert game.terminal_value(s) == 0.0
+
+
+def test_encode_shape_and_dtype(game):
+    s = game.initial_state()
+    enc = game.encode(s)
+    assert enc.shape == (20, 8, 8)
+    assert enc.dtype == np.float32
+
+
+def test_encode_initial_position_my_pawns_on_rank_2(game):
+    """White to move at start: my pawns (plane 0) on rank 2 (board row index 1)."""
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Plane 0 = my pawns. python-chess square_rank(): a2=8 → rank 1 (0-indexed)
+    # We pack squares into (8, 8) as enc[plane][rank][file]
+    assert (enc[0, 1, :] == 1).all()           # all 8 files of rank 2 have my pawns
+    assert (enc[0, 0, :] == 0).all()           # rank 1 has no my-pawns
+
+
+def test_encode_initial_position_opp_pawns_on_rank_7(game):
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Plane 6 = opponent's pawns. Rank 7 = board index 6.
+    assert (enc[6, 6, :] == 1).all()
+
+
+def test_encode_ones_plane_all_ones(game):
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Plane 12 = ones plane
+    assert (enc[12] == 1).all()
+
+
+def test_encode_castling_rights_initial_all_one(game):
+    """At the starting position, all 4 castling rights are present."""
+    s = game.initial_state()
+    enc = game.encode(s)
+    # Planes 13-16: my-K, my-Q, opp-K, opp-Q castling
+    for plane in (13, 14, 15, 16):
+        assert (enc[plane] == 1).all()
+
+
+def test_encode_castling_rights_after_white_kingside_zero(game):
+    """After Ke1-e2, white has lost both castling rights."""
+    s = game.initial_state()
+    s.push(chess.Move.from_uci("e2e3"))
+    s.push(chess.Move.from_uci("e7e6"))
+    s.push(chess.Move.from_uci("e1e2"))
+    s.push(chess.Move.from_uci("e8e7"))
+    # Now back to white; current player's K and Q castling are both lost
+    enc = game.encode(s)
+    assert (enc[13] == 0).all()
+    assert (enc[14] == 0).all()
