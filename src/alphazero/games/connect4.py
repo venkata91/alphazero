@@ -51,10 +51,40 @@ class Connect4(Game):
                 break
         return new_state
 
-    # Stubs filled in by subsequent tasks
     def terminal_value(self, state: State) -> float | None:
-        raise NotImplementedError  # Task 2
+        winner = self._find_winner(state)
+        if winner is not None:
+            return 1.0 if winner == self.current_player(state) else -1.0
+        if np.all(state != 0):
+            return 0.0  # full board, no winner → draw
+        return None
 
+    def _find_winner(self, state: State) -> int | None:
+        """Return +1 / -1 if either player has 4 in a row, else None."""
+        for player in (1, -1):
+            # Horizontal — 4 consecutive in a row
+            for r in range(ROWS):
+                for c in range(COLS - 3):
+                    if np.all(state[r, c:c+4] == player):
+                        return player
+            # Vertical — 4 consecutive in a column
+            for c in range(COLS):
+                for r in range(ROWS - 3):
+                    if np.all(state[r:r+4, c] == player):
+                        return player
+            # Diagonal ↘ (top-left to bottom-right)
+            for r in range(ROWS - 3):
+                for c in range(COLS - 3):
+                    if all(state[r+i, c+i] == player for i in range(4)):
+                        return player
+            # Diagonal ↗ (bottom-left to top-right)
+            for r in range(3, ROWS):
+                for c in range(COLS - 3):
+                    if all(state[r-i, c+i] == player for i in range(4)):
+                        return player
+        return None
+
+    # Stubs filled in by subsequent tasks
     def encode(self, state: State) -> np.ndarray:
         raise NotImplementedError  # Task 3
 

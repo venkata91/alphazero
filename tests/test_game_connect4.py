@@ -75,3 +75,91 @@ def test_legal_actions_mask_after_filling_one_column(c4: Connect4):
     mask = c4.legal_actions_mask(s)
     assert mask.sum() == 6
     assert not mask[3]
+
+
+def _board(rows: list[list[int]]) -> np.ndarray:
+    """Helper: literal board from a 2D list, row 0 at top."""
+    return np.array(rows, dtype=np.int8)
+
+
+def test_terminal_value_none_for_initial(c4: Connect4):
+    assert c4.terminal_value(c4.initial_state()) is None
+
+
+def test_terminal_value_none_when_in_progress(c4: Connect4):
+    s = c4.initial_state()
+    s = c4.apply(s, 3)
+    s = c4.apply(s, 4)
+    assert c4.terminal_value(s) is None
+
+
+def test_terminal_value_horizontal_4_in_a_row(c4: Connect4):
+    # +1 has 4 in a row at row 5, columns 0-3. -1 has 3 scattered.
+    # Total nonzero = 7 (odd) → current_player = -1.
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [-1, -1, -1, 0, 0, 0, 0],
+        [1, 1, 1, 1, 0, 0, 0],
+    ])
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_vertical_4_in_a_row(c4: Connect4):
+    # +1 has 4 stacked in column 0. -1 has 3 scattered.
+    # Nonzero = 7, current_player = -1.
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [1, -1, -1, -1, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+    ])
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_diagonal_down_right(c4: Connect4):
+    # +1 has 4 on the ↘ diagonal. 4 X + 5 O = 9 nonzero → -1's turn.
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [-1, 1, 0, 0, 0, 0, 0],
+        [-1, -1, 1, 0, 0, 0, 0],
+        [-1, -1, 0, 1, 0, 0, 0],
+    ])
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_diagonal_up_right(c4: Connect4):
+    # +1 has 4 on the ↗ diagonal: (5,0), (4,1), (3,2), (2,3).
+    # 5 X + 4 O = 9 nonzero → -1's turn.
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0],
+        [-1, -1, 1, 0, 0, 0, 0],
+        [-1, 1, -1, 0, 0, 0, 0],
+        [1, -1, 1, 1, 0, 0, 0],
+    ])
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_draw_on_full_board_no_winner(c4: Connect4):
+    """A block pattern where no player has 4 in a row."""
+    state = _board([
+        [ 1,  1, -1, -1,  1,  1, -1],
+        [-1, -1,  1,  1, -1, -1,  1],
+        [ 1,  1, -1, -1,  1,  1, -1],
+        [-1, -1,  1,  1, -1, -1,  1],
+        [ 1,  1, -1, -1,  1,  1, -1],
+        [-1, -1,  1,  1, -1, -1,  1],
+    ])
+    assert c4.terminal_value(state) == 0.0
