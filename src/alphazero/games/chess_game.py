@@ -111,4 +111,17 @@ class Chess(Game):
         return enc
 
     def canonical_state(self, state: State) -> State:
-        raise NotImplementedError  # Task 8
+        """Return state from the current player's POV.
+
+        For chess: when Black is to move, mirror the board so the network
+        always sees the to-move player as "White at the bottom." python-chess's
+        Board.mirror() handles castling rights and en passant correctly.
+        """
+        if state.turn == chess.BLACK:
+            return state.mirror()
+        return state
+
+    def symmetries(self, encoded, policy):
+        """Chess has no symmetries (castling rights and pawn direction
+        break left-right mirror; player asymmetry breaks rotation)."""
+        return [(encoded, policy)]

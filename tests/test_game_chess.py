@@ -133,3 +133,35 @@ def test_encode_castling_rights_after_white_kingside_zero(game):
     enc = game.encode(s)
     assert (enc[13] == 0).all()
     assert (enc[14] == 0).all()
+
+
+def test_canonical_state_identity_when_white_to_move(game):
+    s = game.initial_state()
+    canon = game.canonical_state(s)
+    assert canon.fen() == s.fen()
+
+
+def test_canonical_state_mirrors_when_black_to_move(game):
+    """After white plays e2-e4, it's black to move. Canonical state should be the
+    board mirrored (white pawn at e4 → black pawn at e5)."""
+    s = game.initial_state()
+    s.push(chess.Move.from_uci("e2e4"))
+    assert s.turn == chess.BLACK
+    canon = game.canonical_state(s)
+    # In the mirrored board, the previously-white pawn at e4 is vertically
+    # flipped to e5 and color-swapped to black (python-chess Board.mirror()
+    # swaps colors so the to-move player appears as White).
+    assert canon.turn == chess.WHITE
+    assert canon.piece_at(chess.E5) is not None
+    assert canon.piece_at(chess.E5).color == chess.BLACK
+
+
+def test_symmetries_identity_only(game):
+    """Chess has no symmetries."""
+    s = game.initial_state()
+    enc = game.encode(s)
+    policy = np.full(4672, 1.0 / 4672, dtype=np.float32)
+    syms = game.symmetries(enc, policy)
+    assert len(syms) == 1
+    np.testing.assert_array_equal(syms[0][0], enc)
+    np.testing.assert_array_equal(syms[0][1], policy)
