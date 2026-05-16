@@ -89,3 +89,54 @@ def test_knight_at_corner_partial_round_trip():
         idx = move_to_index(board, move)
         back = index_to_move(board, idx)
         assert back == move
+
+
+def test_underpromotion_round_trip_all_combinations():
+    """Pawn on 7th rank: 3 promotion pieces × 3 file directions = 9 underpromotions."""
+    # White pawn on e7; possible promotions: knight, bishop, rook (queen is auto via queen direction)
+    # File directions: capture-left (d8), forward (e8), capture-right (f8)
+    board = chess.Board("3rkr2/4P3/8/8/8/8/8/4K3 w - - 0 1")
+    for piece in (chess.KNIGHT, chess.BISHOP, chess.ROOK):
+        for dst_file in ("d", "e", "f"):
+            try:
+                move = chess.Move.from_uci(f"e7{dst_file}8{chess.piece_symbol(piece)}")
+            except Exception:
+                continue
+            if move not in board.legal_moves:
+                continue
+            idx = move_to_index(board, move)
+            back = index_to_move(board, idx)
+            assert back == move, f"Underpromotion round-trip failed for {move.uci()}"
+
+
+def test_bijective_every_legal_move_in_initial_position():
+    """Every legal move in the starting position round-trips perfectly."""
+    board = chess.Board()
+    for move in board.legal_moves:
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f"Round-trip failed for {move.uci()}"
+
+
+def test_bijective_after_random_play():
+    """100 moves of random play; every legal move at every position round-trips."""
+    import random
+    rng = random.Random(42)
+    board = chess.Board()
+    for _ in range(100):
+        if board.is_game_over():
+            break
+        for move in board.legal_moves:
+            idx = move_to_index(board, move)
+            back = index_to_move(board, idx)
+            assert back == move, f"Round-trip failed for {move.uci()} at fen={board.fen()}"
+        moves = list(board.legal_moves)
+        board.push(rng.choice(moves))
+
+
+def test_index_to_move_rejects_out_of_range():
+    board = chess.Board()
+    with pytest.raises(ValueError):
+        index_to_move(board, -1)
+    with pytest.raises(ValueError):
+        index_to_move(board, ACTION_SIZE)

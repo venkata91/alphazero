@@ -8,9 +8,8 @@ Each chess move is encoded as (source_square, move_type) where:
     - Underpromotions (3 pieces × 3 file dirs):  indices [64, 73)
 
 Flat action index = source_square * 73 + move_type, range [0, 4672).
-
-NOTE: this module currently implements only queen-like moves. Knight moves
-and underpromotions are added in Tasks 3 and 4.
+Queen promotions are encoded via the queen-like path (drank=±1, dfile∈{-1,0,1});
+underpromotions to knight/bishop/rook occupy move_type ∈ [64, 73).
 """
 from __future__ import annotations
 
@@ -40,6 +39,12 @@ KNIGHT_DELTAS: list[tuple[int, int]] = [
     ( 1, -2),  # WNW
     ( 2, -1),  # NNW
 ]
+
+# Underpromotion pieces (in this order): index 0=knight, 1=bishop, 2=rook
+UNDERPROMO_PIECES: list[int] = [chess.KNIGHT, chess.BISHOP, chess.ROOK]
+# Underpromotion file deltas (relative to forward direction of the moving pawn)
+# index 0 = capture-left, 1 = forward (push), 2 = capture-right
+UNDERPROMO_FILE_DELTAS: list[int] = [-1, 0, 1]
 
 ACTION_SIZE = 64 * 73  # 4672
 
@@ -80,6 +85,27 @@ def move_to_index(board: chess.Board, move: chess.Move) -> int:
     drank = chess.square_rank(dst) - chess.square_rank(src)
     dfile = chess.square_file(dst) - chess.square_file(src)
 
+    # Underpromotion (knight, bishop, rook only — queen is encoded as queen move)
+    if move.promotion is not None and move.promotion != chess.QUEEN:
+        piece = board.piece_at(src)
+        if piece is None or piece.piece_type != chess.PAWN:
+            raise ValueError(f"Underpromotion claim at square {src} but no pawn there (got {piece})")
+        # Black pawns move "down" (drank=-1); flip drank to canonical "forward" for index
+        forward_drank = drank if piece.color == chess.WHITE else -drank
+        forward_dfile = dfile if piece.color == chess.WHITE else -dfile
+        if forward_drank != 1:
+            raise ValueError(f"Expected pawn promotion drank=1, got {forward_drank}")
+        try:
+            piece_idx = UNDERPROMO_PIECES.index(move.promotion)
+        except ValueError:
+            raise ValueError(f"Bad underpromotion piece: {move.promotion}")
+        try:
+            file_idx = UNDERPROMO_FILE_DELTAS.index(forward_dfile)
+        except ValueError:
+            raise ValueError(f"Bad underpromotion file delta: {forward_dfile}")
+        move_type = 64 + piece_idx * 3 + file_idx
+        return src * 73 + move_type
+
     # Queen-like (and queen-promotions)
     queen_type = _queen_move_to_type(drank, dfile)
     if queen_type is not None and move.promotion in (None, chess.QUEEN):
@@ -90,10 +116,7 @@ def move_to_index(board: chess.Board, move: chess.Move) -> int:
         knight_idx = KNIGHT_DELTAS.index((drank, dfile))
         return src * 73 + (56 + knight_idx)
 
-    raise NotImplementedError(
-        f"Underpromotion encoding not implemented yet "
-        f"(move={move}, drank={drank}, dfile={dfile})"
-    )
+    raise ValueError(f"Cannot encode move {move} (drank={drank}, dfile={dfile})")
 
 
 def index_to_move(board: chess.Board, index: int) -> chess.Move:
@@ -116,7 +139,29 @@ def index_to_move(board: chess.Board, index: int) -> chess.Move:
         dst = chess.square(dst_file, dst_rank)
         return chess.Move(src, dst)
 
-    raise NotImplementedError(f"index {index} (move_type {move_type}) is an underpromotion (not impl yet)")
+    if 64 <= move_type < 73:
+        underpromo = move_type - 64
+        piece_idx, file_idx = divmod(underpromo, 3)
+        promotion_piece = UNDERPROMO_PIECES[piece_idx]
+        forward_dfile = UNDERPROMO_FILE_DELTAS[file_idx]
+        # Determine pawn color from source square's piece
+        piece = board.piece_at(src)
+        if piece is None or piece.piece_type != chess.PAWN:
+            raise ValueError(f"Underpromotion at square {src} but no pawn there")
+        if piece.color == chess.WHITE:
+            drank = 1
+            dfile = forward_dfile
+        else:
+            drank = -1
+            dfile = -forward_dfile  # flip for black pawn moving "down"
+        dst_rank = chess.square_rank(src) + drank
+        dst_file = chess.square_file(src) + dfile
+        if not (0 <= dst_rank < 8 and 0 <= dst_file < 8):
+            raise ValueError(f"index {index} decodes off-board")
+        dst = chess.square(dst_file, dst_rank)
+        return chess.Move(src, dst, promotion=promotion_piece)
+
+    raise ValueError(f"Unreachable: move_type {move_type}")
 
 
 def _build_move_with_promotion(board: chess.Board, src: int, drank: int, dfile: int) -> chess.Move:
