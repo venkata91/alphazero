@@ -49,7 +49,17 @@ class Chess(Game):
 
     # Filled in by later tasks
     def terminal_value(self, state: State) -> float | None:
-        raise NotImplementedError  # Task 6
+        if not state.is_game_over(claim_draw=True):
+            return None
+        outcome = state.outcome(claim_draw=True)
+        if outcome is None:
+            # is_game_over said True but no outcome: edge case, treat as draw
+            return 0.0
+        if outcome.winner is None:
+            return 0.0  # draw (stalemate, 3-fold rep, 50-move, insufficient material)
+        # winner is chess.WHITE or chess.BLACK; compare against current player to move
+        winner_is_current = (outcome.winner == state.turn)
+        return 1.0 if winner_is_current else -1.0
 
     def encode(self, state: State) -> np.ndarray:
         raise NotImplementedError  # Task 7
