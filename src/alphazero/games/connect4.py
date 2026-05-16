@@ -84,9 +84,16 @@ class Connect4(Game):
                         return player
         return None
 
-    # Stubs filled in by subsequent tasks
-    def encode(self, state: State) -> np.ndarray:
-        raise NotImplementedError  # Task 3
-
     def canonical_state(self, state: State) -> State:
-        raise NotImplementedError  # Task 3
+        """Rewrite so the current player's pieces are +1, opponent's are -1."""
+        return (state * self.current_player(state)).astype(np.int8)
+
+    def encode(self, state: State) -> np.ndarray:
+        """Three planes: my pieces (+1 in canonical state), opp pieces (-1), ones.
+
+        Caller is expected to pass a canonical state.
+        """
+        my = (state == 1).astype(np.float32)
+        opp = (state == -1).astype(np.float32)
+        ones = np.ones((ROWS, COLS), dtype=np.float32)
+        return np.stack([my, opp, ones], axis=0)

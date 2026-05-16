@@ -163,3 +163,39 @@ def test_terminal_value_draw_on_full_board_no_winner(c4: Connect4):
         [-1, -1,  1,  1, -1, -1,  1],
     ])
     assert c4.terminal_value(state) == 0.0
+
+
+def test_canonical_state_is_identity_when_current_player_plus_one(c4: Connect4):
+    s = c4.initial_state()
+    np.testing.assert_array_equal(c4.canonical_state(s), s)
+
+
+def test_canonical_state_inverts_when_current_player_minus_one(c4: Connect4):
+    s = c4.apply(c4.initial_state(), 3)  # +1 drops in col 3; now -1's turn
+    canon = c4.canonical_state(s)
+    expected = np.zeros((6, 7), dtype=np.int8)
+    expected[5, 3] = -1
+    np.testing.assert_array_equal(canon, expected)
+
+
+def test_encode_shape_and_dtype(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    assert enc.shape == (3, 6, 7)
+    assert enc.dtype == np.float32
+
+
+def test_encode_initial_state_planes(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    assert enc[0].sum() == 0
+    assert enc[1].sum() == 0
+    np.testing.assert_array_equal(enc[2], np.ones((6, 7), dtype=np.float32))
+
+
+def test_encode_treats_canonical_player_as_my_pieces(c4: Connect4):
+    """After +1 plays col 3, -1's canonical view: +1's piece appears on opp plane."""
+    s = c4.apply(c4.initial_state(), 3)
+    canon = c4.canonical_state(s)
+    enc = c4.encode(canon)
+    assert enc[0].sum() == 0
+    assert enc[1, 5, 3] == 1
+    assert enc[1].sum() == 1
