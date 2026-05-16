@@ -188,3 +188,128 @@ def worker_play_one_game(
         else:
             examples.append((encoded, pi, z))
     return examples
+
+
+def run_parallel_self_play(
+    *,
+    game_name: str,
+    state_dict: dict,
+    input_shape: tuple[int, int, int],
+    action_size: int,
+    n_blocks: int,
+    n_channels: int,
+    num_games: int,
+    num_workers: int,
+    inference_batch_size: int,
+    num_simulations: int,
+    temperature_threshold: int,
+    c_puct: float,
+    dirichlet_alpha: float,
+    dirichlet_weight: float,
+    device: str = "cpu",
+) -> list[tuple[np.ndarray, np.ndarray, float]]:
+    """Run num_games self-play games across num_workers processes.
+
+    Spawns one NN-server thread (owns the model) and num_workers worker
+    processes (each runs one game at a time until num_games are done).
+    Workers report back via a result queue; orchestrator collects.
+
+    Returns a flat list of (state, π, z) training tuples.
+    """
+    import threading
+
+    # Use spawn (safer with CUDA + cleaner than fork)
+    ctx = mp.get_context("spawn")
+    request_q = ctx.Queue()
+    response_qs = {wid: ctx.Queue() for wid in range(num_workers)}
+    result_q = ctx.Queue()
+    work_q = ctx.Queue()   # holds "play one game" job tokens
+
+    # Pre-load work queue with num_games jobs (just dummy tokens)
+    for game_idx in range(num_games):
+        work_q.put(game_idx)
+    # Sentinel: each worker exits when it pulls one
+    for _ in range(num_workers):
+        work_q.put(None)
+
+    shutdown_event = ctx.Event()
+
+    # Start the NN-server in a thread (in this process — server uses GPU)
+    server_thread = threading.Thread(
+        target=nn_server_loop,
+        args=(state_dict, input_shape, action_size, n_blocks, n_channels,
+              request_q, response_qs, shutdown_event),
+        kwargs={"batch_size": inference_batch_size,
+                "wait_timeout_ms": 5, "device": device},
+        daemon=True,
+    )
+    server_thread.start()
+
+    # Start workers
+    workers = []
+    for wid in range(num_workers):
+        p = ctx.Process(
+            target=_worker_loop,
+            args=(wid, game_name, num_simulations, temperature_threshold,
+                  c_puct, dirichlet_alpha, dirichlet_weight,
+                  work_q, request_q, response_qs[wid], result_q),
+        )
+        p.start()
+        workers.append(p)
+
+    # Collect num_games batches of training tuples
+    all_examples: list[tuple[np.ndarray, np.ndarray, float]] = []
+    try:
+        games_collected = 0
+        while games_collected < num_games:
+            batch = result_q.get(timeout=600.0)
+            all_examples.extend(batch)
+            games_collected += 1
+    finally:
+        # Always shutdown — even if collection raised
+        shutdown_event.set()
+        for p in workers:
+            p.join(timeout=10.0)
+            if p.is_alive():
+                p.terminate()
+        server_thread.join(timeout=5.0)
+
+    return all_examples
+
+
+def _worker_loop(
+    worker_id: int,
+    game_name: str,
+    num_simulations: int,
+    temperature_threshold: int,
+    c_puct: float,
+    dirichlet_alpha: float,
+    dirichlet_weight: float,
+    work_q: mp.Queue,
+    request_q: mp.Queue,
+    response_q: mp.Queue,
+    result_q: mp.Queue,
+) -> None:
+    """Worker entry point. Pulls 'play a game' tokens from work_q, runs one
+    game using worker_play_one_game, pushes results back via result_q. Exits
+    when it pulls a None sentinel."""
+    request_id_offset = worker_id * 1_000_000  # avoid request_id collisions across workers
+    while True:
+        token = work_q.get()
+        if token is None:
+            break
+        examples = worker_play_one_game(
+            worker_id=worker_id,
+            game_name=game_name,
+            num_simulations=num_simulations,
+            temperature_threshold=temperature_threshold,
+            c_puct=c_puct,
+            dirichlet_alpha=dirichlet_alpha,
+            dirichlet_weight=dirichlet_weight,
+            request_q=request_q,
+            response_q=response_q,
+            augment=True,
+            request_id_offset=request_id_offset,
+        )
+        request_id_offset += 100_000   # bump for next game from this worker
+        result_q.put(examples)

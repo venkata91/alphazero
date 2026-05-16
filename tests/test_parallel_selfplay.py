@@ -90,3 +90,34 @@ def test_worker_plays_one_complete_game():
         assert s.shape == (3, 3, 3)
         assert pi.shape == (9,)
         assert z in (-1.0, 0.0, 1.0)
+
+
+def test_run_parallel_self_play_returns_tuples():
+    """End-to-end: spawn 2 workers, play 4 games of TTT, get all tuples back."""
+    from alphazero.parallel_selfplay import run_parallel_self_play
+
+    net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+    state_dict = {k: v.clone() for k, v in net.state_dict().items()}
+
+    examples = run_parallel_self_play(
+        game_name="tictactoe",
+        state_dict=state_dict,
+        input_shape=(3, 3, 3),
+        action_size=9,
+        n_blocks=1,
+        n_channels=4,
+        num_games=4,
+        num_workers=2,
+        inference_batch_size=4,
+        num_simulations=5,
+        temperature_threshold=6,
+        c_puct=1.5,
+        dirichlet_alpha=1.0,
+        dirichlet_weight=0.25,
+        device="cpu",
+    )
+    assert len(examples) > 0
+    for s, pi, z in examples:
+        assert s.shape == (3, 3, 3)
+        assert pi.shape == (9,)
+        assert z in (-1.0, 0.0, 1.0)
