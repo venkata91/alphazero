@@ -104,3 +104,87 @@ def nn_server_loop(
                     value=float(values[i]),
                 )
             )
+
+
+# Game registry — extend as new games are added
+def _make_game(game_name: str):
+    if game_name == "tictactoe":
+        from .games.tictactoe import TicTacToe
+        return TicTacToe()
+    if game_name == "connect4":
+        from .games.connect4 import Connect4
+        return Connect4()
+    if game_name == "chess":
+        from .games.chess_game import Chess
+        return Chess()
+    raise ValueError(f"Unknown game: {game_name}")
+
+
+def worker_play_one_game(
+    *,
+    worker_id: int,
+    game_name: str,
+    num_simulations: int,
+    temperature_threshold: int,
+    c_puct: float,
+    dirichlet_alpha: float,
+    dirichlet_weight: float,
+    request_q: mp.Queue,
+    response_q: mp.Queue,
+    augment: bool = True,
+    request_id_offset: int = 0,
+) -> list[tuple[np.ndarray, np.ndarray, float]]:
+    """Run one self-play game using a remote NN-server for inference.
+
+    Returns a list of (state, π, z) training tuples (symmetry-augmented if
+    augment=True and the game has symmetries).
+    """
+    from .mcts import MCTS
+    from .selfplay import _assign_z
+
+    game = _make_game(game_name)
+    request_counter = [request_id_offset]
+
+    def eval_fn(encoded: np.ndarray) -> tuple[np.ndarray, float]:
+        rid = request_counter[0]
+        request_counter[0] += 1
+        request_q.put(InferenceRequest(worker_id=worker_id, request_id=rid, encoded=encoded))
+        # Wait for the response with our exact request_id (the server returns
+        # ID-tagged responses; the queue is per-worker so we just pull next)
+        response: InferenceResponse = response_q.get(timeout=60.0)
+        assert response.request_id == rid, (
+            f"Worker {worker_id} expected request_id {rid}, got {response.request_id}"
+        )
+        return response.priors, response.value
+
+    mcts = MCTS(
+        game, eval_fn,
+        c_puct=c_puct,
+        dirichlet_alpha=dirichlet_alpha,
+        dirichlet_weight=dirichlet_weight,
+    )
+
+    state = game.initial_state()
+    history: list[tuple[np.ndarray, np.ndarray, int]] = []
+    move_idx = 0
+    while game.terminal_value(state) is None:
+        pi = mcts.search(state, num_simulations=num_simulations, add_root_noise=True)
+        if move_idx < temperature_threshold:
+            action = int(np.random.choice(len(pi), p=pi))
+        else:
+            action = int(np.argmax(pi))
+        canon = game.canonical_state(state)
+        encoded = game.encode(canon)
+        history.append((encoded, pi.astype(np.float32), game.current_player(state)))
+        state = game.apply(state, action)
+        move_idx += 1
+
+    z_per_ply = _assign_z(history, game.terminal_value(state), state, game)
+    examples = []
+    for (encoded, pi, _player), z in zip(history, z_per_ply):
+        if augment:
+            for sym_enc, sym_pi in game.symmetries(encoded, pi):
+                examples.append((sym_enc.astype(np.float32), sym_pi.astype(np.float32), z))
+        else:
+            examples.append((encoded, pi, z))
+    return examples
