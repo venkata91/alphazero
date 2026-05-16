@@ -26,6 +26,13 @@ def _cmd_train(args: argparse.Namespace) -> int:
     game_cls = GAMES[args.game]
     game = game_cls()
     trainer = Trainer(game, config)
+
+    if args.resume_from is not None:
+        print(f"Resuming from {args.resume_from}", flush=True)
+        trainer.load_from_checkpoint(args.resume_from)
+        print(f"Loaded iteration {trainer.iteration}; will run {config.num_iterations} more.",
+              flush=True)
+
     print(f"Starting training: {config.num_iterations} iterations on {trainer.device}")
     trainer.run()
     print("Training complete.")
@@ -190,6 +197,10 @@ def main(argv: list[str] | None = None) -> int:
     p_train = subs.add_parser("train", help="Run training loop")
     p_train.add_argument("--game", choices=list(GAMES), default="tictactoe")
     p_train.add_argument("--config", type=Path, default=Path("configs/tictactoe.toml"))
+    p_train.add_argument("--resume-from", type=Path, default=None,
+                         help="Path to a checkpoint to resume training from. "
+                              "Loads best_net, candidate_net, optimizer, and iteration "
+                              "counter; continues for `config.num_iterations` more iters.")
     p_train.set_defaults(func=_cmd_train)
 
     p_eval = subs.add_parser("eval", help="Evaluate a checkpoint vs perfect solver")

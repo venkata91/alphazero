@@ -185,6 +185,24 @@ class Trainer:
         }, path)
         return path
 
+    def load_from_checkpoint(self, path: Path | str) -> None:
+        """Restore Trainer state from a checkpoint file.
+
+        Loads best_net, candidate_net, optimizer state, and iteration counter.
+        Does NOT restore the replay buffer (not serialized to checkpoint to keep
+        files small) — self-play will refill it from the next iteration onward.
+
+        After loading, calling `run()` continues training for additional
+        `config.num_iterations` iterations (the counter is preserved, so the
+        next iteration is `self.iteration + 1`).
+        """
+        ckpt = torch.load(path, map_location=self.device, weights_only=False)
+        self.best_net.load_state_dict(ckpt["best_net"])
+        self.best_net.eval()
+        self.candidate_net.load_state_dict(ckpt["candidate_net"])
+        self.optimizer.load_state_dict(ckpt["optimizer"])
+        self.iteration = int(ckpt["iteration"])
+
     def run(self, verbose: bool = True, eval_opponent=None) -> None:
         """Train for num_iterations.
 

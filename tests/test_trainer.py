@@ -113,3 +113,41 @@ def test_eval_vs_opponent_uses_provided_agent(tiny_config):
     result = trainer._eval_vs_opponent(sentinel_agent, num_games=4)
     assert set(result.keys()) == {"wins", "draws", "losses"}
     assert result["wins"] + result["draws"] + result["losses"] == 4
+
+
+def test_load_from_checkpoint_restores_iteration_and_weights(tiny_config, tmp_path, monkeypatch):
+    """After load_from_checkpoint, iteration counter and net weights match the saved state."""
+    monkeypatch.chdir(tmp_path)
+    trainer1 = Trainer(TicTacToe(), tiny_config)
+    trainer1.run()  # writes checkpoint at iter 2
+
+    ckpt_path = tmp_path / tiny_config.checkpoint_dir / "iter_0002.pt"
+    assert ckpt_path.exists()
+
+    trainer2 = Trainer(TicTacToe(), tiny_config)
+    trainer2.load_from_checkpoint(ckpt_path)
+
+    assert trainer2.iteration == 2
+    for p1, p2 in zip(trainer1.best_net.parameters(), trainer2.best_net.parameters()):
+        torch.testing.assert_close(p1, p2)
+    for p1, p2 in zip(trainer1.candidate_net.parameters(), trainer2.candidate_net.parameters()):
+        torch.testing.assert_close(p1, p2)
+
+
+def test_run_after_load_continues_from_checkpoint_iteration(tiny_config, tmp_path, monkeypatch):
+    """Run after loading from iter_0002 should advance the counter further."""
+    monkeypatch.chdir(tmp_path)
+    trainer1 = Trainer(TicTacToe(), tiny_config)
+    trainer1.run()  # writes through iter 2
+
+    ckpt_path = tmp_path / tiny_config.checkpoint_dir / "iter_0002.pt"
+
+    trainer2 = Trainer(TicTacToe(), tiny_config)
+    trainer2.load_from_checkpoint(ckpt_path)
+    # tiny_config.num_iterations == 2, so calling run() again should add 2 more iters → 4 total
+    trainer2.run()
+    assert trainer2.iteration == tiny_config.num_iterations + 2  # 2 + 2 = 4
+
+    # The new checkpoints exist
+    assert (tmp_path / tiny_config.checkpoint_dir / "iter_0003.pt").exists()
+    assert (tmp_path / tiny_config.checkpoint_dir / "iter_0004.pt").exists()
