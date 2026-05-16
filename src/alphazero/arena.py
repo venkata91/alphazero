@@ -57,6 +57,12 @@ def play_match(
 
 def _play_one_game(game: Game, plus_agent: Agent, minus_agent: Agent) -> int:
     """Play one game; return winner sign (+1, -1) or 0 for draw."""
+    # Reset agents if they support it (e.g., for clearing transposition tables)
+    if hasattr(plus_agent, "reset"):
+        plus_agent.reset()
+    if hasattr(minus_agent, "reset"):
+        minus_agent.reset()
+
     state = game.initial_state()
     while game.terminal_value(state) is None:
         agent = plus_agent if game.current_player(state) == 1 else minus_agent
