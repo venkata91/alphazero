@@ -736,22 +736,28 @@
                   <circle cx="112" cy="10" r="5" class="v-node arena-score" style="animation-delay:1.6s"/>
                   <circle cx="126" cy="10" r="5" class="v-node-output arena-score" style="animation-delay:1.8s"/>
                 </g>
-                <text x="160" y="190" text-anchor="middle" class="v-text v-text-red">accept if new wins ≥ 55%</text>
+                <text x="160" y="190" text-anchor="middle" class="v-text v-text-red">(historical: accept if new wins ≥ 55%)</text>
 
                 <!-- Decoration: title -->
                 <text x="160" y="22" text-anchor="middle" class="v-text-strong" style="font-size:14px;">Head-to-head match</text>
               </svg>
             </div>
             <div class="body">
-              <h3>3 &middot; Arena (evaluation gate)</h3>
+              <h3>3 &middot; Arena gating (and why we don't use it)</h3>
               <p>
-                After a training iteration, we have a <em>candidate</em> network. We don't actually know yet whether it's better than the previous best — training is noisy and a step can occasionally make the NN worse.
+                After a training iteration, we have a <em>candidate</em> network. The original <strong>AlphaGo Zero</strong> paper (2017) gated network promotion behind a head-to-head match: <em>candidate vs current best</em>, say 40 games (split colors), accept if candidate wins ≥ 55%, otherwise discard the trained weights. The idea was a safety net against noisy training steps that might make the NN worse.
               </p>
               <p>
-                The arena plays a head-to-head match: <strong>new NN vs old NN</strong>, say 40 games (split colors so neither side has the white-move advantage). If new wins ≥ 55%, we accept it as the new "best." Otherwise we discard the trained weights and keep the old.
+                The successor <strong>AlphaZero</strong> paper (2017) <em>dropped this step</em> and unconditionally promoted every candidate. We tried arena gating first; on Tic-Tac-Toe it caused complete training stagnation:
               </p>
+              <ul>
+                <li>Once <code class="code-inline">best_net</code> got reasonably strong (~iter 5), MCTS smoothed over small NN differences → most candidate-vs-best matches drew.</li>
+                <li>With draws weighted 0.5, <code class="code-inline">win_rate</code> hovered near 0.50 — never reaching 0.55.</li>
+                <li>Every iteration: candidate trained → arena rejected → candidate reverted to best's weights → identical self-play data → same loop forever.</li>
+                <li>After 46 iterations, <code class="code-inline">best_net</code> was byte-identical to iter 5. It had learned a <em>defeatist O policy</em> (prior on center after X-corner was 0.095, below uniform 1/9) and lost 100% of O-side games against a perfect solver.</li>
+              </ul>
               <div class="callout">
-                <strong>Footnote:</strong> The original AlphaZero paper actually dropped this step — they always accepted new networks. Most replications keep it as a safety net during development. We'll include it for Sub-project 1 and can revisit later once the pipeline is stable.
+                <strong>What we do now:</strong> match the AlphaZero paper — <code class="code-inline">Trainer._promote_candidate_to_best</code> is called unconditionally after every iteration. No gate. After the fix, the same framework reached zero losses against the perfect TTT solver by iteration 10. The <code class="code-inline">_arena_win_rate</code> helper was removed; the head-to-head match runner (<code class="code-inline">arena.play_match</code>) is still used for the actual evaluation against external opponents (perfect TTT solver, Connect 4 minimax-depth-8).
               </div>
             </div>
           </article>
@@ -910,9 +916,9 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
           </div>
           <div class="loop-arrow" aria-hidden="true">→</div>
           <div class="loop-node" data-loop-node>
-            <span>4 &middot; Arena</span>
-            <strong>new_NN vs old_NN, 40 games</strong>
-            <p>Accept new NN only if it wins ≥ 55%. Then loop back to step 1 with the new best.</p>
+            <span>4 &middot; Promote</span>
+            <strong>best_net ← candidate_net</strong>
+            <p>Always promote (AlphaZero paper). Loop back to step 1 with the new best. (AlphaGo Zero had an arena gate here; see concept 3.)</p>
           </div>
         </div>
         <div class="callout" style="margin-top: 18px;">
@@ -976,21 +982,21 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             <!-- arrow 3 → 4 -->
             <line x1="638" y1="122" x2="674" y2="122" class="v-edge-flow" style="animation-delay:.4s"/>
 
-            <!-- ====== Stage 4: Arena (orange) ====== -->
+            <!-- ====== Stage 4: Promote (orange) ====== -->
             <rect x="674" y="72" width="170" height="100" rx="14"
                   fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5"/>
-            <text x="759" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">4. Arena</text>
-            <text x="759" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">candidate vs best_net</text>
-            <text x="759" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">40 games, split colors</text>
-            <text x="759" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">τ=0, no noise</text>
-            <text x="759" y="164" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">accept iff ≥ 55%</text>
+            <text x="759" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">4. Promote</text>
+            <text x="759" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">best_net ← candidate_net</text>
+            <text x="759" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">unconditional</text>
+            <text x="759" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">(AlphaZero paper, 2017)</text>
+            <text x="759" y="164" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">no arena gate</text>
 
-            <!-- Loop-back arrow: Arena → SelfPlay -->
+            <!-- Loop-back arrow: Promote → SelfPlay -->
             <path d="M 759,172 Q 759,210 690,210 L 200,210 Q 135,210 135,172"
                   fill="none" stroke="var(--orange)" stroke-width="2.2"
                   stroke-dasharray="6 4" stroke-linecap="round" opacity="0.85"/>
             <polygon points="135,172 130,182 140,182" fill="var(--orange)"/>
-            <text x="450" y="206" text-anchor="middle" class="v-text v-text-red" style="font-size:11px;">loop: best_net ← candidate (accept) &nbsp;|&nbsp; candidate ← best_net (revert)</text>
+            <text x="450" y="206" text-anchor="middle" class="v-text v-text-red" style="font-size:11px;">loop: best_net always updated; self-play uses new best_net next iteration</text>
 
             <!-- ===== Divider label ===== -->
             <line x1="40" y1="232" x2="860" y2="232" class="v-axis"/>
@@ -1225,8 +1231,8 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
               <p>Two copies of the NN. <em>best_net</em> is the frozen network used for self-play and as arena opponent. <em>candidate_net</em> is the one being trained.</p>
             </div>
             <div>
-              <strong>Arena threshold</strong>
-              <p>The win-rate cutoff (e.g., 0.55) above which the candidate replaces the best. Below it, training is reverted.</p>
+              <strong>Arena gating (not used)</strong>
+              <p>AlphaGo Zero gated candidate→best promotion behind a head-to-head win rate (≥ 0.55). The AlphaZero paper dropped it; we do too. See concept card #3 for why.</p>
             </div>
             <div>
               <strong>Training step</strong>
