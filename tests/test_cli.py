@@ -70,3 +70,20 @@ def test_cmd_train_leaves_tictactoe_eval_opponent_none(tmp_path, monkeypatch):
         "_cmd_train should NOT pass an eval_opponent for tictactoe; "
         "the Trainer's default _eval_vs_solver path is correct for TTT."
     )
+
+
+def test_cmd_train_wires_chess_eval_opponent(tmp_path, monkeypatch):
+    """Regression test: --game chess must construct a StockfishOpponent."""
+    from alphazero.opponents.stockfish import StockfishOpponent
+    monkeypatch.chdir(tmp_path)
+
+    captured: dict = {}
+    def fake_run(self, verbose=True, eval_opponent=None):
+        captured["eval_opponent"] = eval_opponent
+
+    with patch("alphazero.trainer.Trainer.run", fake_run):
+        exit_code = _cmd_train(_stub_args(game="chess"))
+
+    assert exit_code == 0
+    assert isinstance(captured["eval_opponent"], StockfishOpponent)
+    captured["eval_opponent"].close()

@@ -1,0 +1,43 @@
+# Chess training config — Sub-project 3.
+# Target: ≥50% win rate vs Stockfish ELO=1500 over 100 games.
+
+# Network — ~5M params. Scale n_blocks/n_channels for Sub-project 4.
+n_blocks = 10
+n_channels = 128
+
+# MCTS
+num_simulations = 200
+c_puct = 2.5
+dirichlet_alpha = 0.3
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 30
+
+# Training
+training_steps_per_iteration = 2000
+batch_size = 256
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer
+replay_buffer_capacity = 500_000
+min_buffer_size = 50_000
+
+# Eval (vs Stockfish ELO=1500)
+eval_interval = 5
+eval_games = 100
+
+# Schedule
+num_iterations = 80
+
+# Parallel self-play
+num_workers = 8
+inference_batch_size = 64
+
+# Misc
+seed = 42
+device = "auto"
+checkpoint_dir = "checkpoints"
+log_dir = "runs"

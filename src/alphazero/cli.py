@@ -12,12 +12,14 @@ from .arena import play_match
 from .config import TrainingConfig, load_config
 from .games.tictactoe import TicTacToe
 from .games.connect4 import Connect4
+from .games.chess_game import Chess
 from .solvers.tictactoe_solver import solve_tictactoe_action
 from .trainer import Trainer
 
 GAMES = {
     "tictactoe": TicTacToe,
     "connect4": Connect4,
+    "chess": Chess,
 }
 
 
@@ -39,6 +41,9 @@ def _cmd_train(args: argparse.Namespace) -> int:
     if args.game == "connect4":
         from .opponents.connect4_minimax import Connect4MinimaxOpponent
         eval_opponent = Connect4MinimaxOpponent(depth=8)
+    elif args.game == "chess":
+        from .opponents.stockfish import StockfishOpponent
+        eval_opponent = StockfishOpponent(elo=1500, time_per_move=0.5)
     # For tictactoe, leaving eval_opponent=None routes through _eval_vs_solver
     # (the perfect TTT minimax) which is correct.
 
@@ -92,6 +97,10 @@ def _cmd_eval(args: argparse.Namespace) -> int:
         from .opponents.connect4_minimax import Connect4MinimaxOpponent
         opponent = Connect4MinimaxOpponent(depth=8)
         label = "minimax-depth-8"
+    elif args.game == "chess":
+        from .opponents.stockfish import StockfishOpponent
+        opponent = StockfishOpponent(elo=1500, time_per_move=0.5)
+        label = "Stockfish ELO=1500"
     else:
         raise ValueError(f"No eval opponent defined for game={args.game}")
 
