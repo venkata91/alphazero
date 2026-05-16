@@ -11,13 +11,20 @@ import torch
 from .arena import play_match
 from .config import TrainingConfig, load_config
 from .games.tictactoe import TicTacToe
+from .games.connect4 import Connect4
 from .solvers.tictactoe_solver import solve_tictactoe_action
 from .trainer import Trainer
+
+GAMES = {
+    "tictactoe": TicTacToe,
+    "connect4": Connect4,
+}
 
 
 def _cmd_train(args: argparse.Namespace) -> int:
     config = load_config(args.config) if args.config else TrainingConfig()
-    game = TicTacToe()
+    game_cls = GAMES[args.game]
+    game = game_cls()
     trainer = Trainer(game, config)
     print(f"Starting training: {config.num_iterations} iterations on {trainer.device}")
     trainer.run()
@@ -51,7 +58,8 @@ def _config_for_checkpoint(checkpoint_path: Path, override_path: Path | None) ->
 
 def _cmd_eval(args: argparse.Namespace) -> int:
     config = _config_for_checkpoint(args.checkpoint, args.config)
-    game = TicTacToe()
+    game_cls = GAMES[args.game]
+    game = game_cls()
     trainer = Trainer(game, config)
 
     ckpt = torch.load(args.checkpoint, map_location=trainer.device, weights_only=False)
@@ -59,12 +67,21 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     trainer.best_net.eval()
 
     agent = trainer._make_argmax_mcts_agent(trainer.best_net)
-    def solver_agent(_g, state):
-        return solve_tictactoe_action(state)
 
-    result = play_match(game, agent, solver_agent, num_games=args.num_games)
+    if args.game == "tictactoe":
+        def opponent(_g, state):
+            return solve_tictactoe_action(state)
+        label = "perfect solver"
+    elif args.game == "connect4":
+        from .opponents.connect4_minimax import Connect4MinimaxOpponent
+        opponent = Connect4MinimaxOpponent(depth=8)
+        label = "minimax-depth-8"
+    else:
+        raise ValueError(f"No eval opponent defined for game={args.game}")
+
+    result = play_match(game, agent, opponent, num_games=args.num_games)
     print(
-        f"vs perfect solver ({args.num_games} games): "
+        f"vs {label} ({args.num_games} games): "
         f"wins={result.wins_a} draws={result.draws} losses={result.losses_a}"
     )
     return 0 if result.losses_a == 0 else 1
@@ -98,7 +115,8 @@ def _cmd_play(args: argparse.Namespace) -> int:
         # even with the same trained NN.
         from dataclasses import replace
         config = replace(config, num_simulations=args.num_simulations)
-    game = TicTacToe()
+    game_cls = GAMES[args.game]
+    game = game_cls()
     trainer = Trainer(game, config)
 
     ckpt = torch.load(args.checkpoint, map_location=trainer.device, weights_only=False)
@@ -170,10 +188,12 @@ def main(argv: list[str] | None = None) -> int:
     subs = parser.add_subparsers(dest="cmd", required=True)
 
     p_train = subs.add_parser("train", help="Run training loop")
+    p_train.add_argument("--game", choices=list(GAMES), default="tictactoe")
     p_train.add_argument("--config", type=Path, default=Path("configs/tictactoe.toml"))
     p_train.set_defaults(func=_cmd_train)
 
     p_eval = subs.add_parser("eval", help="Evaluate a checkpoint vs perfect solver")
+    p_eval.add_argument("--game", choices=list(GAMES), default="tictactoe")
     p_eval.add_argument("--checkpoint", type=Path, required=True)
     p_eval.add_argument("--config", type=Path, default=None,
                         help="Override architecture config (needed for older checkpoints "
@@ -182,6 +202,7 @@ def main(argv: list[str] | None = None) -> int:
     p_eval.set_defaults(func=_cmd_eval)
 
     p_play = subs.add_parser("play", help="Play interactively against best_net")
+    p_play.add_argument("--game", choices=list(GAMES), default="tictactoe")
     p_play.add_argument("--checkpoint", type=Path, required=True)
     p_play.add_argument("--config", type=Path, default=None,
                         help="Override architecture config (needed for older checkpoints "
