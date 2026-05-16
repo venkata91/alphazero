@@ -295,6 +295,28 @@ a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
 .toc a { border-bottom: none; }
 .toc a:hover { text-decoration: underline; }
 
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
 @media (max-width: 720px) {
   .shell { padding: 24px 0 64px; }
   .hero, .spec { padding: 22px 22px; }
@@ -322,6 +344,10 @@ HTML_TEMPLATE = """<!doctype html>
 </head>
 <body>
   <main class="shell">
+    <nav class="page-nav">
+      <a href="{index_path}">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; {crumb}</span>
+    </nav>
     <header class="hero">
       <p class="kicker">{kicker}</p>
       <h1>{heading}</h1>
@@ -395,6 +421,29 @@ def strip_leading_h1(body: str, heading: str) -> str:
 # --------------------------------------------------------------------------- #
 
 
+def compute_index_path(out_path: Path) -> tuple[str, str]:
+    """Return (relative_path_to_index, crumb_label) for the nav bar.
+
+    Counts how many directory levels deep out_path is relative to the repo
+    root (assumed to be where index.html lives) and builds the appropriate
+    relative path back up.  The crumb is derived from the parent directories
+    and the file stem.
+    """
+    parts = out_path.parts
+    # Number of parent directories above the file (not counting the file itself)
+    depth = len(parts) - 1  # will be resolved relative to cwd at render time
+    # Build relative path: depth levels of "../" then "index.html"
+    index_path = "../" * depth + "index.html" if depth > 0 else "index.html"
+
+    # Derive crumb from parent dir name + stem
+    parent = out_path.parent.name  # e.g. "specs" or "plans"
+    stem = out_path.stem           # e.g. "2026-05-15-connect4-design"
+    # Strip leading date from stem
+    crumb_name = re.sub(r"^\d{4}-\d{2}-\d{2}-", "", stem).replace("-", " ").title()
+    crumb = f"{parent.title()} · {crumb_name}"
+    return index_path, crumb
+
+
 def render(md_path: Path, out_path: Path) -> None:
     text = md_path.read_text(encoding="utf-8")
     meta, body = parse_frontmatter(text)
@@ -417,11 +466,15 @@ def render(md_path: Path, out_path: Path) -> None:
     )
     rendered_body = md.convert(body)
 
+    index_path, crumb = compute_index_path(out_path)
+
     html = HTML_TEMPLATE.format(
         title=heading,
         styles=STYLES,
         kicker=kicker,
         heading=heading,
+        index_path=index_path,
+        crumb=crumb,
         meta_block=build_meta_block(meta),
         body=rendered_body,
     )

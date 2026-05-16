@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AlphaZero from Scratch</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #fbf3e2;
+        --bg-soft: #fff8ec;
+        --paper: #ffffff;
+        --paper-tint: #fffaf0;
+        --ink: #1f2547;
+        --ink-soft: #4a5680;
+        --ink-faint: #6b7290;
+        --blue: #3a55c4;
+        --blue-deep: #2a3f9a;
+        --blue-soft: rgba(58, 85, 196, 0.18);
+        --blue-bg: rgba(58, 85, 196, 0.08);
+        --orange: #ee8a30;
+        --orange-deep: #d6741e;
+        --orange-soft: rgba(238, 138, 48, 0.22);
+        --orange-bg: rgba(238, 138, 48, 0.08);
+        --green: #3aa860;
+        --green-bg: rgba(58, 168, 96, 0.10);
+        --green-soft: rgba(58, 168, 96, 0.25);
+        --line: #2a3a8a;
+        --line-faint: rgba(42, 58, 138, 0.20);
+        --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+        --shadow-strong: 6px 6px 0 rgba(31, 37, 71, 0.10);
+        --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+        --cursive: 'Caveat', 'Patrick Hand', cursive;
+      }
+
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: var(--hand);
+        font-size: 18px;
+        line-height: 1.55;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+          radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+          radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+          var(--bg);
+        background-attachment: fixed;
+      }
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+        background-size: 22px 22px;
+        pointer-events: none;
+        z-index: -1;
+        opacity: 0.65;
+      }
+
+      a {
+        color: var(--blue);
+        text-decoration: none;
+        border-bottom: 2px dotted var(--line-faint);
+        padding-bottom: 1px;
+      }
+      a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+      .shell {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 40px 0 68px;
+      }
+
+      /* ---- hero ---- */
+      .hero {
+        background: var(--paper);
+        border: 2.5px solid var(--line);
+        border-radius: 26px;
+        box-shadow: var(--shadow);
+        padding: 30px 38px;
+        margin-bottom: 20px;
+        position: relative;
+      }
+      .hero::before, .hero::after {
+        content: "";
+        position: absolute;
+        width: 26px; height: 26px;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+        background-repeat: no-repeat;
+        background-size: contain;
+        opacity: 0.8;
+      }
+      .hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+      .hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+      .kicker {
+        margin: 0 0 6px;
+        font-family: var(--cursive);
+        font-weight: 700;
+        color: var(--orange);
+        font-size: 1.35rem;
+      }
+      .hero h1 {
+        margin: 0;
+        color: var(--blue);
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: clamp(2.6rem, 7vw, 4.8rem);
+        line-height: 1.05;
+        letter-spacing: 1px;
+      }
+      .lede {
+        max-width: 70ch;
+        color: var(--ink-soft);
+        font-size: 1.1rem;
+        line-height: 1.6;
+        margin: 10px 0 0;
+      }
+
+      /* ---- top nav strip ---- */
+      .site-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 28px;
+      }
+      .site-nav a {
+        padding: 6px 16px;
+        background: var(--paper);
+        border: 2px solid var(--line-faint);
+        border-radius: 20px;
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--blue);
+        border-bottom: 2px solid var(--line-faint);
+      }
+      .site-nav a:hover {
+        background: var(--blue-bg);
+        border-color: var(--blue-soft);
+        color: var(--blue-deep);
+      }
+
+      /* ---- sections ---- */
+      .section {
+        margin-bottom: 32px;
+      }
+      .section-label {
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1.9rem;
+        color: var(--blue);
+        margin: 0 0 6px;
+        letter-spacing: 0.4px;
+      }
+      .section-sub {
+        color: var(--ink-faint);
+        font-size: 0.95rem;
+        margin: 0 0 14px;
+      }
+
+      /* ---- card grid ---- */
+      .card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 16px;
+      }
+      .card {
+        display: block;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+        padding: 22px 26px;
+        text-decoration: none;
+        border-bottom: none;
+        transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
+        color: var(--ink);
+      }
+      .card:hover {
+        border-color: var(--blue-soft);
+        background: var(--blue-bg);
+        box-shadow: var(--shadow-strong);
+        color: var(--ink);
+      }
+      .card-type {
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--orange);
+        margin: 0 0 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+      }
+      .card h3 {
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1.45rem;
+        color: var(--blue);
+        margin: 0 0 8px;
+        line-height: 1.15;
+      }
+      .card p {
+        margin: 0;
+        font-size: 0.96rem;
+        color: var(--ink-soft);
+        line-height: 1.5;
+      }
+      .card-arrow {
+        display: block;
+        margin-top: 12px;
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--blue);
+      }
+      .card:hover .card-arrow { color: var(--orange-deep); }
+
+      /* ---- future list ---- */
+      .future-list {
+        background: var(--paper-tint);
+        border: 2px dashed var(--line-faint);
+        border-radius: 22px;
+        padding: 20px 28px;
+      }
+      .future-list ul {
+        margin: 0;
+        padding-left: 22px;
+        color: var(--ink-faint);
+        font-size: 1rem;
+      }
+      .future-list li {
+        margin: 6px 0;
+        font-family: var(--hand);
+      }
+      .future-list li strong {
+        color: var(--ink-soft);
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1.1rem;
+      }
+
+      /* ---- footer ---- */
+      .site-footer {
+        margin-top: 48px;
+        text-align: center;
+        color: var(--ink-faint);
+        font-size: 0.9rem;
+      }
+      .site-footer a { border-bottom: none; }
+
+      @media (max-width: 720px) {
+        .shell { padding: 24px 0 48px; }
+        .hero { padding: 22px 22px; }
+        .card-grid { grid-template-columns: 1fr; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        html { scroll-behavior: auto; }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+
+      <!-- Hero -->
+      <header class="hero">
+        <p class="kicker">Learning project &middot; 2026</p>
+        <h1>AlphaZero from Scratch</h1>
+        <p class="lede">
+          Building AlphaZero ground-up in Python &mdash; MCTS, neural network policy/value heads, self-play pipelines,
+          and progressively harder games. Every design decision is documented; every sub-project ships working code.
+        </p>
+      </header>
+
+      <!-- Top nav -->
+      <nav class="site-nav" aria-label="Jump to section">
+        <a href="#concepts">Concepts</a>
+        <a href="#sp1">Sub-project 1 &mdash; Tic-Tac-Toe</a>
+        <a href="#sp2">Sub-project 2 &mdash; Connect 4</a>
+        <a href="#future">Future</a>
+      </nav>
+
+      <!-- Concepts -->
+      <section class="section" id="concepts">
+        <h2 class="section-label">Concepts</h2>
+        <p class="section-sub">Visual primers on the key ideas before any code.</p>
+        <div class="card-grid">
+          <a class="card" href="./concepts.html">
+            <p class="card-type">Primer</p>
+            <h3>Five concepts at the heart of it</h3>
+            <p>Animated visual notes on MCTS, neural policy/value, self-play loops, replay buffers, and temperature. Keep open while reading the specs.</p>
+            <span class="card-arrow">Read primer &#8594;</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Sub-project 1 -->
+      <section class="section" id="sp1">
+        <h2 class="section-label">Sub-project 1 &mdash; Framework + Tic-Tac-Toe</h2>
+        <p class="section-sub">Generic AlphaZero framework (game protocol, MCTS, training loop) with Tic-Tac-Toe as the first target.</p>
+        <div class="card-grid">
+          <a class="card" href="./docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html">
+            <p class="card-type">Spec</p>
+            <h3>AlphaZero Framework + Tic-Tac-Toe Design</h3>
+            <p>Architecture decisions, game protocol, MCTS implementation, neural network structure, and training pipeline for the framework and first game.</p>
+            <span class="card-arrow">Read spec &#8594;</span>
+          </a>
+          <a class="card" href="./docs/superpowers/plans/2026-05-15-alphazero-framework-tictactoe.html">
+            <p class="card-type">Plan</p>
+            <h3>Implementation Plan &mdash; Framework + Tic-Tac-Toe</h3>
+            <p>Phased task breakdown, file structure, milestone checkpoints, and verification steps for building the framework and Tic-Tac-Toe implementation.</p>
+            <span class="card-arrow">Read plan &#8594;</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Sub-project 2 -->
+      <section class="section" id="sp2">
+        <h2 class="section-label">Sub-project 2 &mdash; Connect 4</h2>
+        <p class="section-sub">Scaling the framework to a larger board game with gravity, column-based moves, and symmetry encoding.</p>
+        <div class="card-grid">
+          <a class="card" href="./docs/superpowers/specs/2026-05-15-connect4-design.html">
+            <p class="card-type">Spec</p>
+            <h3>Connect 4 Design</h3>
+            <p>Game state representation, gravity mechanics, terminal detection, symmetry-based canonical states, and integration with the existing training framework.</p>
+            <span class="card-arrow">Read spec &#8594;</span>
+          </a>
+          <a class="card" href="./docs/superpowers/plans/2026-05-15-connect4.html">
+            <p class="card-type">Plan</p>
+            <h3>Implementation Plan &mdash; Connect 4</h3>
+            <p>Step-by-step tasks for implementing Connect 4 on top of the framework, including board encoding, legal-move masks, and self-play verification.</p>
+            <span class="card-arrow">Read plan &#8594;</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Future -->
+      <section class="section" id="future">
+        <h2 class="section-label">Future Sub-projects</h2>
+        <p class="section-sub">Planned &mdash; not yet started. Specs and plans will appear here when ready.</p>
+        <div class="future-list">
+          <ul>
+            <li><strong>Sub-project 3 &mdash; Chess</strong> &nbsp; Full 8&times;8 board, move encoding, opening book integration, and stronger neural architecture.</li>
+            <li><strong>Sub-project 4 &mdash; Productionize</strong> &nbsp; Distributed self-play workers, model checkpointing, evaluation arena, and experiment tracking.</li>
+            <li><strong>Sub-project 5 &mdash; Hybrid Search</strong> &nbsp; Combining learned heuristics with classical search (alpha-beta, endgame tablebases).</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="site-footer">
+        <a href="https://github.com/venkata91/alphazero" target="_blank" rel="noopener">github.com/venkata91/alphazero</a>
+        &nbsp;&middot;&nbsp; Built with Python, love, and comic-notebook CSS
+      </footer>
+
+    </main>
+  </body>
+</html>

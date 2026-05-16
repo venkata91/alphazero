@@ -526,10 +526,36 @@
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { animation: none !important; transition: none !important; }
       }
+
+      .page-nav {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 10px 20px;
+        margin-bottom: 18px;
+        background: var(--paper);
+        border: 2px solid var(--line-faint);
+        border-radius: 14px;
+        font-size: 0.94rem;
+        font-family: var(--hand);
+      }
+      .page-nav a {
+        color: var(--blue);
+        border-bottom: none;
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1rem;
+      }
+      .page-nav a:hover { color: var(--orange-deep); }
+      .page-nav .crumb { color: var(--ink-faint); }
     </style>
   </head>
   <body>
     <main class="shell">
+      <nav class="page-nav">
+        <a href="./index.html">&#8592; All docs</a>
+        <span class="crumb">AlphaZero &middot; Concepts</span>
+      </nav>
       <header class="hero">
         <p class="kicker">AlphaZero &middot; Visual notes</p>
         <h1>Five concepts at the heart of it.</h1>

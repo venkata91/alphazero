@@ -236,6 +236,28 @@ a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
 .toc a { border-bottom: none; }
 .toc a:hover { text-decoration: underline; }
 
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
 @media (max-width: 720px) {
   .shell { padding: 24px 0 64px; }
   .hero, .spec { padding: 22px 22px; }
@@ -248,6 +270,10 @@ a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
 </head>
 <body>
   <main class="shell">
+    <nav class="page-nav">
+      <a href="../../../index.html">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; Specs · Alphazero Framework Tictactoe Design</span>
+    </nav>
     <header class="hero">
       <p class="kicker">Spec</p>
       <h1>AlphaZero Framework + Tic-Tac-Toe (Sub-project 1)</h1>
