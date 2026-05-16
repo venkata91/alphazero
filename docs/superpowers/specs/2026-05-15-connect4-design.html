@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect 4 on the AlphaZero Framework (Sub-project 2)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="kicker">Spec</p>
+      <h1>Connect 4 on the AlphaZero Framework (Sub-project 2)</h1>
+      <div class="hero-meta">
+      <span><strong>date:</strong>2026-05-15</span>
+      <span><strong>status:</strong>Approved (brainstorming → implementation)</span>
+      <span><strong>sub project:</strong>2</span>
+      <span><strong>target:</strong>Validate the framework on Connect 4 — beat minimax-depth-8 in ≥80% of 200 games</span>
+      </div>
+    </header>
+    <article class="spec"><h2 id="1-context">1. Context</h2>
+<p>Sub-project 1 built and validated the game-agnostic AlphaZero framework on Tic-Tac-Toe. Sub-project 2's job is to demonstrate that the framework <strong>scales</strong> to a meaningfully harder game <strong>without changing any framework code</strong> — only a new <code>Game</code> subclass and a new evaluation opponent.</p>
+<p>Connect 4 is the ideal stepping stone between TTT and chess:</p>
+<table>
+<thead>
+<tr>
+<th>Property</th>
+<th>TTT</th>
+<th>Connect 4</th>
+<th>Chess</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Board</td>
+<td>3×3 = 9 cells</td>
+<td>6×7 = 42 cells</td>
+<td>8×8 = 64 cells</td>
+</tr>
+<tr>
+<td>Action space</td>
+<td>9</td>
+<td>7</td>
+<td>~4672</td>
+</tr>
+<tr>
+<td>Reachable states</td>
+<td>~5,478</td>
+<td>~10¹³</td>
+<td>~10⁴³</td>
+</tr>
+<tr>
+<td>Max game length</td>
+<td>9 plies</td>
+<td>42 plies</td>
+<td>unbounded (we cap)</td>
+</tr>
+<tr>
+<td>Branching factor</td>
+<td>~9 → 1</td>
+<td>~7 throughout</td>
+<td>~35 avg</td>
+</tr>
+<tr>
+<td>Solved?</td>
+<td>Yes (draw)</td>
+<td>Yes (1st player wins)</td>
+<td>No</td>
+</tr>
+</tbody>
+</table>
+<p>Connect 4 is 10⁹× larger than TTT in state space but still tractable for from-scratch self-play training on a consumer machine. If the framework works on Connect 4, it'll work on chess (modulo compute scale).</p>
+<h2 id="2-goals">2. Goals</h2>
+<ul>
+<li>Implement <code>Connect4(Game)</code> as a new file in <code>src/alphazero/games/</code>.</li>
+<li>Implement a from-scratch minimax-depth-8 opponent with α-β pruning and a center-bias heuristic, as the eval ground truth.</li>
+<li>Reuse the entire AlphaZero framework from Sub-project 1 <strong>unchanged</strong> (Game ABC, AlphaZeroNet, MCTS, SelfPlayWorker, ReplayBuffer, Arena, Trainer).</li>
+<li>Reach the kill criterion: trained agent <strong>beats the minimax-depth-8 opponent in ≥80% of 200 games</strong> (alternating colors).</li>
+</ul>
+<h2 id="3-non-goals">3. Non-goals</h2>
+<ul>
+<li>Matching perfect play (deferred to Sub-project 4 if pursued at all).</li>
+<li>Distillation from existing Connect 4 solvers (e.g., Pascal Pons's C++ solver).</li>
+<li>Parallel self-play / multi-process training (deferred to Sub-project 3 for chess).</li>
+<li>Hyperparameter sweeps. We pick reasonable starting values, tune only if convergence fails.</li>
+<li>New framework features. If a framework limitation surfaces, we document it and revisit in Sub-project 3.</li>
+</ul>
+<hr>
+<h2 id="4-whats-new-vs-whats-reused">4. What's new vs what's reused</h2>
+<p>The architecture is unchanged. Only three new source files and three new tests.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Status</th>
+<th>What changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Game</code> ABC</td>
+<td>reuse as-is</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>TicTacToe</code></td>
+<td>leave in place</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><strong><code>Connect4</code></strong></td>
+<td>new</td>
+<td>rules, encoding, terminal detection, symmetries</td>
+</tr>
+<tr>
+<td><code>AlphaZeroNet</code></td>
+<td>reuse as-is</td>
+<td>only <code>input_shape</code> and <code>action_size</code> differ (parameterized by Game)</td>
+</tr>
+<tr>
+<td><code>MCTS</code></td>
+<td>reuse as-is</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>SelfPlayWorker</code></td>
+<td>reuse as-is</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>ReplayBuffer</code></td>
+<td>reuse as-is</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>Arena</code></td>
+<td>reuse as-is</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><strong><code>Connect4MinimaxOpponent</code></strong></td>
+<td>new</td>
+<td>α-β pruning at depth 8 + heuristic eval</td>
+</tr>
+<tr>
+<td><code>Trainer</code></td>
+<td>small extension</td>
+<td>replace TTT-specific <code>_eval_vs_solver</code> with a generic <code>_eval_vs_opponent(opponent)</code> callable injection</td>
+</tr>
+<tr>
+<td><code>cli.py</code></td>
+<td>small generalization</td>
+<td><code>train</code>/<code>eval</code>/<code>play</code> dispatch on <code>--game {tictactoe, connect4}</code></td>
+</tr>
+</tbody>
+</table>
+<p>This is the payoff of the layered architecture in Sub-project 1.</p>
+<hr>
+<h2 id="5-components">5. Components</h2>
+<h3 id="51-connect4-new-game-subclass">5.1 <code>Connect4</code> (new Game subclass)</h3>
+<p><strong>State representation</strong>: <code>np.ndarray</code> of shape <code>(6, 7)</code>, dtype <code>int8</code>, values <code>+1 / −1 / 0</code>.</p>
+<ul>
+<li><code>+1</code> = first player (red); <code>−1</code> = second player (yellow); <code>0</code> = empty.</li>
+<li>Row 0 is the top of the board; pieces fall to the lowest empty cell of their column.</li>
+<li>Player to move is determined by piece-count parity (consistent with the TTT convention).</li>
+</ul>
+<p><strong>Action space</strong>: integers <code>0..6</code> corresponding to the 7 columns.</p>
+<p><strong>Interface</strong>:</p>
+<pre><code class="language-python">class Connect4(Game):
+    @property
+    def input_shape(self) -&gt; tuple[int, int, int]:
+        return (3, 6, 7)              # (channels, H, W) — my, opp, ones planes
+
+    @property
+    def action_size(self) -&gt; int:
+        return 7
+
+    def initial_state(self) -&gt; State:
+        return np.zeros((6, 7), dtype=np.int8)
+
+    def current_player(self, state: State) -&gt; int:
+        moves = int(np.count_nonzero(state))
+        return 1 if moves % 2 == 0 else -1
+
+    def legal_actions_mask(self, state: State) -&gt; np.ndarray:
+        # A column is legal iff its top cell (row 0) is empty.
+        return state[0, :] == 0
+
+    def apply(self, state: State, action: int) -&gt; State:
+        # Drop piece into lowest empty cell of column `action`.
+        # Raise ValueError if column is full.
+        ...
+
+    def terminal_value(self, state: State) -&gt; float | None:
+        # Check 4-in-a-row in 4 directions: horizontal, vertical, both diagonals.
+        # Return -1.0 (opponent of current player just won), 0.0 (draw), or None (in progress).
+        ...
+
+    def encode(self, state: State) -&gt; np.ndarray:
+        # 3 planes: my pieces, opp pieces, ones. Assumes canonical state.
+        ...
+
+    def canonical_state(self, state: State) -&gt; State:
+        return (state * self.current_player(state)).astype(np.int8)
+
+    def symmetries(
+        self, encoded: np.ndarray, policy: np.ndarray
+    ) -&gt; list[tuple[np.ndarray, np.ndarray]]:
+        # Identity + horizontal mirror. The mirror flips columns left↔right
+        # in both the encoded board planes and the policy.
+        identity = (encoded, policy)
+        mirrored = (
+            np.flip(encoded, axis=2).copy(),
+            np.flip(policy, axis=0).copy(),
+        )
+        return [identity, mirrored]
+</code></pre>
+<p><strong>Key decisions</strong>:</p>
+<ul>
+<li><strong>Row 0 is the top</strong> (gravity pulls pieces toward row 5). This is the natural visual convention; tests will assert this orientation.</li>
+<li><strong>Drop mechanics in <code>apply</code></strong>: iterate from row 5 upward, place piece at the first empty cell.</li>
+<li><strong>4-in-a-row detection</strong> uses sliding windows of length 4 across all rows, columns, and both diagonals. ~24 row windows, 28 column windows, 24 diagonal windows = 76 total checks. Cheap.</li>
+<li><strong>Symmetries</strong>: only 2 (identity + horizontal mirror). Unlike TTT's 8, Connect 4 has no vertical symmetry because gravity is asymmetric (pieces fall down, not up). Data augmentation is 2× per ply instead of 8×.</li>
+</ul>
+<h3 id="52-connect4minimaxopponent-new-agent">5.2 <code>Connect4MinimaxOpponent</code> (new agent)</h3>
+<p>Standard α-β minimax with a position-evaluation heuristic for non-terminal leaves.</p>
+<p><strong>Interface</strong>:</p>
+<pre><code class="language-python">class Connect4MinimaxOpponent:
+    &quot;&quot;&quot;Callable agent: takes (game, state) → action. Uses α-β minimax to depth N.&quot;&quot;&quot;
+
+    def __init__(self, depth: int = 8):
+        self.depth = depth
+
+    def __call__(self, game: Game, state: State) -&gt; int:
+        # Search with α-β pruning to self.depth; return best action.
+        ...
+
+    def _evaluate(self, state: State) -&gt; float:
+        &quot;&quot;&quot;Static evaluation of a non-terminal position from current player's POV.
+
+        Score = sum over 4-cell windows of:
+            +∞  if window contains 4 of mine
+            -∞  if window contains 4 of opponent
+            +w[k]  if window contains k of mine + (4-k) empties (no opp)
+            -w[k]  if window contains k of opp + (4-k) empties (no mine)
+            0   otherwise (window has both)
+
+        Plus a small center-bias bonus: each piece in the center column adds
+        a constant for the owning side.
+        &quot;&quot;&quot;
+        ...
+</code></pre>
+<p><strong>Heuristic weights</strong> (starting values, may tune for opponent strength):</p>
+<table>
+<thead>
+<tr>
+<th>Window content</th>
+<th>Weight</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>3 of mine + 1 empty</td>
+<td>+5</td>
+</tr>
+<tr>
+<td>2 of mine + 2 empties</td>
+<td>+2</td>
+</tr>
+<tr>
+<td>Center column piece</td>
+<td>+3 each</td>
+</tr>
+<tr>
+<td>Symmetric for opponent</td>
+<td>mirrored negative</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Why this works</strong>: At depth 8 with α-β pruning over a 7-action branching factor, the search visits roughly 7⁴-7⁵ ≈ 16K-100K nodes per move (after pruning). Pure Python with numpy primitives evaluates ~1-2ms per leaf, giving ~10-200ms per move — fast enough for 200-game evaluation matches that finish in minutes.</p>
+<p><strong>Test target</strong>: Depth-8 should beat depth-2 in ≥90% of games (confirms the search is correctly exploring).</p>
+<h3 id="53-generalizing-the-trainers-eval-hook">5.3 Generalizing the Trainer's eval hook</h3>
+<p>Current Sub-project 1 code has a hardcoded <code>_eval_vs_solver</code> that imports <code>solve_tictactoe_action</code>. To support Connect 4 cleanly, we generalize to:</p>
+<pre><code class="language-python">def _eval_vs_opponent(self, opponent: Agent, num_games: int) -&gt; dict:
+    &quot;&quot;&quot;Play current best_net vs an arbitrary opponent. Game-agnostic.&quot;&quot;&quot;
+    from .arena import play_match
+    net_agent = self._make_argmax_mcts_agent(self.best_net)
+    result = play_match(self.game, net_agent, opponent, num_games=num_games)
+    return {&quot;wins&quot;: result.wins_a, &quot;draws&quot;: result.draws, &quot;losses&quot;: result.losses_a}
+</code></pre>
+<p><code>Trainer.run()</code> then takes an optional <code>eval_opponent: Agent | None</code> parameter. For TTT, the existing <code>solver_agent</code> wrapper is passed; for Connect 4, a <code>Connect4MinimaxOpponent(depth=8)</code> instance. The old <code>_eval_vs_solver</code> becomes a thin wrapper around <code>_eval_vs_opponent</code> to preserve backward compatibility with the Sub-project 1 E2E test.</p>
+<h3 id="54-minor-cli-generalization">5.4 Minor CLI generalization</h3>
+<p><code>cli.py</code> currently hardcodes <code>game = TicTacToe()</code>. Extend to:</p>
+<pre><code class="language-python">GAMES = {&quot;tictactoe&quot;: TicTacToe, &quot;connect4&quot;: Connect4}
+
+# In each subcommand:
+game_cls = GAMES[args.game]
+game = game_cls()
+</code></pre>
+<p>Add <code>--game {tictactoe,connect4}</code> to <code>train</code>, <code>eval</code>, <code>play</code> subcommands; default <code>tictactoe</code> to preserve Sub-project 1 behavior. For <code>eval --game connect4</code>, the opponent is <code>Connect4MinimaxOpponent(depth=args.opponent_depth or 8)</code>.</p>
+<hr>
+<h2 id="6-hyperparameters-starting-config">6. Hyperparameters (starting config)</h2>
+<p><code>configs/connect4.toml</code>:</p>
+<pre><code class="language-toml"># Connect 4 training config — starting values from the AlphaZero paper
+# scaled down for a learning project on M4 Pro.
+
+# Network
+n_blocks = 6                       # up from TTT's 4 — deeper for 6×7 board
+n_channels = 64                    # up from TTT's 32
+                                   # ≈ 600K params (vs TTT's 76K)
+
+# MCTS
+num_simulations = 100              # up from TTT's 50
+c_puct = 2.5                       # up from TTT's 1.5 — more exploration with 7-way branching
+dirichlet_alpha = 0.5              # down from TTT's 1.0 — concentrated noise on fewer actions
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 15         # up from TTT's 6 — Connect 4 games ~20-30 plies
+
+# Training
+training_steps_per_iteration = 1000  # up from TTT's 500
+batch_size = 64
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer
+replay_buffer_capacity = 200_000   # up from 50K — longer games, more iterations
+min_buffer_size = 20_000
+
+# Arena
+arena_interval = 5
+arena_games = 40
+arena_threshold = 0.55
+
+# Eval (vs minimax-depth-8)
+eval_interval = 5
+eval_games = 200
+
+# Schedule
+num_iterations = 50
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+checkpoint_dir = &quot;checkpoints&quot;
+log_dir = &quot;runs&quot;
+</code></pre>
+<p><strong>Wall-time estimates on M4 Pro</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>Setup</th>
+<th>Per iter</th>
+<th>50 iter total</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CPU</td>
+<td>~15-25 min</td>
+<td>12-20 hours</td>
+</tr>
+<tr>
+<td>MPS</td>
+<td>~5-10 min</td>
+<td>3-6 hours</td>
+</tr>
+</tbody>
+</table>
+<p>If too slow, the first knob to drop is <code>games_per_iteration</code> (50 instead of 100) — halves training time at modest quality cost.</p>
+<p><strong>The handful of decisions that actually matter:</strong></p>
+<ul>
+<li><code>num_simulations=100</code>: most impactful. Lower it and self-play data quality drops fast for Connect 4.</li>
+<li><code>c_puct=2.5</code>: small branching factor (7) but long-horizon planning needs broad exploration early. The AlphaZero paper used 2.5-4.0 for chess; 2.5 is a reasonable starting point.</li>
+<li><code>temperature_threshold=15</code>: covers the opening phase. Beyond ~15 plies, deterministic argmax accelerates convergence to optimal play.</li>
+<li><code>dirichlet_alpha=0.5</code>: smaller α = more concentrated noise. With only 7 actions, we want noise to genuinely change the action distribution; α=1.0 (TTT's value) would be nearly uniform.</li>
+</ul>
+<hr>
+<h2 id="7-testing-strategy">7. Testing strategy</h2>
+<h3 id="71-connect4-game-tests-teststest_game_connect4py">7.1 <code>Connect4</code> game tests (<code>tests/test_game_connect4.py</code>)</h3>
+<p>About 20 tests, mirroring <code>tests/test_game_tictactoe.py</code>:</p>
+<ul>
+<li>shapes: <code>input_shape == (3, 6, 7)</code>, <code>action_size == 7</code></li>
+<li><code>initial_state</code> is empty (3, 6, 7)</li>
+<li><code>current_player</code> starts at +1, alternates by parity</li>
+<li><code>apply</code> drops piece in lowest empty cell of column</li>
+<li><code>apply</code> does not mutate input state</li>
+<li><code>apply</code> raises <code>ValueError</code> on full column</li>
+<li><code>legal_actions_mask</code> reflects column-top availability</li>
+<li><code>terminal_value</code>: horizontal 4-in-a-row, vertical, both diagonals (↗ and ↘), draw, in-progress</li>
+<li><code>terminal_value</code> returns from current-player POV</li>
+<li><code>encode</code> shape and dtype, plane assignments</li>
+<li><code>canonical_state</code> identity for player +1, inverts for player -1</li>
+<li><code>symmetries</code> returns 2 tuples, identity first, mirror correct</li>
+</ul>
+<h3 id="72-connect4minimaxopponent-tests-teststest_connect4_minimaxpy">7.2 <code>Connect4MinimaxOpponent</code> tests (<code>tests/test_connect4_minimax.py</code>)</h3>
+<ul>
+<li>only plays legal moves</li>
+<li>takes immediate winning move (depth ≥ 1)</li>
+<li>blocks immediate threat (depth ≥ 2)</li>
+<li>prefers center column on empty board (heuristic check)</li>
+<li>finds 2-move tactic at depth ≥ 4</li>
+<li>depth-8 beats depth-2 in ≥9 of 10 games (sanity check on search depth)</li>
+</ul>
+<h3 id="73-kill-criterion-e2e-teststest_e2e_connect4py-pytestmarkslow">7.3 Kill-criterion E2E (<code>tests/test_e2e_connect4.py</code>, <code>@pytest.mark.slow</code>)</h3>
+<pre><code class="language-python">@pytest.mark.slow
+def test_e2e_connect4_beats_minimax_depth_8(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    config = load_config(REPO_ROOT / &quot;configs/connect4.toml&quot;)
+    trainer = Trainer(Connect4(), config)
+    trainer.run(eval_opponent=Connect4MinimaxOpponent(depth=8))
+
+    agent = trainer._make_argmax_mcts_agent(trainer.best_net)
+    opponent = Connect4MinimaxOpponent(depth=8)
+    result = play_match(Connect4(), agent, opponent, num_games=200)
+
+    print(f&quot;\nFinal: wins={result.wins_a} draws={result.draws} losses={result.losses_a} &quot;
+          f&quot;win_rate={result.win_rate:.2%}&quot;)
+    assert result.win_rate &gt;= 0.80, (
+        f&quot;Agent win rate {result.win_rate:.2%} below 0.80 target. &quot;
+        &quot;Increase num_iterations or num_simulations.&quot;
+    )
+</code></pre>
+<h3 id="74-invariant-tests">7.4 Invariant tests</h3>
+<p>The existing <code>tests/test_invariants.py</code> already guards the 6 framework invariants. No duplication needed — those tests operate on TicTacToe via fixtures, but they prove the framework's invariants hold, which is what matters. If we want, we can later parameterize them across (TTT, C4) for extra safety.</p>
+<hr>
+<h2 id="8-success-criterion-recap">8. Success criterion (recap)</h2>
+<p><strong>Sub-project 2 is done when:</strong></p>
+<blockquote>
+<p><code>pytest -m slow tests/test_e2e_connect4.py</code> passes consistently with <code>result.win_rate &gt;= 0.80</code> against the depth-8 minimax opponent over 200 games (alternating colors).</p>
+</blockquote>
+<p>After this passes, Sub-project 3 (chess) can begin.</p>
+<hr>
+<h2 id="9-project-layout-additions">9. Project layout additions</h2>
+<pre><code>configs/connect4.toml                              ← new
+src/alphazero/games/connect4.py                    ← new (~200 lines)
+src/alphazero/opponents/__init__.py                ← new package
+src/alphazero/opponents/connect4_minimax.py       ← new (~200 lines)
+src/alphazero/trainer.py                           ← small change: generalize _eval_vs_*
+src/alphazero/cli.py                               ← small change: --game flag
+tests/test_game_connect4.py                        ← new (~250 lines)
+tests/test_connect4_minimax.py                     ← new (~150 lines)
+tests/test_e2e_connect4.py                         ← new (~50 lines)
+</code></pre>
+<p>The new <code>opponents/</code> package is parallel to the existing <code>solvers/</code>. <code>solvers/</code> is for ground-truth oracles (perfect TTT minimax); <code>opponents/</code> is for <em>classes of agents</em> used as eval baselines. Same conceptual layer; different semantic role.</p>
+<hr>
+<h2 id="10-out-of-scope-saved-for-future-sub-projects">10. Out of scope (saved for future sub-projects)</h2>
+<ul>
+<li><strong>Perfect-play Connect 4 evaluation</strong> — Sub-project 4 if pursued. Requires either a precomputed lookup table or a strong solver like Pascal Pons's C++ engine.</li>
+<li><strong>Parallel self-play</strong> — Sub-project 3 will need it for chess; revisit then.</li>
+<li><strong>Connect 4 opening book</strong> — not necessary for the win-rate target.</li>
+<li><strong>MCTS optimizations</strong> (batched eval, virtual loss for parallel rollouts) — Sub-project 3.</li>
+<li><strong>Bitboard representation</strong> — Sub-project 3 if chess move-gen becomes the bottleneck.</li>
+</ul>
+<hr>
+<h2 id="11-references">11. References</h2>
+<ul>
+<li>Allis, V. <em>A Knowledge-based Approach of Connect-Four</em> (1988) — original Connect 4 solver thesis; established that first player wins with perfect play.</li>
+<li>Pascal Pons, <a href="http://blog.gamesolver.org/">Connect 4 solver</a> — modern strong solver; reference if we ever pursue perfect-play matching.</li>
+<li>Silver et al., <em>Mastering Chess and Shogi by Self-Play with a General Reinforcement Learning Algorithm</em> (AlphaZero), 2017 — primary architecture reference (unchanged from Sub-project 1).</li>
+<li>Sub-project 1 spec: <a href="2026-05-15-alphazero-framework-tictactoe-design.md"><code>2026-05-15-alphazero-framework-tictactoe-design.md</code></a> — defines the framework Sub-project 2 reuses.</li>
+</ul></article>
+  </main>
+</body>
+</html>
