@@ -99,3 +99,17 @@ def test_run_promotes_every_iteration(tiny_config):
     # After the last iteration, best_net was just promoted from candidate.
     for p_b, p_c in zip(trainer.best_net.parameters(), trainer.candidate_net.parameters()):
         torch.testing.assert_close(p_b, p_c)
+
+
+def test_eval_vs_opponent_uses_provided_agent(tiny_config):
+    """Trainer._eval_vs_opponent should play best_net vs an arbitrary agent."""
+    trainer = Trainer(TicTacToe(), tiny_config)
+
+    # Sentinel opponent: always plays the first legal action.
+    def sentinel_agent(game, state):
+        legal = game.legal_actions_mask(state)
+        return int(np.where(legal)[0][0])
+
+    result = trainer._eval_vs_opponent(sentinel_agent, num_games=4)
+    assert set(result.keys()) == {"wins", "draws", "losses"}
+    assert result["wins"] + result["draws"] + result["losses"] == 4

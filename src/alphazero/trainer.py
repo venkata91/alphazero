@@ -135,24 +135,39 @@ class Trainer:
         self.best_net = copy.deepcopy(self.candidate_net)
         self.best_net.eval()
 
-    def _eval_vs_solver(self) -> dict:
-        """Play current best_net vs the perfect TTT solver."""
+    def _eval_vs_opponent(self, opponent, num_games: int) -> dict:
+        """Play current best_net vs an arbitrary opponent agent.
+
+        Generic alternative to `_eval_vs_solver` — used for games (like
+        Connect 4) where the eval baseline is a minimax opponent, not a
+        perfect-play solver.
+
+        Args:
+            opponent: callable `(game, state) -> int` returning chosen action.
+            num_games: how many games to play (alternating colors).
+
+        Returns:
+            dict with keys "wins", "draws", "losses" from best_net's POV.
+        """
         from .arena import play_match
-        from .solvers.tictactoe_solver import solve_tictactoe_action
-
-        def solver_agent(game, state):
-            return solve_tictactoe_action(state)
-
         net_agent = self._make_argmax_mcts_agent(self.best_net)
-        result = play_match(
-            self.game, net_agent, solver_agent,
-            num_games=self.config.eval_games,
-        )
+        result = play_match(self.game, net_agent, opponent, num_games=num_games)
         return {
             "wins": result.wins_a,
             "draws": result.draws,
             "losses": result.losses_a,
         }
+
+    def _eval_vs_solver(self) -> dict:
+        """Play current best_net vs the perfect TTT solver. Thin wrapper
+        over _eval_vs_opponent for backward-compatibility with the
+        Sub-project 1 E2E test."""
+        from .solvers.tictactoe_solver import solve_tictactoe_action
+
+        def solver_agent(_game, state):
+            return solve_tictactoe_action(state)
+
+        return self._eval_vs_opponent(solver_agent, self.config.eval_games)
 
     def _save_checkpoint(self) -> Path:
         ckpt_dir = Path(self.config.checkpoint_dir)
@@ -170,7 +185,15 @@ class Trainer:
         }, path)
         return path
 
-    def run(self, verbose: bool = True) -> None:
+    def run(self, verbose: bool = True, eval_opponent=None) -> None:
+        """Train for num_iterations.
+
+        Args:
+            verbose: print per-iteration progress.
+            eval_opponent: optional callable `(game, state) -> int`. If given,
+                eval-vs-solver hook is replaced by eval-vs-this-opponent.
+                Used by Connect 4 (Sub-project 2) to inject the minimax baseline.
+        """
         if verbose:
             print(
                 f"Starting training: {self.config.num_iterations} iterations | "
@@ -211,9 +234,16 @@ class Trainer:
                 print(f"  promoted candidate → best_net", flush=True)
 
             if self.iteration % self.config.eval_interval == 0:
-                if verbose:
-                    print(f"  eval vs solver ({self.config.eval_games} games)...", flush=True)
-                result = self._eval_vs_solver()
+                if eval_opponent is not None:
+                    if verbose:
+                        print(f"  eval vs opponent ({self.config.eval_games} games)...",
+                              flush=True)
+                    result = self._eval_vs_opponent(eval_opponent, self.config.eval_games)
+                else:
+                    if verbose:
+                        print(f"  eval vs solver ({self.config.eval_games} games)...",
+                              flush=True)
+                    result = self._eval_vs_solver()
                 if verbose:
                     print(f"  eval: wins={result['wins']} draws={result['draws']} "
                           f"losses={result['losses']}", flush=True)
