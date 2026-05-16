@@ -68,3 +68,24 @@ def test_white_king_one_square_each_direction_round_trip():
         idx = move_to_index(board, move)
         back = index_to_move(board, idx)
         assert back == move, f"Failed for king move e3-{dst}"
+
+
+def test_knight_round_trip_all_8_directions():
+    """A knight at e4 has 8 possible destinations."""
+    board = chess.Board("8/8/8/8/4N3/8/8/4K2k w - - 0 1")
+    destinations = ["g5", "f6", "d6", "c5", "c3", "d2", "f2", "g3"]
+    for dst in destinations:
+        move = chess.Move.from_uci(f"e4{dst}")
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move, f"Failed for knight move e4-{dst}"
+
+
+def test_knight_at_corner_partial_round_trip():
+    """A knight at a1 has fewer legal moves but encoding must still work."""
+    board = chess.Board("4k3/8/8/8/8/8/8/N6K w - - 0 1")
+    for dst in ["b3", "c2"]:
+        move = chess.Move.from_uci(f"a1{dst}")
+        idx = move_to_index(board, move)
+        back = index_to_move(board, idx)
+        assert back == move

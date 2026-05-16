@@ -29,6 +29,18 @@ QUEEN_DIRECTIONS: list[tuple[int, int]] = [
     ( 1, -1),  # NW
 ]
 
+# 8 knight L-shapes as (drank, dfile) deltas
+KNIGHT_DELTAS: list[tuple[int, int]] = [
+    ( 2,  1),  # NNE
+    ( 1,  2),  # ENE
+    (-1,  2),  # ESE
+    (-2,  1),  # SSE
+    (-2, -1),  # SSW
+    (-1, -2),  # WSW
+    ( 1, -2),  # WNW
+    ( 2, -1),  # NNW
+]
+
 ACTION_SIZE = 64 * 73  # 4672
 
 
@@ -63,50 +75,61 @@ def _type_to_queen_move(move_type: int) -> tuple[int, int] | None:
 
 
 def move_to_index(board: chess.Board, move: chess.Move) -> int:
-    """Convert a python-chess Move to a flat action index in [0, 4672).
-
-    Only handles queen-like moves so far. Knights and underpromotions raise.
-    """
     src = move.from_square
     dst = move.to_square
     drank = chess.square_rank(dst) - chess.square_rank(src)
     dfile = chess.square_file(dst) - chess.square_file(src)
 
+    # Queen-like (and queen-promotions)
     queen_type = _queen_move_to_type(drank, dfile)
     if queen_type is not None and move.promotion in (None, chess.QUEEN):
-        # Queen promotion is encoded as a queen-direction move (not as an underpromotion)
         return src * 73 + queen_type
 
+    # Knight
+    if (drank, dfile) in KNIGHT_DELTAS:
+        knight_idx = KNIGHT_DELTAS.index((drank, dfile))
+        return src * 73 + (56 + knight_idx)
+
     raise NotImplementedError(
-        f"Knight and underpromotion encoding not implemented yet "
+        f"Underpromotion encoding not implemented yet "
         f"(move={move}, drank={drank}, dfile={dfile})"
     )
 
 
 def index_to_move(board: chess.Board, index: int) -> chess.Move:
-    """Convert a flat action index back to a python-chess Move.
-
-    Only handles queen-like moves so far.
-    """
     if not (0 <= index < ACTION_SIZE):
         raise ValueError(f"index {index} out of range [0, {ACTION_SIZE})")
     src, move_type = divmod(index, 73)
-    delta = _type_to_queen_move(move_type)
-    if delta is None:
-        raise NotImplementedError(
-            f"index {index} decodes to non-queen-like move_type {move_type}"
-        )
-    drank, dfile = delta
+
+    if 0 <= move_type < 56:
+        delta = _type_to_queen_move(move_type)
+        drank, dfile = delta
+        return _build_move_with_promotion(board, src, drank, dfile)
+
+    if 56 <= move_type < 64:
+        knight_idx = move_type - 56
+        drank, dfile = KNIGHT_DELTAS[knight_idx]
+        dst_rank = chess.square_rank(src) + drank
+        dst_file = chess.square_file(src) + dfile
+        if not (0 <= dst_rank < 8 and 0 <= dst_file < 8):
+            raise ValueError(f"index {index} decodes off-board")
+        dst = chess.square(dst_file, dst_rank)
+        return chess.Move(src, dst)
+
+    raise NotImplementedError(f"index {index} (move_type {move_type}) is an underpromotion (not impl yet)")
+
+
+def _build_move_with_promotion(board: chess.Board, src: int, drank: int, dfile: int) -> chess.Move:
+    """Build a queen-like move from src + delta, auto-detecting queen promotion."""
     dst_rank = chess.square_rank(src) + drank
     dst_file = chess.square_file(src) + dfile
     if not (0 <= dst_rank < 8 and 0 <= dst_file < 8):
-        raise ValueError(f"index {index} decodes to off-board destination")
+        raise ValueError("off-board destination")
     dst = chess.square(dst_file, dst_rank)
-    # Detect promotion: a pawn moving onto rank 0 or 7 (white pawn → rank 7, black pawn → rank 0)
     promotion = None
     piece = board.piece_at(src)
     if piece is not None and piece.piece_type == chess.PAWN:
         if (piece.color == chess.WHITE and dst_rank == 7) or \
            (piece.color == chess.BLACK and dst_rank == 0):
-            promotion = chess.QUEEN  # default; underpromotions handled separately
+            promotion = chess.QUEEN
     return chess.Move(src, dst, promotion=promotion)
