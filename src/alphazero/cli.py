@@ -33,8 +33,17 @@ def _cmd_train(args: argparse.Namespace) -> int:
         print(f"Loaded iteration {trainer.iteration}; will run {config.num_iterations} more.",
               flush=True)
 
+    # Build the per-game eval opponent. Without this, Trainer falls through
+    # to _eval_vs_solver (TTT minimax) — which crashes on Connect 4 states.
+    eval_opponent = None
+    if args.game == "connect4":
+        from .opponents.connect4_minimax import Connect4MinimaxOpponent
+        eval_opponent = Connect4MinimaxOpponent(depth=8)
+    # For tictactoe, leaving eval_opponent=None routes through _eval_vs_solver
+    # (the perfect TTT minimax) which is correct.
+
     print(f"Starting training: {config.num_iterations} iterations on {trainer.device}")
-    trainer.run()
+    trainer.run(eval_opponent=eval_opponent)
     print("Training complete.")
     return 0
 
