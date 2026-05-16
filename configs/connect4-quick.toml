@@ -1,0 +1,44 @@
+# Connect 4 reduced-compute training config (Sub-project 2 retry).
+#
+# Same as configs/connect4.toml but with reduced num_simulations and
+# num_iterations for faster training on free-tier hardware (Colab T4).
+# Produces a viable but slightly weaker agent in ~3-5 hours vs the full
+# config's ~16+ hours on Colab T4.
+#
+# For the "official" Sub-project 2 result (≥80% win rate vs minimax-depth-8),
+# use configs/connect4.toml on a faster GPU.
+
+# Network — bigger than TTT (richer position features needed for 6×7 board)
+n_blocks = 6
+n_channels = 64
+
+# MCTS — REDUCED from 100 to 50 for ~2× speedup per move
+num_simulations = 50
+c_puct = 2.5
+dirichlet_alpha = 0.5
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 15
+
+# Training
+training_steps_per_iteration = 1000
+batch_size = 64
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer
+replay_buffer_capacity = 200_000
+min_buffer_size = 20_000
+
+# Eval (vs minimax-depth-8)
+eval_interval = 5
+eval_games = 200
+
+# Schedule — REDUCED from 50 to 30 iterations for ~40% time savings
+num_iterations = 30
+seed = 42
+device = "auto"
+checkpoint_dir = "checkpoints"
+log_dir = "runs"
