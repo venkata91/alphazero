@@ -43,6 +43,10 @@ class TrainingConfig:
     # Schedule
     num_iterations: int = 50
 
+    # NEW: parallel self-play (scale-invariant knobs)
+    num_workers: int = 1                 # 1 = serial fallback (existing behavior)
+    inference_batch_size: int = 64       # NN-server batches up to N states per forward
+
     # Misc
     seed: int = 42
     device: str = "auto"            # "auto" | "cpu" | "mps" | "cuda"

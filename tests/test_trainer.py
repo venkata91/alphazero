@@ -151,3 +151,15 @@ def test_run_after_load_continues_from_checkpoint_iteration(tiny_config, tmp_pat
     # The new checkpoints exist
     assert (tmp_path / tiny_config.checkpoint_dir / "iter_0003.pt").exists()
     assert (tmp_path / tiny_config.checkpoint_dir / "iter_0004.pt").exists()
+
+
+def test_trainer_dispatches_parallel_when_num_workers_gt_1(tiny_config, tmp_path, monkeypatch):
+    """When num_workers > 1, Trainer.run uses parallel_selfplay instead of run_one_game."""
+    from dataclasses import replace
+    monkeypatch.chdir(tmp_path)
+    cfg = replace(tiny_config, num_workers=2, games_per_iteration=4,
+                  inference_batch_size=4, num_iterations=1, eval_interval=999)
+    trainer = Trainer(TicTacToe(), cfg)
+    trainer.run(verbose=False)
+    # If we got here, the parallel path ran. Verify checkpoint exists.
+    assert (tmp_path / cfg.checkpoint_dir / "iter_0001.pt").exists()

@@ -67,7 +67,15 @@ class Trainer:
         return fn
 
     def _run_self_play_iteration(self, verbose: bool = True) -> None:
-        """Generate games_per_iteration games using best_net; push to buffer."""
+        """Generate games_per_iteration games using best_net; push to buffer.
+
+        When config.num_workers > 1, dispatches to parallel_selfplay. Otherwise
+        falls back to serial run_one_game.
+        """
+        if self.config.num_workers > 1:
+            self._run_parallel_self_play_iteration(verbose=verbose)
+            return
+        # Serial fallback (existing behavior, unchanged)
         eval_fn = self._make_eval_fn(self.best_net)
         iterator = range(self.config.games_per_iteration)
         if verbose:
@@ -87,6 +95,49 @@ class Trainer:
                 augment=True,
             )
             self.replay_buffer.add(examples)
+
+    def _run_parallel_self_play_iteration(self, verbose: bool = True) -> None:
+        """Use parallel_selfplay with N workers + central NN-server."""
+        from .parallel_selfplay import run_parallel_self_play
+
+        # game_name registry (the parallel module needs a string to import the game)
+        game_class_to_name = {
+            "TicTacToe": "tictactoe",
+            "Connect4": "connect4",
+            "Chess": "chess",
+        }
+        game_name = game_class_to_name.get(type(self.game).__name__)
+        if game_name is None:
+            raise ValueError(
+                f"Parallel self-play not configured for game {type(self.game).__name__}"
+            )
+
+        if verbose:
+            print(
+                f"  parallel self-play (iter {self.iteration}): "
+                f"{self.config.num_workers} workers × "
+                f"{self.config.games_per_iteration} games",
+                flush=True,
+            )
+
+        examples = run_parallel_self_play(
+            game_name=game_name,
+            state_dict={k: v.cpu() for k, v in self.best_net.state_dict().items()},
+            input_shape=self.game.input_shape,
+            action_size=self.game.action_size,
+            n_blocks=self.config.n_blocks,
+            n_channels=self.config.n_channels,
+            num_games=self.config.games_per_iteration,
+            num_workers=self.config.num_workers,
+            inference_batch_size=self.config.inference_batch_size,
+            num_simulations=self.config.num_simulations,
+            temperature_threshold=self.config.temperature_threshold,
+            c_puct=self.config.c_puct,
+            dirichlet_alpha=self.config.dirichlet_alpha,
+            dirichlet_weight=self.config.dirichlet_weight,
+            device=str(self.device),
+        )
+        self.replay_buffer.add(examples)
 
     def _train_step(self) -> float:
         """One minibatch SGD update on candidate_net. Returns total loss."""

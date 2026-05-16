@@ -31,6 +31,8 @@ def tiny_config() -> TrainingConfig:
         eval_interval=1,
         eval_games=8,
         num_iterations=2,
+        num_workers=1,
+        inference_batch_size=4,
         seed=42,
         device="cpu",
         checkpoint_dir="checkpoints_test",
