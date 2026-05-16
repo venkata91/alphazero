@@ -569,10 +569,9 @@ weight_decay = 1e-4
 replay_buffer_capacity = 200_000   # up from 50K — longer games, more iterations
 min_buffer_size = 20_000
 
-# Arena
-arena_interval = 5
-arena_games = 40
-arena_threshold = 0.55
+# (no arena gate — see &quot;Lessons from Sub-project 1&quot; below.
+# arena_* config fields exist on TrainingConfig for backward-compat with
+# existing checkpoints, but the Trainer no longer reads them.)
 
 # Eval (vs minimax-depth-8)
 eval_interval = 5
@@ -616,7 +615,19 @@ log_dir = &quot;runs&quot;
 <li><code>c_puct=2.5</code>: small branching factor (7) but long-horizon planning needs broad exploration early. The AlphaZero paper used 2.5-4.0 for chess; 2.5 is a reasonable starting point.</li>
 <li><code>temperature_threshold=15</code>: covers the opening phase. Beyond ~15 plies, deterministic argmax accelerates convergence to optimal play.</li>
 <li><code>dirichlet_alpha=0.5</code>: smaller α = more concentrated noise. With only 7 actions, we want noise to genuinely change the action distribution; α=1.0 (TTT's value) would be nearly uniform.</li>
+<li><strong>No arena gate</strong>: Sub-project 1 originally followed AlphaGo Zero's arena gating. We've since removed it entirely from <code>Trainer</code>. See "Lessons from Sub-project 1" below.</li>
 </ul>
+<h3 id="lessons-from-sub-project-1-arena-gating">Lessons from Sub-project 1 (arena gating)</h3>
+<p>Sub-project 1's plan followed AlphaGo Zero (2017) and gated network promotion behind <code>win_rate ≥ 0.55</code> over 40 candidate-vs-best games. This <strong>completely stalled TTT training</strong> in practice:</p>
+<ol>
+<li>After the first acceptance (~iter 5), candidate and best are very similar networks. Wrapped in MCTS at 50 simulations per move, both produced similar argmax actions → most games drew.</li>
+<li><code>win_rate = (wins + 0.5·draws) / total</code> therefore hovered near 0.50 — never reaching 0.55.</li>
+<li>Every iteration: candidate trained → arena rejected → candidate weights reverted to best's. Identical self-play data generated next iter. Infinite loop.</li>
+<li>Result after 46 iterations on MPS: <code>best_net</code> weights were byte-identical to their iter 5 state. The frozen network had learned a <em>defeatist O policy</em> (prior on center after X's corner opening = 0.095, below uniform 1/9), and lost 100% of O-side games against a perfect solver.</li>
+</ol>
+<p><strong>Fix</strong>: removed the arena gate from <code>Trainer.run()</code> entirely. <code>_maybe_accept_candidate</code> was replaced by <code>_promote_candidate_to_best</code>, which is called unconditionally after every training iteration — matching the AlphaZero paper (2017), which deliberately dropped the arena step that AlphaGo Zero had used. Training then accumulated improvements iteration-over-iteration, and the same framework reached zero losses against the perfect TTT solver at iteration 10.</p>
+<p>The <code>_arena_win_rate</code> helper is preserved as an optional diagnostic — useful for inspecting "is the candidate stronger than best?" without gating on the answer. We may use it for logging during Connect 4 training, just not for gating.</p>
+<p>For Sub-project 2, we adopt the AlphaZero convention from the start: always promote, no gate. We may revisit arena-style safeguards in Sub-project 3 (chess) if training instability requires a safety net — but the gating threshold value (if used at all) will need to be far below 0.55 (the AlphaZero paper experiments suggest 0.50–0.52 in their ablations).</p>
 <hr>
 <h2 id="7-testing-strategy">7. Testing strategy</h2>
 <h3 id="71-connect4-game-tests-teststest_game_connect4py">7.1 <code>Connect4</code> game tests (<code>tests/test_game_connect4.py</code>)</h3>

@@ -56,31 +56,46 @@ def test_trainer_run_writes_checkpoints(tiny_config, tmp_path, monkeypatch):
     assert len(ckpts) >= 1
 
 
-def test_arena_acceptance_replaces_best_net(tiny_config):
+def test_promote_candidate_to_best_copies_weights(tiny_config):
+    """After promotion, best_net has the same weights as candidate."""
     trainer = Trainer(TicTacToe(), tiny_config)
-    trainer._run_self_play_iteration()
+    # Scramble candidate so it definitely differs from best
     for p in trainer.candidate_net.parameters():
         with torch.no_grad():
             p.add_(torch.randn_like(p) * 0.5)
-    win_rate_above = tiny_config.arena_threshold + 0.1
-    trainer._arena_win_rate = lambda: win_rate_above  # type: ignore[method-assign]
-    accepted = trainer._maybe_accept_candidate()
-    assert accepted is True
+    # Confirm divergence before promotion
+    differing = any(
+        not torch.equal(p_b, p_c)
+        for p_b, p_c in zip(trainer.best_net.parameters(), trainer.candidate_net.parameters())
+    )
+    assert differing, "test setup failed: candidate already equals best"
+
+    trainer._promote_candidate_to_best()
+
+    # After promotion, all weights match
     for p_b, p_c in zip(trainer.best_net.parameters(), trainer.candidate_net.parameters()):
         torch.testing.assert_close(p_b, p_c)
 
 
-def test_arena_rejection_reverts_candidate_to_best(tiny_config):
+def test_promote_creates_independent_best_net_copy(tiny_config):
+    """Modifying candidate after promotion must NOT change best_net (deepcopy semantics)."""
     trainer = Trainer(TicTacToe(), tiny_config)
-    trainer._run_self_play_iteration()
+    trainer._promote_candidate_to_best()
+    # Snapshot best
     best_snapshot = [p.detach().clone() for p in trainer.best_net.parameters()]
-    for p in trainer.candidate_net.parameters():
-        with torch.no_grad():
-            p.add_(torch.randn_like(p) * 0.5)
-    trainer._arena_win_rate = lambda: tiny_config.arena_threshold - 0.1  # type: ignore[method-assign]
-    accepted = trainer._maybe_accept_candidate()
-    assert accepted is False
-    for snap, p in zip(best_snapshot, trainer.best_net.parameters()):
-        torch.testing.assert_close(snap, p)
+    # Mutate candidate
+    with torch.no_grad():
+        for p in trainer.candidate_net.parameters():
+            p.add_(1.0)
+    # best_net should be untouched
+    for snap, p_b in zip(best_snapshot, trainer.best_net.parameters()):
+        torch.testing.assert_close(snap, p_b)
+
+
+def test_run_promotes_every_iteration(tiny_config):
+    """After Trainer.run(), best_net should match the final candidate_net."""
+    trainer = Trainer(TicTacToe(), tiny_config)
+    trainer.run()
+    # After the last iteration, best_net was just promoted from candidate.
     for p_b, p_c in zip(trainer.best_net.parameters(), trainer.candidate_net.parameters()):
         torch.testing.assert_close(p_b, p_c)

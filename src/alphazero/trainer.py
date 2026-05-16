@@ -134,26 +134,21 @@ class Trainer:
         )
         return result.win_rate
 
-    def _maybe_accept_candidate(self) -> bool:
-        """Run arena gate. If candidate wins >= threshold, accept; else revert.
+    def _promote_candidate_to_best(self) -> None:
+        """Promote the candidate net to be the new best net.
 
-        Special case: if arena_threshold <= 0, skip the arena entirely and
-        always accept the candidate. This matches the AlphaZero paper (2017),
-        which dropped the arena step that AlphaGo Zero used. Arena gating
-        causes stagnation when MCTS smooths over small NN differences, so
-        most matches end ~50/50 and never beat the threshold.
+        We always promote (matching the AlphaZero paper, which dropped the
+        arena step that AlphaGo Zero had used). Arena gating caused
+        stagnation on TTT: MCTS smoothed over small NN differences, most
+        candidate-vs-best matches drew, win_rate hovered near 0.5, and the
+        gate rejected most updates — locking best_net to its early state.
+
+        `_arena_win_rate()` is preserved as an optional diagnostic if you
+        ever want to inspect "is the candidate stronger than best?" without
+        gating on the answer.
         """
-        if self.config.arena_threshold <= 0:
-            self.best_net = copy.deepcopy(self.candidate_net)
-            self.best_net.eval()
-            return True
-        win_rate = self._arena_win_rate()
-        if win_rate >= self.config.arena_threshold:
-            self.best_net = copy.deepcopy(self.candidate_net)
-            self.best_net.eval()
-            return True
-        self.candidate_net.load_state_dict(self.best_net.state_dict())
-        return False
+        self.best_net = copy.deepcopy(self.candidate_net)
+        self.best_net.eval()
 
     def _eval_vs_solver(self) -> dict:
         """Play current best_net vs the perfect TTT solver."""
@@ -223,14 +218,12 @@ class Trainer:
             elif verbose:
                 print(f"  (skipping training — buffer < {self.config.min_buffer_size})", flush=True)
 
-            if self.iteration % self.config.arena_interval == 0:
-                if verbose:
-                    print(f"  arena: candidate vs best ({self.config.arena_games} games)...",
-                          flush=True)
-                accepted = self._maybe_accept_candidate()
-                if verbose:
-                    print(f"  arena: {'ACCEPTED — new best_net' if accepted else 'rejected — reverted'}",
-                          flush=True)
+            # Promote candidate → best every iteration (no arena gate).
+            # AlphaZero paper convention; arena gating caused stagnation on TTT.
+            # See Trainer._promote_candidate_to_best docstring.
+            self._promote_candidate_to_best()
+            if verbose:
+                print(f"  promoted candidate → best_net", flush=True)
 
             if self.iteration % self.config.eval_interval == 0:
                 if verbose:
