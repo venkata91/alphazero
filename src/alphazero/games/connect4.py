@@ -97,3 +97,21 @@ class Connect4(Game):
         opp = (state == -1).astype(np.float32)
         ones = np.ones((ROWS, COLS), dtype=np.float32)
         return np.stack([my, opp, ones], axis=0)
+
+    def symmetries(
+        self, encoded: np.ndarray, policy: np.ndarray
+    ) -> list[tuple[np.ndarray, np.ndarray]]:
+        """Connect 4 has 2 D-group elements: identity + horizontal mirror.
+
+        (Unlike TTT's 8, Connect 4 has no vertical symmetry because gravity
+        is asymmetric — pieces only fall downward.)
+
+        Mirror flips columns left↔right in both the board planes (axis=2 of
+        the encoded tensor) and the policy (a 1D array of column indices).
+        """
+        identity = (encoded.copy(), policy.copy())
+        mirrored = (
+            np.flip(encoded, axis=2).copy(),
+            np.flip(policy, axis=0).copy(),
+        )
+        return [identity, mirrored]

@@ -199,3 +199,41 @@ def test_encode_treats_canonical_player_as_my_pieces(c4: Connect4):
     assert enc[0].sum() == 0
     assert enc[1, 5, 3] == 1
     assert enc[1].sum() == 1
+
+
+def test_symmetries_yields_two_tuples(c4: Connect4):
+    """Connect 4 has 2 symmetries: identity + horizontal (left-right) mirror."""
+    s = c4.apply(c4.initial_state(), 0)
+    enc = c4.encode(c4.canonical_state(s))
+    policy = np.array([0.5, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05], dtype=np.float32)
+    syms = c4.symmetries(enc, policy)
+    assert len(syms) == 2
+
+
+def test_symmetries_first_is_identity(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    policy = np.full(7, 1 / 7, dtype=np.float32)
+    syms = c4.symmetries(enc, policy)
+    np.testing.assert_array_equal(syms[0][0], enc)
+    np.testing.assert_array_equal(syms[0][1], policy)
+
+
+def test_symmetries_mirror_flips_columns(c4: Connect4):
+    """Mirror reflects across the vertical axis: column 0 ↔ column 6."""
+    s = c4.apply(c4.initial_state(), 0)  # +1's piece at (5, 0)
+    enc = c4.encode(c4.canonical_state(s))
+    policy = np.zeros(7, dtype=np.float32)
+    policy[0] = 1.0
+    syms = c4.symmetries(enc, policy)
+    mirror_enc, mirror_policy = syms[1]
+    # In mirrored encoding, piece is at column 6. Plane 1 = opp = X's pieces (from O's POV).
+    assert mirror_enc[1, 5, 6] == 1
+    assert mirror_enc[1, 5, 0] == 0
+    np.testing.assert_array_equal(mirror_policy, [0, 0, 0, 0, 0, 0, 1])
+
+
+def test_symmetries_preserve_policy_sum(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    policy = np.full(7, 1 / 7, dtype=np.float32)
+    for _, p in c4.symmetries(enc, policy):
+        np.testing.assert_allclose(p.sum(), 1.0, rtol=1e-6)
