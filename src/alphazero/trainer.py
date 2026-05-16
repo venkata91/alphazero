@@ -1,4 +1,4 @@
-"""Trainer: the outer loop coordinating self-play, training, arena, eval."""
+"""Trainer: the outer loop coordinating self-play, training, and evaluation."""
 from __future__ import annotations
 
 import copy
@@ -123,29 +123,14 @@ class Trainer:
             return int(np.argmax(pi))
         return agent
 
-    def _arena_win_rate(self) -> float:
-        """Play candidate vs best; return candidate's win rate."""
-        from .arena import play_match
-        candidate_agent = self._make_argmax_mcts_agent(self.candidate_net)
-        best_agent = self._make_argmax_mcts_agent(self.best_net)
-        result = play_match(
-            self.game, candidate_agent, best_agent,
-            num_games=self.config.arena_games,
-        )
-        return result.win_rate
-
     def _promote_candidate_to_best(self) -> None:
         """Promote the candidate net to be the new best net.
 
         We always promote (matching the AlphaZero paper, which dropped the
-        arena step that AlphaGo Zero had used). Arena gating caused
+        arena gate that AlphaGo Zero had used). Arena gating caused
         stagnation on TTT: MCTS smoothed over small NN differences, most
         candidate-vs-best matches drew, win_rate hovered near 0.5, and the
         gate rejected most updates — locking best_net to its early state.
-
-        `_arena_win_rate()` is preserved as an optional diagnostic if you
-        ever want to inspect "is the candidate stronger than best?" without
-        gating on the answer.
         """
         self.best_net = copy.deepcopy(self.candidate_net)
         self.best_net.eval()

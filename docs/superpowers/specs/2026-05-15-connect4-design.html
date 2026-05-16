@@ -569,9 +569,8 @@ weight_decay = 1e-4
 replay_buffer_capacity = 200_000   # up from 50K — longer games, more iterations
 min_buffer_size = 20_000
 
-# (no arena gate — see &quot;Lessons from Sub-project 1&quot; below.
-# arena_* config fields exist on TrainingConfig for backward-compat with
-# existing checkpoints, but the Trainer no longer reads them.)
+# (no arena gate — Trainer always promotes candidate to best;
+# see &quot;Lessons from Sub-project 1&quot; below.)
 
 # Eval (vs minimax-depth-8)
 eval_interval = 5

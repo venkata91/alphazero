@@ -36,11 +36,6 @@ class TrainingConfig:
     replay_buffer_capacity: int = 50_000
     min_buffer_size: int = 5_000
 
-    # Arena
-    arena_interval: int = 5
-    arena_games: int = 40
-    arena_threshold: float = 0.55
-
     # Eval
     eval_interval: int = 5
     eval_games: int = 200

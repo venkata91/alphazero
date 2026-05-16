@@ -1,0 +1,1478 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Connect 4 on the AlphaZero Framework Implementation Plan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <p class="kicker">Notes</p>
+      <h1>Connect 4 on the AlphaZero Framework Implementation Plan</h1>
+
+    </header>
+    <article class="spec"><blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Validate the AlphaZero framework on Connect 4 — train a network that beats a from-scratch minimax-depth-8 opponent in ≥80% of 200 games (alternating colors), reusing the entire Sub-project 1 framework unchanged.</p>
+<p><strong>Architecture:</strong> Add one new <code>Game</code> subclass (<code>Connect4</code>), one new evaluation opponent (<code>Connect4MinimaxOpponent</code> with α-β pruning), and small generalizations to <code>Trainer.run()</code> (eval-opponent injection) and the CLI (<code>--game</code> flag). The four-layer framework (Game / NN / MCTS / Trainer) is unchanged.</p>
+<p><strong>Tech Stack:</strong> Same as Sub-project 1 — Python 3.11+, PyTorch 2.2+ (MPS/CUDA portable), NumPy, pytest. No new dependencies.</p>
+<p><strong>Spec:</strong> <a href="../specs/2026-05-15-connect4-design.md"><code>docs/superpowers/specs/2026-05-15-connect4-design.md</code></a></p>
+<hr>
+<h2 id="file-structure">File Structure</h2>
+<p>Files this plan creates or modifies:</p>
+<pre><code>src/alphazero/games/connect4.py                ← new (~200 lines)
+src/alphazero/opponents/__init__.py            ← new (empty package marker)
+src/alphazero/opponents/connect4_minimax.py    ← new (~200 lines)
+src/alphazero/trainer.py                       ← small change (eval-opponent injection)
+src/alphazero/cli.py                           ← small change (--game flag)
+configs/connect4.toml                          ← new
+tests/test_game_connect4.py                    ← new (~250 lines)
+tests/test_connect4_minimax.py                 ← new (~150 lines)
+tests/test_e2e_connect4.py                     ← new (~50 lines)
+</code></pre>
+<p>Tasks proceed in dependency order: game first, then opponent (which uses the game's terminal detection), then the framework wiring (Trainer/CLI), then the kill criterion.</p>
+<hr>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li>Commit messages use HEREDOC with <code>Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;</code> footer (per <code>~/.claude/CLAUDE.md</code>). Commit subjects in this plan show only the subject; executor adds the footer.</li>
+<li>All tests live under <code>tests/</code>. Run with <code>pytest</code>. Use <code>-m "not slow"</code> to skip the E2E test.</li>
+<li>TDD: red → green → commit. Each task is one cohesive change with its own commit.</li>
+</ul>
+<hr>
+<h2 id="task-1-connect4-game-scaffolding-state-current_player-apply-legal_actions_mask">Task 1: Connect4 game scaffolding — state, current_player, apply, legal_actions_mask</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/games/connect4.py</code>
+- Test: <code>tests/test_game_connect4.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the failing tests</strong></li>
+</ul>
+<p><code>tests/test_game_connect4.py</code>:</p>
+<pre><code class="language-python">import numpy as np
+import pytest
+
+from alphazero.games.connect4 import Connect4
+
+
+@pytest.fixture
+def c4() -&gt; Connect4:
+    return Connect4()
+
+
+def test_input_shape_and_action_size(c4: Connect4):
+    assert c4.input_shape == (3, 6, 7)
+    assert c4.action_size == 7
+
+
+def test_initial_state_is_empty(c4: Connect4):
+    s = c4.initial_state()
+    assert s.shape == (6, 7)
+    assert s.dtype == np.int8
+    assert np.all(s == 0)
+
+
+def test_current_player_starts_at_plus_one(c4: Connect4):
+    assert c4.current_player(c4.initial_state()) == 1
+
+
+def test_apply_drops_piece_to_bottom_row_of_column(c4: Connect4):
+    &quot;&quot;&quot;First piece in a column should land at row 5 (the bottom).&quot;&quot;&quot;
+    s = c4.initial_state()
+    s = c4.apply(s, action=3)  # player +1 drops in column 3
+    assert s[5, 3] == 1
+    # All other cells still empty
+    assert np.count_nonzero(s) == 1
+    # Next player is -1
+    assert c4.current_player(s) == -1
+
+
+def test_apply_stacks_pieces_within_a_column(c4: Connect4):
+    s = c4.initial_state()
+    s = c4.apply(s, action=3)  # +1 at (5, 3)
+    s = c4.apply(s, action=3)  # -1 stacks on top at (4, 3)
+    s = c4.apply(s, action=3)  # +1 at (3, 3)
+    assert s[5, 3] == 1
+    assert s[4, 3] == -1
+    assert s[3, 3] == 1
+    assert s[2, 3] == 0  # next slot is still empty
+
+
+def test_apply_does_not_mutate_input(c4: Connect4):
+    s = c4.initial_state()
+    s_copy = s.copy()
+    _ = c4.apply(s, 0)
+    np.testing.assert_array_equal(s, s_copy)
+
+
+def test_apply_raises_on_full_column(c4: Connect4):
+    s = c4.initial_state()
+    # Fill column 0 (6 pieces)
+    for _ in range(6):
+        s = c4.apply(s, 0)
+    assert s[0, 0] != 0  # top of column 0 is occupied
+    with pytest.raises(ValueError, match=&quot;full&quot;):
+        c4.apply(s, 0)
+
+
+def test_legal_actions_mask_initial_state_all_seven_legal(c4: Connect4):
+    mask = c4.legal_actions_mask(c4.initial_state())
+    assert mask.shape == (7,)
+    assert mask.dtype == bool
+    assert mask.all()
+
+
+def test_legal_actions_mask_after_filling_one_column(c4: Connect4):
+    s = c4.initial_state()
+    for _ in range(6):
+        s = c4.apply(s, 3)
+    mask = c4.legal_actions_mask(s)
+    assert mask.sum() == 6
+    assert not mask[3]  # column 3 is full
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests to verify they fail</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<p>Expected: ImportError on <code>alphazero.games.connect4</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement Connect4 core in <code>src/alphazero/games/connect4.py</code></strong></li>
+</ul>
+<pre><code class="language-python">&quot;&quot;&quot;Connect 4: 6×7 board with gravity. Pieces drop to the lowest empty cell of the
+chosen column.
+
+State representation:
+    np.ndarray shape (6, 7), dtype int8, values in {+1, 0, -1}.
+    Row 0 is the top of the board; row 5 is the bottom (where pieces land).
+    +1 = first player (red); -1 = second player (yellow); 0 = empty.
+
+Action space: integers 0..6 — the column to drop a piece into.
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import numpy as np
+
+from .base import Game
+
+State = np.ndarray
+
+ROWS = 6
+COLS = 7
+
+
+class Connect4(Game):
+    @property
+    def input_shape(self) -&gt; tuple[int, ...]:
+        return (3, ROWS, COLS)
+
+    @property
+    def action_size(self) -&gt; int:
+        return COLS
+
+    def initial_state(self) -&gt; State:
+        return np.zeros((ROWS, COLS), dtype=np.int8)
+
+    def current_player(self, state: State) -&gt; int:
+        moves = int(np.count_nonzero(state))
+        return 1 if moves % 2 == 0 else -1
+
+    def legal_actions_mask(self, state: State) -&gt; np.ndarray:
+        # A column is legal iff its top cell (row 0) is empty.
+        return state[0, :] == 0
+
+    def apply(self, state: State, action: int) -&gt; State:
+        if state[0, action] != 0:
+            raise ValueError(f&quot;Illegal action {action}: column {action} is full&quot;)
+        new_state = state.copy()
+        # Drop: find the lowest empty cell in this column.
+        for row in range(ROWS - 1, -1, -1):
+            if new_state[row, action] == 0:
+                new_state[row, action] = self.current_player(state)
+                break
+        return new_state
+
+    # Stubs filled in by subsequent tasks
+    def terminal_value(self, state: State) -&gt; float | None:
+        raise NotImplementedError  # Task 2
+
+    def encode(self, state: State) -&gt; np.ndarray:
+        raise NotImplementedError  # Task 3
+
+    def canonical_state(self, state: State) -&gt; State:
+        raise NotImplementedError  # Task 3
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests to verify they pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<p>Expected: 9 passed.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/connect4.py tests/test_game_connect4.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Connect4 game scaffolding: state, apply (gravity), legal mask
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-2-connect4-terminal_value-4-in-a-row-detection">Task 2: Connect4 terminal_value (4-in-a-row detection)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/connect4.py</code> (implement <code>terminal_value</code> and <code>_find_winner</code>)
+- Modify: <code>tests/test_game_connect4.py</code> (append tests)</p>
+<ul>
+<li>[ ] <strong>Step 1: Append the failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def _board(rows: list[list[int]]) -&gt; np.ndarray:
+    &quot;&quot;&quot;Helper: literal board from a 2D list, row 0 at top.&quot;&quot;&quot;
+    return np.array(rows, dtype=np.int8)
+
+
+def test_terminal_value_none_for_initial(c4: Connect4):
+    assert c4.terminal_value(c4.initial_state()) is None
+
+
+def test_terminal_value_none_when_in_progress(c4: Connect4):
+    s = c4.initial_state()
+    s = c4.apply(s, 3)
+    s = c4.apply(s, 4)
+    assert c4.terminal_value(s) is None
+
+
+def test_terminal_value_horizontal_4_in_a_row(c4: Connect4):
+    # +1 has 4 in a row at row 5, columns 0-3. -1 has 3 scattered pieces.
+    # Total nonzero = 7 (odd) → current_player = -1 (the loser POV).
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [-1, -1, -1, 0, 0, 0, 0],
+        [1, 1, 1, 1, 0, 0, 0],
+    ])
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_vertical_4_in_a_row(c4: Connect4):
+    # +1 has 4 stacked in column 0. -1 has 3 scattered.
+    # Nonzero = 7, current_player = -1.
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [1, -1, -1, -1, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+    ])
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_diagonal_down_right(c4: Connect4):
+    # +1 has 4 on the ↘ diagonal: (2,0), (3,1), (4,2), (5,3).
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [-1, 1, 0, 0, 0, 0, 0],
+        [-1, -1, 1, 0, 0, 0, 0],
+        [-1, -1, -1, 1, 0, 0, 0],
+    ])
+    # +1 pieces: 4 ; -1 pieces: 6 ; total 10 (even) → current_player = +1
+    # Wait, that means it's X's turn next → X (the winner) is current, returns +1.
+    # Actually for +1 to have just won, it's now -1's turn → current_player must be -1.
+    # Recount: 4 X + 6 O = 10 nonzero, parity even → +1 to move.
+    # But that means O just moved. We need X to have just moved → odd parity.
+    # Re-construct with +1 winning on the LAST move (odd parity).
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [-1, 1, 0, 0, 0, 0, 0],
+        [-1, -1, 1, 0, 0, 0, 0],
+        [-1, -1, 0, 1, 0, 0, 0],
+    ])
+    # Count: 4 X + 5 O = 9 nonzero → odd → current_player = -1 (correct, O's turn after X won)
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_diagonal_up_right(c4: Connect4):
+    # +1 has 4 on the ↗ diagonal: (5,0), (4,1), (3,2), (2,3).
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 1, 0, 0, 0],
+        [-1, -1, 1, 0, 0, 0, 0],
+        [-1, 1, -1, 0, 0, 0, 0],
+        [1, -1, -1, 0, 0, 0, 0],
+    ])
+    # 4 X + 5 O = 9 nonzero → -1's turn. X just won.
+    assert c4.current_player(state) == -1
+    assert c4.terminal_value(state) == -1.0
+
+
+def test_terminal_value_draw_on_full_board_no_winner(c4: Connect4):
+    &quot;&quot;&quot;Construct a full board with no 4-in-a-row. (Easiest: alternate columns.)&quot;&quot;&quot;
+    state = _board([
+        [-1,  1, -1,  1, -1,  1, -1],
+        [ 1, -1,  1, -1,  1, -1,  1],
+        [-1,  1, -1,  1, -1,  1, -1],
+        [ 1, -1,  1, -1,  1, -1,  1],
+        [-1,  1, -1,  1, -1,  1, -1],
+        [ 1, -1,  1, -1,  1, -1,  1],
+    ])
+    # Verify no 4-in-a-row exists in this configuration
+    # (this striped pattern has no horizontal/vertical/diagonal 4s)
+    assert c4.terminal_value(state) == 0.0
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests, verify the 7 new ones fail</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<p>Expected: 7 fail with <code>NotImplementedError</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>terminal_value</code> + <code>_find_winner</code></strong></li>
+</ul>
+<p>Replace the stub in <code>src/alphazero/games/connect4.py</code>:</p>
+<pre><code class="language-python">    def terminal_value(self, state: State) -&gt; float | None:
+        winner = self._find_winner(state)
+        if winner is not None:
+            return 1.0 if winner == self.current_player(state) else -1.0
+        if np.all(state != 0):
+            return 0.0  # full board, no winner → draw
+        return None
+
+    def _find_winner(self, state: State) -&gt; int | None:
+        &quot;&quot;&quot;Return +1 / -1 if either player has 4 in a row, else None.&quot;&quot;&quot;
+        for player in (1, -1):
+            # Horizontal — 4 consecutive in a row
+            for r in range(ROWS):
+                for c in range(COLS - 3):
+                    if np.all(state[r, c:c+4] == player):
+                        return player
+            # Vertical — 4 consecutive in a column
+            for c in range(COLS):
+                for r in range(ROWS - 3):
+                    if np.all(state[r:r+4, c] == player):
+                        return player
+            # Diagonal ↘ (top-left to bottom-right)
+            for r in range(ROWS - 3):
+                for c in range(COLS - 3):
+                    if all(state[r+i, c+i] == player for i in range(4)):
+                        return player
+            # Diagonal ↗ (bottom-left to top-right)
+            for r in range(3, ROWS):
+                for c in range(COLS - 3):
+                    if all(state[r-i, c+i] == player for i in range(4)):
+                        return player
+        return None
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests, verify all pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<p>Expected: 16 passed (9 from Task 1 + 7 new).</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/connect4.py tests/test_game_connect4.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Connect4 terminal_value (4-in-a-row in 4 directions, draws)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-3-connect4-encode-canonical_state">Task 3: Connect4 encode + canonical_state</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/connect4.py</code>
+- Modify: <code>tests/test_game_connect4.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_canonical_state_is_identity_when_current_player_plus_one(c4: Connect4):
+    s = c4.initial_state()
+    np.testing.assert_array_equal(c4.canonical_state(s), s)
+
+
+def test_canonical_state_inverts_when_current_player_minus_one(c4: Connect4):
+    s = c4.apply(c4.initial_state(), 3)  # +1 drops in col 3; now -1's turn
+    canon = c4.canonical_state(s)
+    expected = np.zeros((6, 7), dtype=np.int8)
+    expected[5, 3] = -1  # +1's piece becomes -1 in O's canonical view
+    np.testing.assert_array_equal(canon, expected)
+
+
+def test_encode_shape_and_dtype(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    assert enc.shape == (3, 6, 7)
+    assert enc.dtype == np.float32
+
+
+def test_encode_initial_state_planes(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    assert enc[0].sum() == 0  # my plane empty
+    assert enc[1].sum() == 0  # opp plane empty
+    np.testing.assert_array_equal(enc[2], np.ones((6, 7), dtype=np.float32))  # ones plane
+
+
+def test_encode_treats_canonical_player_as_my_pieces(c4: Connect4):
+    &quot;&quot;&quot;After +1 plays col 3, -1's canonical view: +1's piece appears on the opp plane.&quot;&quot;&quot;
+    s = c4.apply(c4.initial_state(), 3)
+    canon = c4.canonical_state(s)
+    enc = c4.encode(canon)
+    # my (O's pieces): nothing
+    assert enc[0].sum() == 0
+    # opp (X's piece): at (5, 3)
+    assert enc[1, 5, 3] == 1
+    assert enc[1].sum() == 1
+</code></pre>
+<ul>
+<li>
+<p>[ ] <strong>Step 2: Run tests, verify 5 fail (NotImplementedError)</strong></p>
+</li>
+<li>
+<p>[ ] <strong>Step 3: Implement <code>encode</code> and <code>canonical_state</code></strong></p>
+</li>
+</ul>
+<p>Replace the stubs in <code>src/alphazero/games/connect4.py</code>:</p>
+<pre><code class="language-python">    def canonical_state(self, state: State) -&gt; State:
+        &quot;&quot;&quot;Rewrite so the current player's pieces are +1, opponent's are -1.&quot;&quot;&quot;
+        return (state * self.current_player(state)).astype(np.int8)
+
+    def encode(self, state: State) -&gt; np.ndarray:
+        &quot;&quot;&quot;Three planes: my pieces (+1 in canonical state), opp pieces (-1), ones.
+
+        Caller is expected to pass a canonical state.
+        &quot;&quot;&quot;
+        my = (state == 1).astype(np.float32)
+        opp = (state == -1).astype(np.float32)
+        ones = np.ones((ROWS, COLS), dtype=np.float32)
+        return np.stack([my, opp, ones], axis=0)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests, verify all 21 pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<p>Expected: 21 passed.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/connect4.py tests/test_game_connect4.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Connect4 encode + canonical_state (perspective transform)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-4-connect4-symmetries-horizontal-mirror">Task 4: Connect4 symmetries (horizontal mirror)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/games/connect4.py</code>
+- Modify: <code>tests/test_game_connect4.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<pre><code class="language-python">def test_symmetries_yields_two_tuples(c4: Connect4):
+    &quot;&quot;&quot;Connect 4 has 2 symmetries: identity + horizontal (left-right) mirror.&quot;&quot;&quot;
+    s = c4.apply(c4.initial_state(), 0)  # asymmetric: piece in column 0
+    enc = c4.encode(c4.canonical_state(s))
+    policy = np.array([0.5, 0.1, 0.1, 0.1, 0.1, 0.05, 0.05], dtype=np.float32)
+    syms = c4.symmetries(enc, policy)
+    assert len(syms) == 2
+
+
+def test_symmetries_first_is_identity(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    policy = np.full(7, 1 / 7, dtype=np.float32)
+    syms = c4.symmetries(enc, policy)
+    np.testing.assert_array_equal(syms[0][0], enc)
+    np.testing.assert_array_equal(syms[0][1], policy)
+
+
+def test_symmetries_mirror_flips_columns(c4: Connect4):
+    &quot;&quot;&quot;Mirror reflects across the vertical axis: column 0 ↔ column 6.&quot;&quot;&quot;
+    s = c4.apply(c4.initial_state(), 0)  # +1's piece at (5, 0)
+    enc = c4.encode(c4.canonical_state(s))
+    policy = np.zeros(7, dtype=np.float32)
+    policy[0] = 1.0  # all mass on leftmost column
+    syms = c4.symmetries(enc, policy)
+    mirror_enc, mirror_policy = syms[1]
+    # In the mirrored encoding, the piece is at the rightmost column
+    # (column 6 instead of 0). Plane 1 = opp = X's pieces (from O's POV).
+    assert mirror_enc[1, 5, 6] == 1
+    assert mirror_enc[1, 5, 0] == 0
+    # Mirror policy now puts mass on column 6
+    np.testing.assert_array_equal(mirror_policy, [0, 0, 0, 0, 0, 0, 1])
+
+
+def test_symmetries_preserve_policy_sum(c4: Connect4):
+    enc = c4.encode(c4.canonical_state(c4.initial_state()))
+    policy = np.full(7, 1 / 7, dtype=np.float32)
+    for _, p in c4.symmetries(enc, policy):
+        np.testing.assert_allclose(p.sum(), 1.0, rtol=1e-6)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run tests — 3 fail (default <code>symmetries</code> returns 1 element, not 2)</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>symmetries</code> override in <code>Connect4</code></strong></li>
+</ul>
+<pre><code class="language-python">    def symmetries(
+        self, encoded: np.ndarray, policy: np.ndarray
+    ) -&gt; list[tuple[np.ndarray, np.ndarray]]:
+        &quot;&quot;&quot;Connect 4 has 2 D-group elements: identity + horizontal mirror.
+
+        (Unlike TTT's 8, Connect 4 has no vertical symmetry because gravity
+        is asymmetric — pieces only fall downward.)
+
+        Mirror flips columns left↔right in both the board planes (axis=2 of
+        the encoded tensor) and the policy (a 1D array of column indices).
+        &quot;&quot;&quot;
+        identity = (encoded.copy(), policy.copy())
+        mirrored = (
+            np.flip(encoded, axis=2).copy(),
+            np.flip(policy, axis=0).copy(),
+        )
+        return [identity, mirrored]
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Run tests, verify all 25 pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_game_connect4.py -v
+</code></pre>
+<p>Expected: 25 passed.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/games/connect4.py tests/test_game_connect4.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Connect4 symmetries (identity + horizontal mirror)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-5-connect4minimaxopponent-pruning-with-heuristic-eval">Task 5: Connect4MinimaxOpponent (α-β pruning with heuristic eval)</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/opponents/__init__.py</code> (empty marker)
+- Create: <code>src/alphazero/opponents/connect4_minimax.py</code>
+- Test: <code>tests/test_connect4_minimax.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create empty package marker</strong></li>
+</ul>
+<pre><code class="language-bash">mkdir -p src/alphazero/opponents
+touch src/alphazero/opponents/__init__.py
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Write failing tests</strong></li>
+</ul>
+<p><code>tests/test_connect4_minimax.py</code>:</p>
+<pre><code class="language-python">import numpy as np
+import pytest
+
+from alphazero.games.connect4 import Connect4
+from alphazero.opponents.connect4_minimax import Connect4MinimaxOpponent
+
+
+@pytest.fixture
+def c4() -&gt; Connect4:
+    return Connect4()
+
+
+def _board(rows: list[list[int]]) -&gt; np.ndarray:
+    return np.array(rows, dtype=np.int8)
+
+
+def test_only_plays_legal_moves(c4: Connect4):
+    &quot;&quot;&quot;Minimax must never propose an illegal action.&quot;&quot;&quot;
+    opp = Connect4MinimaxOpponent(depth=4)
+    s = c4.initial_state()
+    # Fill column 0 entirely
+    for _ in range(6):
+        s = c4.apply(s, 0)
+    action = opp(c4, s)
+    legal = c4.legal_actions_mask(s)
+    assert legal[action], f&quot;Minimax returned illegal action {action}&quot;
+
+
+def test_takes_immediate_winning_move(c4: Connect4):
+    &quot;&quot;&quot;+1 can win at column 3 by completing the bottom row 4-in-a-row.
+
+    Setup: +1 has pieces at (5, 0..2), and -1 has 3 pieces stacked elsewhere.
+    Total: 3+3 = 6 nonzero → even parity → current_player = +1.
+    &quot;&quot;&quot;
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [-1, 0, 0, 0, 0, 0, 0],
+        [-1, 0, 0, 0, 0, 0, 0],
+        [1, 1, 1, 0, -1, 0, 0],
+    ])
+    assert c4.current_player(state) == 1
+    opp = Connect4MinimaxOpponent(depth=4)
+    action = opp(c4, state)
+    assert action == 3, f&quot;Should play winning move (col 3), got {action}&quot;
+
+
+def test_blocks_immediate_opponent_threat(c4: Connect4):
+    &quot;&quot;&quot;-1 has 3 in a row at the bottom (cols 0-2). +1 to move MUST block at col 3.
+
+    Setup: -1 has bottom-row 0..2; +1 has 3 random pieces. Total 6, even → +1's turn.
+    &quot;&quot;&quot;
+    state = _board([
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [1, 0, 0, 0, 0, 0, 0],
+        [-1, -1, -1, 0, 1, 0, 0],
+    ])
+    assert c4.current_player(state) == 1
+    opp = Connect4MinimaxOpponent(depth=4)
+    action = opp(c4, state)
+    assert action == 3, f&quot;Must block at col 3, got {action}&quot;
+
+
+def test_prefers_center_on_empty_board(c4: Connect4):
+    &quot;&quot;&quot;Minimax-with-center-bias should pick column 3 on the first move.&quot;&quot;&quot;
+    opp = Connect4MinimaxOpponent(depth=4)
+    action = opp(c4, c4.initial_state())
+    assert action == 3, f&quot;Expected center (col 3) opening, got {action}&quot;
+
+
+def test_depth_8_beats_depth_2(c4: Connect4):
+    &quot;&quot;&quot;Deeper search should produce stronger play.&quot;&quot;&quot;
+    from alphazero.arena import play_match
+    strong = Connect4MinimaxOpponent(depth=8)
+    weak = Connect4MinimaxOpponent(depth=2)
+    # 10 games is enough for a strong-vs-weak signal in Connect 4.
+    np.random.seed(0)
+    result = play_match(c4, strong, weak, num_games=10)
+    # win_rate counts draws as 0.5; strong should be clearly ahead.
+    assert result.win_rate &gt;= 0.80, (
+        f&quot;depth-8 only achieved win_rate {result.win_rate:.2%} vs depth-2&quot;
+    )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Run tests — all 5 fail with ImportError</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_connect4_minimax.py -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Implement <code>Connect4MinimaxOpponent</code></strong></li>
+</ul>
+<p><code>src/alphazero/opponents/connect4_minimax.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Connect 4 α-β minimax opponent with heuristic position evaluation.
+
+Used as the eval ground truth for Sub-project 2 (we don't have a perfect
+solver for Connect 4 from scratch — depth-8 minimax is a strong amateur).
+
+Heuristic eval at non-terminal leaves:
+    - Score sliding 4-cell windows in all 4 directions
+        4-of-mine        → +1000 (effectively a forced win)
+        3-of-mine + 1 empty → +5
+        2-of-mine + 2 empties → +2
+        symmetric negatives for opponent
+        opp 3-in-a-row gets -50 (block aggressively even before center bias)
+    - +3 per piece in the center column (mine); -3 per opponent center piece
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import numpy as np
+
+from ..games.base import Game, State
+from ..games.connect4 import COLS, ROWS, Connect4
+
+CENTER_COL = COLS // 2  # column 3 (the center of a 7-col board)
+WIN_SCORE = 1000.0      # heuristic value of having 4-in-a-row in a leaf window
+BLOCK_SCORE = -50.0     # extra emphasis for blocking opp's 3-in-a-row
+
+
+class Connect4MinimaxOpponent:
+    &quot;&quot;&quot;α-β minimax to a fixed depth with a center-bias position heuristic.&quot;&quot;&quot;
+
+    def __init__(self, depth: int = 8):
+        self.depth = depth
+        self._game = Connect4()
+
+    def __call__(self, game: Game, state: State) -&gt; int:
+        &quot;&quot;&quot;Return the best action for current_player at this state.&quot;&quot;&quot;
+        legal = game.legal_actions_mask(state)
+        legal_actions = np.where(legal)[0]
+        if len(legal_actions) == 0:
+            raise ValueError(&quot;No legal actions at this state&quot;)
+
+        best_action = int(legal_actions[0])
+        best_value = -float(&quot;inf&quot;)
+        alpha = -float(&quot;inf&quot;)
+        beta = float(&quot;inf&quot;)
+        for action in legal_actions:
+            next_state = game.apply(state, int(action))
+            # Negamax: value from child's POV is negated to get parent's POV.
+            value = -self._minimax(next_state, self.depth - 1, -beta, -alpha)
+            if value &gt; best_value:
+                best_value = value
+                best_action = int(action)
+            alpha = max(alpha, value)
+        return best_action
+
+    def _minimax(self, state: State, depth: int, alpha: float, beta: float) -&gt; float:
+        &quot;&quot;&quot;Return the negamax value from current_player(state)'s POV.&quot;&quot;&quot;
+        terminal = self._game.terminal_value(state)
+        if terminal is not None:
+            return float(terminal) * WIN_SCORE if terminal != 0 else 0.0
+        if depth == 0:
+            return self._evaluate(state)
+
+        legal = self._game.legal_actions_mask(state)
+        best_value = -float(&quot;inf&quot;)
+        for action in np.where(legal)[0]:
+            next_state = self._game.apply(state, int(action))
+            value = -self._minimax(next_state, depth - 1, -beta, -alpha)
+            best_value = max(best_value, value)
+            alpha = max(alpha, value)
+            if alpha &gt;= beta:
+                break  # β-cutoff
+        return best_value
+
+    def _evaluate(self, state: State) -&gt; float:
+        &quot;&quot;&quot;Heuristic score from current_player's POV.&quot;&quot;&quot;
+        player = self._game.current_player(state)
+        score = 0.0
+        for window in _all_windows(state):
+            score += _window_score(window, player)
+        # Center column bonus
+        score += 3 * int((state[:, CENTER_COL] == player).sum())
+        score -= 3 * int((state[:, CENTER_COL] == -player).sum())
+        return score
+
+
+def _all_windows(state: State) -&gt; list[np.ndarray]:
+    &quot;&quot;&quot;Generate all length-4 windows in all 4 directions.&quot;&quot;&quot;
+    windows: list[np.ndarray] = []
+    # Horizontal
+    for r in range(ROWS):
+        for c in range(COLS - 3):
+            windows.append(state[r, c:c + 4])
+    # Vertical
+    for c in range(COLS):
+        for r in range(ROWS - 3):
+            windows.append(state[r:r + 4, c])
+    # Diagonal ↘
+    for r in range(ROWS - 3):
+        for c in range(COLS - 3):
+            windows.append(np.array([state[r + i, c + i] for i in range(4)]))
+    # Diagonal ↗
+    for r in range(3, ROWS):
+        for c in range(COLS - 3):
+            windows.append(np.array([state[r - i, c + i] for i in range(4)]))
+    return windows
+
+
+def _window_score(window: np.ndarray, player: int) -&gt; float:
+    &quot;&quot;&quot;Score a single 4-cell window from `player`'s POV.&quot;&quot;&quot;
+    my = int((window == player).sum())
+    opp = int((window == -player).sum())
+    if my == 4:
+        return WIN_SCORE
+    if opp == 4:
+        return -WIN_SCORE
+    if opp &gt; 0 and my &gt; 0:
+        return 0.0  # mixed window — no threat either way
+    if my == 3:
+        return 5.0
+    if my == 2:
+        return 2.0
+    if opp == 3:
+        return BLOCK_SCORE
+    if opp == 2:
+        return -2.0
+    return 0.0
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Run tests</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_connect4_minimax.py -v
+</code></pre>
+<p>Expected: 5 passed. (Note: the <code>depth_8_beats_depth_2</code> test is the slowest — ~5-10 seconds.)</p>
+<ul>
+<li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/opponents/__init__.py src/alphazero/opponents/connect4_minimax.py tests/test_connect4_minimax.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Connect4MinimaxOpponent (α-β depth-8 + center-bias heuristic)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-6-generalize-trainer-eval-hook-_eval_vs_opponent">Task 6: Generalize Trainer eval hook (<code>_eval_vs_opponent</code>)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/trainer.py</code>
+- Modify: <code>tests/test_trainer.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append the failing test to <code>tests/test_trainer.py</code></strong></li>
+</ul>
+<pre><code class="language-python">def test_eval_vs_opponent_uses_provided_agent(tiny_config):
+    &quot;&quot;&quot;Trainer._eval_vs_opponent should play best_net vs an arbitrary agent.&quot;&quot;&quot;
+    from alphazero.games.tictactoe import TicTacToe
+    trainer = Trainer(TicTacToe(), tiny_config)
+
+    # Sentinel opponent: always plays the first legal action.
+    def sentinel_agent(game, state):
+        import numpy as np
+        legal = game.legal_actions_mask(state)
+        return int(np.where(legal)[0][0])
+
+    result = trainer._eval_vs_opponent(sentinel_agent, num_games=4)
+    assert set(result.keys()) == {&quot;wins&quot;, &quot;draws&quot;, &quot;losses&quot;}
+    assert result[&quot;wins&quot;] + result[&quot;draws&quot;] + result[&quot;losses&quot;] == 4
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run the test — fails (AttributeError: <code>_eval_vs_opponent</code> missing)</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_trainer.py::test_eval_vs_opponent_uses_provided_agent -v
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>_eval_vs_opponent</code> and refactor <code>_eval_vs_solver</code> to use it</strong></li>
+</ul>
+<p>Replace the existing <code>_eval_vs_solver</code> in <code>src/alphazero/trainer.py</code> with:</p>
+<pre><code class="language-python">    def _eval_vs_opponent(self, opponent, num_games: int) -&gt; dict:
+        &quot;&quot;&quot;Play current best_net vs an arbitrary opponent agent.
+
+        Generic alternative to `_eval_vs_solver` — used for games (like
+        Connect 4) where the eval baseline is a minimax opponent, not a
+        perfect-play solver.
+
+        Args:
+            opponent: callable `(game, state) -&gt; int` returning chosen action.
+            num_games: how many games to play (alternating colors).
+
+        Returns:
+            dict with keys &quot;wins&quot;, &quot;draws&quot;, &quot;losses&quot; from best_net's POV.
+        &quot;&quot;&quot;
+        from .arena import play_match
+        net_agent = self._make_argmax_mcts_agent(self.best_net)
+        result = play_match(self.game, net_agent, opponent, num_games=num_games)
+        return {
+            &quot;wins&quot;: result.wins_a,
+            &quot;draws&quot;: result.draws,
+            &quot;losses&quot;: result.losses_a,
+        }
+
+    def _eval_vs_solver(self) -&gt; dict:
+        &quot;&quot;&quot;Play current best_net vs the perfect TTT solver. Thin wrapper over
+        _eval_vs_opponent for backward-compatibility with the Sub-project 1
+        E2E test.&quot;&quot;&quot;
+        from .solvers.tictactoe_solver import solve_tictactoe_action
+
+        def solver_agent(_game, state):
+            return solve_tictactoe_action(state)
+
+        return self._eval_vs_opponent(solver_agent, self.config.eval_games)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Modify <code>Trainer.run()</code> to accept an optional <code>eval_opponent</code> parameter</strong></li>
+</ul>
+<p>In <code>src/alphazero/trainer.py</code>, change the <code>run</code> signature and the eval block. Replace:</p>
+<pre><code class="language-python">    def run(self, verbose: bool = True) -&gt; None:
+</code></pre>
+<p>with:</p>
+<pre><code class="language-python">    def run(self, verbose: bool = True, eval_opponent=None) -&gt; None:
+        &quot;&quot;&quot;Train for num_iterations.
+
+        Args:
+            verbose: print per-iteration progress.
+            eval_opponent: optional callable `(game, state) -&gt; int`. If given,
+                eval-vs-solver hook is replaced by eval-vs-this-opponent.
+                Used by Connect 4 (Sub-project 2) to inject the minimax baseline.
+        &quot;&quot;&quot;
+</code></pre>
+<p>And replace the existing eval block:</p>
+<pre><code class="language-python">            if self.iteration % self.config.eval_interval == 0:
+                if verbose:
+                    print(f&quot;  eval vs solver ({self.config.eval_games} games)...&quot;, flush=True)
+                result = self._eval_vs_solver()
+                if verbose:
+                    print(f&quot;  eval: wins={result['wins']} draws={result['draws']} &quot;
+                          f&quot;losses={result['losses']}&quot;, flush=True)
+</code></pre>
+<p>with:</p>
+<pre><code class="language-python">            if self.iteration % self.config.eval_interval == 0:
+                if eval_opponent is not None:
+                    if verbose:
+                        print(f&quot;  eval vs opponent ({self.config.eval_games} games)...&quot;,
+                              flush=True)
+                    result = self._eval_vs_opponent(eval_opponent, self.config.eval_games)
+                else:
+                    if verbose:
+                        print(f&quot;  eval vs solver ({self.config.eval_games} games)...&quot;,
+                              flush=True)
+                    result = self._eval_vs_solver()
+                if verbose:
+                    print(f&quot;  eval: wins={result['wins']} draws={result['draws']} &quot;
+                          f&quot;losses={result['losses']}&quot;, flush=True)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 5: Run all trainer tests, verify all pass</strong></li>
+</ul>
+<pre><code class="language-bash">pytest tests/test_trainer.py -v
+</code></pre>
+<p>Expected: 10 passed (9 existing + 1 new).</p>
+<ul>
+<li>[ ] <strong>Step 6: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/trainer.py tests/test_trainer.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Generalize Trainer eval hook to accept arbitrary opponent agent
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-7-cli-game-flag">Task 7: CLI <code>--game</code> flag</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/cli.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Add a <code>GAMES</code> registry and <code>--game</code> flag</strong></li>
+</ul>
+<p>Edit <code>src/alphazero/cli.py</code>. After the imports, add:</p>
+<pre><code class="language-python">from .games.connect4 import Connect4
+
+GAMES = {
+    &quot;tictactoe&quot;: TicTacToe,
+    &quot;connect4&quot;: Connect4,
+}
+</code></pre>
+<p>Then in each subcommand function (<code>_cmd_train</code>, <code>_cmd_eval</code>, <code>_cmd_play</code>), replace the hardcoded <code>game = TicTacToe()</code> with:</p>
+<pre><code class="language-python">game_cls = GAMES[args.game]
+game = game_cls()
+</code></pre>
+<p>And in <code>main()</code>, add the <code>--game</code> flag to each subparser:</p>
+<pre><code class="language-python">    p_train = subs.add_parser(&quot;train&quot;, help=&quot;Run training loop&quot;)
+    p_train.add_argument(&quot;--game&quot;, choices=list(GAMES), default=&quot;tictactoe&quot;)
+    p_train.add_argument(&quot;--config&quot;, type=Path, default=Path(&quot;configs/tictactoe.toml&quot;))
+    p_train.set_defaults(func=_cmd_train)
+
+    p_eval = subs.add_parser(&quot;eval&quot;, help=&quot;Evaluate a checkpoint vs perfect solver&quot;)
+    p_eval.add_argument(&quot;--game&quot;, choices=list(GAMES), default=&quot;tictactoe&quot;)
+    p_eval.add_argument(&quot;--checkpoint&quot;, type=Path, required=True)
+    p_eval.add_argument(&quot;--config&quot;, type=Path, default=None,
+                        help=&quot;Override architecture config (needed for older checkpoints &quot;
+                             &quot;that didn't save their config inline).&quot;)
+    p_eval.add_argument(&quot;--num-games&quot;, type=int, default=200)
+    p_eval.set_defaults(func=_cmd_eval)
+
+    p_play = subs.add_parser(&quot;play&quot;, help=&quot;Play interactively against best_net&quot;)
+    p_play.add_argument(&quot;--game&quot;, choices=list(GAMES), default=&quot;tictactoe&quot;)
+    p_play.add_argument(&quot;--checkpoint&quot;, type=Path, required=True)
+    p_play.add_argument(&quot;--config&quot;, type=Path, default=None,
+                        help=&quot;Override architecture config (needed for older checkpoints &quot;
+                             &quot;that didn't save their config inline).&quot;)
+    p_play.add_argument(&quot;--num-simulations&quot;, type=int, default=None,
+                        help=&quot;Override MCTS simulations per move at play time.&quot;)
+    p_play.add_argument(&quot;--as&quot;, dest=&quot;as_player&quot;, choices=[&quot;x&quot;, &quot;o&quot;, &quot;X&quot;, &quot;O&quot;], default=&quot;x&quot;,
+                        help=&quot;Play as X (moves first) or O (moves second). Default: x.&quot;)
+    p_play.set_defaults(func=_cmd_play)
+</code></pre>
+<p>In <code>_cmd_eval</code>, also generalize the eval logic. Currently it hardcodes the TTT solver as opponent. Change it to dispatch by <code>--game</code>:</p>
+<pre><code class="language-python">def _cmd_eval(args: argparse.Namespace) -&gt; int:
+    config = _config_for_checkpoint(args.checkpoint, args.config)
+    game_cls = GAMES[args.game]
+    game = game_cls()
+    trainer = Trainer(game, config)
+
+    ckpt = torch.load(args.checkpoint, map_location=trainer.device, weights_only=False)
+    trainer.best_net.load_state_dict(ckpt[&quot;best_net&quot;])
+    trainer.best_net.eval()
+
+    agent = trainer._make_argmax_mcts_agent(trainer.best_net)
+
+    if args.game == &quot;tictactoe&quot;:
+        def opponent(_g, state):
+            return solve_tictactoe_action(state)
+        label = &quot;perfect solver&quot;
+    elif args.game == &quot;connect4&quot;:
+        from .opponents.connect4_minimax import Connect4MinimaxOpponent
+        opponent = Connect4MinimaxOpponent(depth=8)
+        label = &quot;minimax-depth-8&quot;
+    else:
+        raise ValueError(f&quot;No eval opponent defined for game={args.game}&quot;)
+
+    result = play_match(game, agent, opponent, num_games=args.num_games)
+    print(
+        f&quot;vs {label} ({args.num_games} games): &quot;
+        f&quot;wins={result.wins_a} draws={result.draws} losses={result.losses_a}&quot;
+    )
+    return 0 if result.losses_a == 0 else 1
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Smoke-test the CLI</strong></li>
+</ul>
+<pre><code class="language-bash">python3 -m alphazero --help
+python3 -m alphazero train --help
+python3 -m alphazero eval --help
+python3 -m alphazero play --help
+</code></pre>
+<p>Expected: all four exit 0 and show the <code>--game</code> flag.</p>
+<ul>
+<li>[ ] <strong>Step 3: Run the full unit test suite to confirm nothing broke</strong></li>
+</ul>
+<pre><code class="language-bash">pytest -m &quot;not slow&quot; -v 2&gt;&amp;1 | tail -5
+</code></pre>
+<p>Expected: all tests pass (no test added in this task; we're verifying nothing regressed).</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add src/alphazero/cli.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add --game {tictactoe,connect4} flag to CLI; route to right opponent
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-8-connect-4-training-config">Task 8: Connect 4 training config</h2>
+<p><strong>Files:</strong>
+- Create: <code>configs/connect4.toml</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create the config</strong></li>
+</ul>
+<pre><code class="language-toml"># Connect 4 training config — Sub-project 2.
+# Defaults to AlphaZero paper conventions; tuned down for M4 Pro CPU/MPS.
+
+# Network — bigger than TTT (richer position features needed for 6×7 board)
+n_blocks = 6
+n_channels = 64
+
+# MCTS
+num_simulations = 100
+c_puct = 2.5
+dirichlet_alpha = 0.5
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 15  # Connect 4 games are ~20-30 plies; cover the opening
+
+# Training
+training_steps_per_iteration = 1000
+batch_size = 64
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer
+replay_buffer_capacity = 200_000
+min_buffer_size = 20_000
+
+# Eval (vs minimax-depth-8)
+eval_interval = 5
+eval_games = 200
+
+# Schedule
+num_iterations = 50
+seed = 42
+device = &quot;auto&quot;
+checkpoint_dir = &quot;checkpoints&quot;
+log_dir = &quot;runs&quot;
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the config loads cleanly</strong></li>
+</ul>
+<pre><code class="language-bash">python3 -c &quot;from alphazero.config import load_config; print(load_config('configs/connect4.toml'))&quot;
+</code></pre>
+<p>Expected: prints a <code>TrainingConfig(...)</code> with the values above.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add configs/connect4.toml
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add Connect 4 training config (configs/connect4.toml)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-9-e2e-kill-criterion-test-the-success-bar">Task 9: E2E kill-criterion test (the success bar)</h2>
+<p><strong>Files:</strong>
+- Create: <code>tests/test_e2e_connect4.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the E2E test</strong></li>
+</ul>
+<p><code>tests/test_e2e_connect4.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;End-to-end test: train an AlphaZero agent on Connect 4 and verify it beats
+the minimax-depth-8 opponent in ≥80% of 200 games.
+
+This is the kill criterion for Sub-project 2. Marked slow — a full training
+run takes ~3-6 hours on M4 Pro MPS / ~12-20 hours on CPU.
+
+Run with:
+    pytest -m slow tests/test_e2e_connect4.py -v -s
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+from alphazero.arena import play_match
+from alphazero.config import load_config
+from alphazero.games.connect4 import Connect4
+from alphazero.opponents.connect4_minimax import Connect4MinimaxOpponent
+from alphazero.trainer import Trainer
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+@pytest.mark.slow
+def test_e2e_connect4_beats_minimax_depth_8(tmp_path, monkeypatch):
+    &quot;&quot;&quot;Train, then play 200 games vs the minimax-depth-8 opponent.
+    Pass criterion: win_rate &gt;= 0.80 (alternating colors).&quot;&quot;&quot;
+    monkeypatch.chdir(tmp_path)
+
+    config = load_config(REPO_ROOT / &quot;configs/connect4.toml&quot;)
+    opponent = Connect4MinimaxOpponent(depth=8)
+
+    trainer = Trainer(Connect4(), config)
+    trainer.run(eval_opponent=opponent)
+
+    agent = trainer._make_argmax_mcts_agent(trainer.best_net)
+    result = play_match(Connect4(), agent, opponent, num_games=200)
+
+    print(
+        f&quot;\nFinal: wins={result.wins_a} draws={result.draws} &quot;
+        f&quot;losses={result.losses_a} win_rate={result.win_rate:.2%}&quot;
+    )
+    assert result.win_rate &gt;= 0.80, (
+        f&quot;Agent win rate {result.win_rate:.2%} below 0.80 target. &quot;
+        &quot;Increase num_iterations or num_simulations in configs/connect4.toml.&quot;
+    )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the test is properly marked slow</strong></li>
+</ul>
+<pre><code class="language-bash">pytest --collect-only -m &quot;not slow&quot; 2&gt;&amp;1 | grep test_e2e_connect4 || echo &quot;(excluded ✓)&quot;
+pytest --collect-only -m slow tests/test_e2e_connect4.py 2&gt;&amp;1 | tail -3
+</code></pre>
+<p>Expected: first command prints "(excluded ✓)" (test not in default collection); second collects 1 test.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">git add tests/test_e2e_connect4.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add E2E kill-criterion test (win_rate ≥ 0.80 vs minimax-depth-8)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-10-final-unit-test-sweep-push">Task 10: Final unit-test sweep + push</h2>
+<ul>
+<li>[ ] <strong>Step 1: Run all non-slow tests</strong></li>
+</ul>
+<pre><code class="language-bash">pytest -m &quot;not slow&quot; -v 2&gt;&amp;1 | tail -10
+</code></pre>
+<p>Expected: all tests pass. Note the total count — should be ~100+ (84 from Sub-project 1 + ~25 new game tests + 5 new minimax tests + 1 new trainer test = ~115).</p>
+<ul>
+<li>[ ] <strong>Step 2: Run linter</strong></li>
+</ul>
+<pre><code class="language-bash">ruff check src tests 2&gt;&amp;1 | tail -10
+</code></pre>
+<p>Note any issues. If there are real errors, fix them before continuing. Ignore minor style suggestions.</p>
+<ul>
+<li>[ ] <strong>Step 3: Push everything</strong></li>
+</ul>
+<pre><code class="language-bash">git push 2&gt;&amp;1 | tail -3
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4 (Optional but recommended): Run the kill-criterion test</strong></li>
+</ul>
+<p>This is the formal Sub-project 2 success bar. It takes 3-6 hours on MPS.</p>
+<pre><code class="language-bash">pytest -m slow tests/test_e2e_connect4.py -v -s
+</code></pre>
+<p>Pass criterion: <code>win_rate ≥ 0.80</code> against minimax-depth-8 over 200 games.</p>
+<p>If it passes: <strong>Sub-project 2 is officially done.</strong> Sub-project 3 (chess) can begin.</p>
+<p>If it doesn't reach 80%, candidate causes to investigate (in order of likelihood):
+1. Undertraining — bump <code>num_iterations</code> from 50 to 80 or 100.
+2. Too-shallow MCTS — bump <code>num_simulations</code> from 100 to 200.
+3. Wrong network sizing — try 8 blocks × 96 channels.
+4. Heuristic too weak — debug <code>Connect4MinimaxOpponent._evaluate</code> by playing it against a known stronger heuristic.</p>
+<hr>
+<h2 id="final-state">Final state</h2>
+<p>After Task 9, the repo has:</p>
+<ul>
+<li>A new <code>Connect4(Game)</code> class in <code>src/alphazero/games/connect4.py</code></li>
+<li>A new <code>Connect4MinimaxOpponent</code> with α-β pruning in <code>src/alphazero/opponents/</code></li>
+<li>An extended Trainer that accepts an arbitrary <code>eval_opponent</code> callable</li>
+<li>A <code>--game</code> flag on every CLI subcommand</li>
+<li><code>configs/connect4.toml</code> with reasonable starting hyperparameters</li>
+<li>~25 new game tests, 5 new minimax tests, 1 new trainer test — all passing in seconds</li>
+<li>1 new E2E test (marked slow) that defines Sub-project 2 success</li>
+</ul>
+<p><strong>Crucial property</strong>: the framework code from Sub-project 1 (Game ABC, AlphaZeroNet, MCTS, SelfPlayWorker, ReplayBuffer, Arena) remains <strong>completely unchanged</strong>. The only modifications are: (1) Trainer's <code>run()</code> signature gains an <code>eval_opponent</code> parameter; (2) <code>_eval_vs_solver</code> becomes a thin wrapper around the new <code>_eval_vs_opponent</code>; (3) CLI dispatches on <code>--game</code>. These are extensions, not breaking changes.</p>
+<p><strong>Sub-project 2 is done when</strong> <code>pytest -m slow tests/test_e2e_connect4.py</code> reaches <code>win_rate &gt;= 0.80</code>. Then Sub-project 3 (chess) can begin — and again, only the <code>Game</code> subclass changes.</p></article>
+  </main>
+</body>
+</html>

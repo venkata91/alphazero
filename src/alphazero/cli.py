@@ -31,17 +31,21 @@ def _config_for_checkpoint(checkpoint_path: Path, override_path: Path | None) ->
     Order of precedence: (1) --config override, (2) config saved in checkpoint,
     (3) defaults. The architecture knobs (n_blocks, n_channels) must match what
     the checkpoint was saved with or load_state_dict will fail.
+
+    Filters out keys in the saved config dict that aren't recognized by the
+    current TrainingConfig schema — keeps older checkpoints loadable after we
+    remove deprecated fields (e.g., the old arena_* knobs).
     """
+    from dataclasses import fields
     if override_path is not None:
         return load_config(override_path)
     ckpt = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     saved = ckpt.get("config")
     if saved is None:
-        # Older checkpoint without saved config — fall back to defaults
-        # (force CPU for compatibility with non-MPS environments).
         return TrainingConfig(device="cpu")
-    # Override device to cpu for inference unless caller forces it.
-    saved = {**saved, "device": "cpu"}
+    valid_keys = {f.name for f in fields(TrainingConfig)}
+    saved = {k: v for k, v in saved.items() if k in valid_keys}
+    saved["device"] = "cpu"  # Force CPU for inference
     return TrainingConfig(**saved)
 
 

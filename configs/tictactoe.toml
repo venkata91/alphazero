@@ -17,11 +17,6 @@ learning_rate = 1e-3
 replay_buffer_capacity = 50_000
 min_buffer_size = 5_000
 
-# Arena fields (arena_interval, arena_games, arena_threshold) exist in
-# TrainingConfig but are no longer consulted — the Trainer always promotes
-# the candidate to best after each iteration (AlphaZero paper convention).
-# Kept on the dataclass for backward-compat with existing checkpoints.
-
 eval_interval = 5
 eval_games = 200
 

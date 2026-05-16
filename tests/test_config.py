@@ -12,7 +12,8 @@ def test_default_config_has_expected_values():
     assert cfg.num_simulations == 50
     assert cfg.c_puct == 1.5
     assert cfg.num_iterations == 50
-    assert cfg.arena_threshold == 0.55
+    assert cfg.batch_size == 64
+    assert cfg.weight_decay == 1e-4
 
 
 def test_config_is_frozen():
