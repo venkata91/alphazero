@@ -1,0 +1,996 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chess on the AlphaZero Framework (Sub-project 3)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav">
+      <a href="../../../index.html">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; Specs · Chess Design</span>
+    </nav>
+    <header class="hero">
+      <p class="kicker">Spec</p>
+      <h1>Chess on the AlphaZero Framework (Sub-project 3)</h1>
+      <div class="hero-meta">
+      <span><strong>date:</strong>2026-05-16</span>
+      <span><strong>status:</strong>Approved (brainstorming → implementation)</span>
+      <span><strong>sub project:</strong>3</span>
+      <span><strong>target:</strong>Trained chess agent achieves ≥50% win rate against Stockfish 1500 ELO over 100 games</span>
+      </div>
+    </header>
+    <article class="spec"><h2 id="1-context">1. Context</h2>
+<p>This is the third sub-project in the AlphaZero learning project. Sub-projects 1 (Tic-Tac-Toe) and 2 (Connect 4) validated the <strong>framework</strong>: the game-agnostic AlphaZero pipeline reaches perfect TTT play and ≥80% win rate vs Connect 4 minimax-depth-8. Sub-project 3 takes the same framework and applies it to <strong>chess</strong> — a game ~10⁹× larger than Connect 4 in state-space — to prove the framework scales beyond toy games.</p>
+<p>The user's primary goal remains <strong>learning</strong>: build the full AlphaZero pipeline from scratch, understand each component, let the achieved ELO emerge from the work. The original five-sub-project decomposition:</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Scope</th>
+<th>Target</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Framework + Tic-Tac-Toe</td>
+<td>0 losses vs perfect solver</td>
+<td>✅ Done</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Connect 4 plugged into framework</td>
+<td>≥80% vs minimax-depth-8</td>
+<td>✅ Implemented (training pending)</td>
+</tr>
+<tr>
+<td><strong>3</strong></td>
+<td><strong>Chess + parallel self-play</strong></td>
+<td><strong>≥50% vs Stockfish 1500 ELO</strong></td>
+<td><strong>This spec</strong></td>
+</tr>
+<tr>
+<td>4</td>
+<td>Productionize: UCI engine, scale to 1800-2300 ELO</td>
+<td>≥50% vs Stockfish 2000 ELO</td>
+<td>Future</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Hybrid: supervised pre-training + distillation toward 2500+ ELO</td>
+<td>≥50% vs Stockfish 2500 ELO</td>
+<td>Future</td>
+</tr>
+</tbody>
+</table>
+<p>Sub-project 3 explicitly does NOT chase grandmaster-level play. The target is a clearly-competent agent (1500 ELO is intermediate club level) trained from random init via pure self-play. The infrastructure built here — <strong>parallel self-play with batched NN inference</strong> — is the load-bearing thing.</p>
+<h2 id="2-goals">2. Goals</h2>
+<ul>
+<li><strong>Implement <code>Chess(Game)</code></strong> wrapping <code>python-chess</code>, with the AlphaZero 8×8×73 move encoding and a ~20-plane input representation.</li>
+<li><strong>Build a parallel self-play module</strong> with N CPU worker processes + a central NN-server that batches inference requests. This is required infrastructure for chess training and a deliverable in its own right.</li>
+<li><strong>Integrate Stockfish</strong> as the evaluation opponent via UCI, configured to a specific ELO (1500 initially) for an unambiguous strength measurement.</li>
+<li><strong>Reach the kill criterion</strong>: trained agent wins ≥50% of 100 games (alternating colors) against <code>StockfishOpponent(elo=1500, time_per_move=0.5)</code>.</li>
+<li><strong>Architect for scale-invariance</strong>: the codebase must support pushing toward 2000+ ELO via configuration changes alone (network size, iteration count, simulation depth) — no refactoring.</li>
+</ul>
+<h2 id="3-non-goals">3. Non-goals</h2>
+<ul>
+<li><strong>Matching paper-AlphaZero strength</strong> (~3500 ELO with 19×256 ResNet, 800 sims, 700K self-play games on 5000+ TPUs). Out of reach for a learning project.</li>
+<li><strong>History planes</strong> in the input encoding. Paper uses 8 previous positions × 14 planes = 112 history planes; we use 0. Threefold repetition is handled at terminal detection (via <code>python-chess</code>'s <code>is_repetition</code>). Adding history is a Sub-project 4 enhancement.</li>
+<li><strong>UCI engine protocol</strong> for playing on Lichess / in chess GUIs. Sub-project 4.</li>
+<li><strong>Distillation from existing solvers</strong> or supervised pre-training on master games. Sub-project 5.</li>
+<li><strong>Hyperparameter sweeps</strong>. Pick reasonable starting values; tune only if convergence fails.</li>
+</ul>
+<hr>
+<h2 id="4-whats-new-vs-whats-reused">4. What's new vs what's reused</h2>
+<p>The framework is unchanged. We add three new components and extend two existing ones.</p>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>Status</th>
+<th>What changes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>Game</code> ABC</td>
+<td>reuse</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>TicTacToe</code>, <code>Connect4</code></td>
+<td>leave in place</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><strong><code>Chess</code></strong></td>
+<td>new</td>
+<td>Wraps <code>python-chess</code>, ~20 input planes, 4672 action space</td>
+</tr>
+<tr>
+<td><strong>Move encoding</strong></td>
+<td>new</td>
+<td>AlphaZero 8×8×73 ↔ <code>python-chess</code> Move conversion (bijective)</td>
+</tr>
+<tr>
+<td><code>AlphaZeroNet</code></td>
+<td>reuse</td>
+<td>only the architectural knobs change (<code>n_blocks=10, n_channels=128</code>)</td>
+</tr>
+<tr>
+<td><code>MCTS</code></td>
+<td>reuse</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>SelfPlayWorker</code> (<code>run_one_game</code>)</td>
+<td>reuse for serial path</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><strong><code>parallel_selfplay</code></strong></td>
+<td>new</td>
+<td>Process pool of N workers + central NN-server with batched inference</td>
+</tr>
+<tr>
+<td><code>ReplayBuffer</code></td>
+<td>reuse</td>
+<td>capacity grows to 500K-1M (chess games are longer)</td>
+</tr>
+<tr>
+<td><code>Arena</code> (<code>play_match</code>)</td>
+<td>reuse</td>
+<td>nothing</td>
+</tr>
+<tr>
+<td><code>Trainer</code></td>
+<td>small extend</td>
+<td>When <code>num_workers &gt; 1</code>, dispatch parallel self-play instead of serial loop</td>
+</tr>
+<tr>
+<td><strong><code>StockfishOpponent</code></strong></td>
+<td>new</td>
+<td>UCI wrapper with ELO configuration</td>
+</tr>
+<tr>
+<td><code>cli.py</code></td>
+<td>small extend</td>
+<td><code>--game chess</code> routing</td>
+</tr>
+<tr>
+<td><code>Dockerfile</code> / <code>bin/setup.sh</code></td>
+<td>new</td>
+<td>Reproducible env across Colab/Mac/Lambda</td>
+</tr>
+</tbody>
+</table>
+<p>This is the architectural payoff: even at chess scale, ~80% of the framework is reused unchanged.</p>
+<hr>
+<h2 id="5-components">5. Components</h2>
+<h3 id="51-chessgame-wraps-python-chess">5.1 <code>Chess(Game)</code> — wraps <code>python-chess</code></h3>
+<p><strong>Role</strong>: encapsulate everything chess-specific. State is a <code>chess.Board</code> object (mutable; we copy + push to advance).</p>
+<pre><code class="language-python">class Chess(Game):
+    input_shape  = (20, 8, 8)
+    action_size  = 4672
+
+    def initial_state(self) -&gt; chess.Board:
+        return chess.Board()
+
+    def current_player(self, state) -&gt; int:
+        return 1 if state.turn == chess.WHITE else -1
+
+    def legal_actions_mask(self, state) -&gt; np.ndarray:
+        mask = np.zeros(4672, dtype=bool)
+        for move in state.legal_moves:
+            mask[move_to_index(state, move)] = True
+        return mask
+
+    def apply(self, state, action: int) -&gt; chess.Board:
+        move = index_to_move(state, action)
+        new_state = state.copy()
+        new_state.push(move)
+        return new_state
+
+    def terminal_value(self, state) -&gt; float | None:
+        if not state.is_game_over(claim_draw=True):
+            return None
+        outcome = state.outcome(claim_draw=True)
+        if outcome.winner is None:
+            return 0.0                              # draw (incl. 3-fold rep, 50-move)
+        winner_is_current = (outcome.winner == state.turn)
+        return 1.0 if winner_is_current else -1.0
+
+    def encode(self, state) -&gt; np.ndarray:
+        return encode_board(state)                  # see 5.3
+
+    def canonical_state(self, state) -&gt; chess.Board:
+        return state.mirror() if state.turn == chess.BLACK else state
+
+    def symmetries(self, encoded, policy) -&gt; list[tuple[np.ndarray, np.ndarray]]:
+        return [(encoded, policy)]                  # chess has no symmetries
+</code></pre>
+<p><strong>Key decisions:</strong></p>
+<ul>
+<li><strong>State is a <code>python-chess</code> Board, not a numpy array.</strong> <code>python-chess</code> is battle-tested for castling, en passant, threefold repetition, 50-move rule, and insufficient material. Reimplementing chess rules would be ~2-4 weeks of work and bug-prone.</li>
+<li><strong><code>is_game_over(claim_draw=True)</code></strong> explicitly opts into automatic draw detection. Without it, games could loop forever in repetition cycles.</li>
+<li><strong><code>canonical_state</code> uses <code>Board.mirror()</code></strong> when Black is to move — flips the board so the NN always sees "White at the bottom". <code>python-chess</code> handles castling rights and en passant correctly under mirroring.</li>
+<li><strong><code>symmetries()</code> returns identity only.</strong> Chess has no exploitable symmetries: castling rights and pawn direction break left-right mirror; player asymmetry (White moves first) breaks rotation. This means ~8× lower data efficiency than TTT and ~2× lower than Connect 4 — partially compensated by parallel self-play volume.</li>
+</ul>
+<h3 id="52-move-encoding-the-alphazero-8873-scheme">5.2 Move encoding — the AlphaZero 8×8×73 scheme</h3>
+<p><strong>Why this encoding</strong>: every chess move needs a unique integer index in <code>[0, 4672)</code>. We use <code>(source_square, move_type)</code> where <code>move_type ∈ [0, 73)</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Category</th>
+<th>Indices</th>
+<th>Count</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Queen-like moves (8 directions × 7 distances)</td>
+<td>0–55</td>
+<td>56</td>
+<td>Sliding moves; pawn pushes &amp; captures; king moves (dist=1); queen promotions encoded as queen-direction moves to last rank</td>
+</tr>
+<tr>
+<td>Knight moves (8 L-shapes)</td>
+<td>56–63</td>
+<td>8</td>
+<td>All 8 knight destinations from a source</td>
+</tr>
+<tr>
+<td>Underpromotions (3 pieces × 3 file directions)</td>
+<td>64–72</td>
+<td>9</td>
+<td>Promotion to knight/bishop/rook (queen promo already covered as queen move)</td>
+</tr>
+</tbody>
+</table>
+<p><code>64 squares × 73 move types = 4672</code> actions total. Each legal move maps bijectively to exactly one action index.</p>
+<p><strong>Helper functions</strong> (<code>src/alphazero/games/chess_move_encoding.py</code>):</p>
+<pre><code class="language-python">def move_to_index(state: chess.Board, move: chess.Move) -&gt; int:
+    &quot;&quot;&quot;Convert a python-chess Move to a flat action index in [0, 4672).&quot;&quot;&quot;
+
+def index_to_move(state: chess.Board, index: int) -&gt; chess.Move:
+    &quot;&quot;&quot;Convert a flat action index back to a python-chess Move.
+    Requires state because the same index can decode to different moves
+    depending on what piece is on the source square.&quot;&quot;&quot;
+</code></pre>
+<p><strong>Cross-references</strong>: alpha-zero-general's chess fork and Lc0's encoding are well-documented references; we'll cross-check our implementation against them via property-based tests in <code>tests/test_move_encoding.py</code>.</p>
+<h3 id="53-input-encoding-start-simple-20-planes">5.3 Input encoding — start simple (~20 planes)</h3>
+<p>The board state is encoded as 20 channels of an 8×8 tensor (shape <code>(20, 8, 8)</code>):</p>
+<table>
+<thead>
+<tr>
+<th>Plane</th>
+<th>Content</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>0–5</td>
+<td>My pieces by type: pawn, knight, bishop, rook, queen, king</td>
+</tr>
+<tr>
+<td>6–11</td>
+<td>Opp pieces by type (same order)</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Ones plane (boundary detection — convs with padding mix in zeros from outside the board; ones distinguishes "edge" from "empty middle")</td>
+</tr>
+<tr>
+<td>13–16</td>
+<td>Castling rights: my-K, my-Q, opp-K, opp-Q (each plane all-ones if right exists, all-zeros otherwise)</td>
+</tr>
+<tr>
+<td>17</td>
+<td>En passant target square (1-hot at the square if any, all-zeros otherwise)</td>
+</tr>
+<tr>
+<td>18</td>
+<td>Halfmove clock for 50-move rule (constant plane = halfmove_clock / 100)</td>
+</tr>
+<tr>
+<td>19</td>
+<td>Fullmove number / 100 (rough "how late in the game" signal)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>What we skip (vs paper)</strong>: 8 previous positions × 14 history planes = 112 planes. Threefold repetition is handled by <code>python-chess</code>'s detection at terminal time (<code>is_game_over(claim_draw=True)</code>). The NN doesn't get a direct "this position has been repeated" signal — it learns from outcomes.</p>
+<p><strong>Tradeoff</strong>:
+- Pro: ~6× fewer input planes; smaller input conv; less memory.
+- Pro: simpler implementation; less surface area for bugs.
+- Con: NN can't strategically anticipate repetition draws; sees them only post-hoc. Mild disadvantage for endgame play. <strong>If this hurts training, add history planes — a 10-line addition to <code>encode_board()</code>.</strong> Deferred to Sub-project 4.</p>
+<h3 id="54-parallel-self-play-the-major-new-piece">5.4 Parallel self-play — the major new piece</h3>
+<p>The current <code>selfplay.run_one_game()</code> runs one game at a time serially. For chess this is wall-time impossible — MCTS is Python-bound, GPU sits 95% idle, and a single training run takes days even on A100. <strong>Parallel self-play is required infrastructure for chess.</strong></p>
+<p><strong>Architecture</strong>:</p>
+<pre><code>                    ┌─────────────────────────────────────────────┐
+                    │ NN-server process (owns the GPU)            │
+                    │                                              │
+                    │  1. poll request queue                       │
+                    │  2. collect ≥B requests OR wait ≤5ms         │
+                    │  3. stack → batched forward pass             │
+                    │  4. route results back to each worker's      │
+                    │     reply queue (preserving order)           │
+                    └────────────────┬────────────────────────────┘
+                                     ▲ ▼ via mp.Queue
+                                     │
+        ┌────────────────────────────┼─────────────────────────────┐
+        ▼                            ▼                              ▼
+   ┌─────────┐                  ┌─────────┐                   ┌─────────┐
+   │Worker 0 │                  │Worker 1 │ ... ... ...       │Worker N │
+   │         │                  │         │                   │         │
+   │ MCTS    │                  │ MCTS    │                   │ MCTS    │
+   │ Chess() │                  │ Chess() │                   │ Chess() │
+   │         │                  │         │                   │         │
+   │ eval_fn │ ── submits state │ eval_fn │                   │ eval_fn │
+   │ blocks  │     to server    │ blocks  │                   │ blocks  │
+   │ waits   │ ◀── gets back    │ waits   │                   │ waits   │
+   │         │     (priors, v)  │         │                   │         │
+   └────┬────┘                  └────┬────┘                   └────┬────┘
+        │                            │                              │
+        ▼                            ▼                              ▼
+   completed games → result queue → Trainer collects → ReplayBuffer
+</code></pre>
+<p><strong>Module</strong>: <code>src/alphazero/parallel_selfplay.py</code>. Public interface:</p>
+<pre><code class="language-python">def run_parallel_self_play(
+    game_factory: Callable[[], Game],
+    best_net_state_dict: dict,
+    config: TrainingConfig,
+    num_games: int,
+) -&gt; list[tuple[np.ndarray, np.ndarray, float]]:
+    &quot;&quot;&quot;Run `num_games` self-play games in parallel.
+
+    Spawns config.num_workers worker processes + 1 NN-server.
+    Returns a flat list of training tuples (state, π, z), already
+    symmetry-augmented if the game has symmetries (chess doesn't).
+    &quot;&quot;&quot;
+</code></pre>
+<p><strong>Implementation notes</strong>:</p>
+<ul>
+<li><strong><code>torch.multiprocessing</code></strong> as the concurrency primitive (not plain <code>multiprocessing</code>). Handles PyTorch tensor sharing correctly.</li>
+<li><strong><code>mp.Queue</code></strong> for request/reply between workers and NN-server.</li>
+<li><strong><code>best_net_state_dict</code></strong> is broadcast to workers at startup; each worker loads it into its own NN copy. Cheaper than per-call serialization.</li>
+<li><strong>Workers do NOT touch CUDA</strong>: only the NN-server interacts with the GPU. Avoids the "CUDA-in-fork" issue (<code>fork()</code> after CUDA init is unsafe; we use <code>spawn()</code> start method).</li>
+<li><strong>Clean shutdown</strong>: trainer sends sentinel values down the queues; workers + server check for sentinel each iteration and exit cleanly.</li>
+<li><strong>Backpressure</strong>: if workers produce requests faster than the GPU can process, the request queue can grow unbounded. Bound the queue and let workers block — natural rate limiting.</li>
+</ul>
+<p><strong>Risk assessment</strong>: this is the highest-risk component in Sub-project 3. Common failure modes:
+- Pickling errors when passing objects through queues
+- Deadlocks if shutdown ordering is wrong
+- Memory leaks from unclosed file descriptors / queues
+- "GPU OOM" if <code>inference_batch_size</code> is too large for the model size</p>
+<p>We budget <strong>~6-10 hours of agent work</strong> for the parallel module alone (vs ~30-60 min per typical task), plus dedicated stress tests.</p>
+<h3 id="55-stockfishopponent-eval-ground-truth">5.5 <code>StockfishOpponent</code> — eval ground truth</h3>
+<p>Uses <code>python-chess</code>'s built-in UCI engine wrapper.</p>
+<pre><code class="language-python">class StockfishOpponent:
+    def __init__(self, elo: int = 1500, time_per_move: float = 0.5,
+                 stockfish_path: str = &quot;stockfish&quot;):
+        self.engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+        self.engine.configure({
+            &quot;UCI_LimitStrength&quot;: True,
+            &quot;UCI_Elo&quot;: elo,
+        })
+        self.time_per_move = time_per_move
+
+    def __call__(self, game: Chess, state: chess.Board) -&gt; int:
+        result = self.engine.play(state, chess.engine.Limit(time=self.time_per_move))
+        return move_to_index(state, result.move)
+
+    def reset(self): pass
+    def close(self): self.engine.quit()
+    def __del__(self):
+        try: self.close()
+        except Exception: pass
+</code></pre>
+<p><strong>Requires</strong> <code>stockfish</code> binary on PATH:
+- macOS: <code>brew install stockfish</code>
+- Linux/Debian: <code>apt install stockfish</code>
+- Colab: <code>!apt install stockfish -y</code>
+- Docker image: <code>apt-get install -y stockfish</code> in the Dockerfile</p>
+<p><strong>Stockfish UCI ELO support</strong>: Stockfish 14+ supports <code>UCI_LimitStrength</code> + <code>UCI_Elo</code> (range 1320–3190). Some older versions don't; the test suite verifies this at import time.</p>
+<hr>
+<h2 id="6-hyperparameters-compute-estimates">6. Hyperparameters + compute estimates</h2>
+<h3 id="starting-configschesstoml">Starting <code>configs/chess.toml</code></h3>
+<pre><code class="language-toml"># Network — ~5M params. Scale knobs for Sub-project 4 (target 2000+ ELO).
+n_blocks = 10
+n_channels = 128
+
+# MCTS
+num_simulations = 200          # paper used 800; this is enough for 1500-1800 ELO
+c_puct = 2.5
+dirichlet_alpha = 0.3          # paper's chess value (lower than TTT/C4)
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100      # scales linearly with parallel workers
+temperature_threshold = 30     # cover full opening repertoire
+
+# Training
+training_steps_per_iteration = 2000
+batch_size = 256
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer
+replay_buffer_capacity = 500_000
+min_buffer_size = 50_000
+
+# Eval (vs Stockfish 1500 ELO)
+eval_interval = 5
+eval_games = 100
+
+# Schedule
+num_iterations = 80
+
+# Parallel self-play (NEW)
+num_workers = 8                # 1 = serial fallback; raise to use more CPU cores
+inference_batch_size = 64      # NN-server batches up to N states per forward
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+checkpoint_dir = &quot;checkpoints&quot;
+log_dir = &quot;runs&quot;
+</code></pre>
+<h3 id="wall-time-estimates-by-hardware">Wall-time estimates by hardware</h3>
+<table>
+<thead>
+<tr>
+<th>Setup</th>
+<th>Workers</th>
+<th>Per iter</th>
+<th>Eval cycle</th>
+<th>80 iters total</th>
+<th>Cost</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M4 Pro MPS (parallel)</td>
+<td>8</td>
+<td>~3–5 min</td>
+<td>~3 min</td>
+<td><strong>~5–8 hr</strong></td>
+<td>$0</td>
+</tr>
+<tr>
+<td>Colab T4 free (parallel)</td>
+<td>2–3</td>
+<td>~6–10 min</td>
+<td>~5 min</td>
+<td>~10–15 hr (multiple sessions)</td>
+<td>$0</td>
+</tr>
+<tr>
+<td>Colab Pro L4 (parallel)</td>
+<td>6–8</td>
+<td>~2–4 min</td>
+<td>~3 min</td>
+<td><strong>~3–5 hr</strong></td>
+<td>$10/mo flat</td>
+</tr>
+<tr>
+<td>Lambda A6000 (parallel)</td>
+<td>12</td>
+<td>~2–3 min</td>
+<td>~2 min</td>
+<td>~3–4 hr</td>
+<td>~$2–3 total</td>
+</tr>
+<tr>
+<td>Lambda A100 (parallel)</td>
+<td>16</td>
+<td>~1–2 min</td>
+<td>~1.5 min</td>
+<td><strong>~2–3 hr</strong></td>
+<td>~$4–7 total</td>
+</tr>
+<tr>
+<td><strong>For comparison: any GPU, serial (no parallel self-play)</strong></td>
+<td>1</td>
+<td>~30–60 min</td>
+<td>~5 min</td>
+<td>~40–80 hr</td>
+<td>prohibitive</td>
+</tr>
+</tbody>
+</table>
+<p>Parallel self-play is the difference between "tractable" and "infeasible."</p>
+<h3 id="eval-vs-stockfish-wall-time">Eval-vs-Stockfish wall-time</h3>
+<p>Stockfish at <code>time_per_move=0.5</code> over 100 games × ~50 plies average = ~50 sec × 100 games = ~80 min per eval cycle, <strong>but</strong> this is sequential. With eval-time parallelization (deferred to Sub-project 4), this could drop to ~20 min on 8 CPUs. For SP3, we accept the serial eval cost; it dominates only a small fraction of total wall-time.</p>
+<h3 id="scaling-path-to-sub-project-4-2000-elo">Scaling path to Sub-project 4 (2000+ ELO)</h3>
+<p>All config changes, <strong>no code changes</strong>:</p>
+<pre><code class="language-toml">n_blocks = 19
+n_channels = 256                  # ~46M params (matches AlphaZero paper architecture)
+num_simulations = 800             # paper's setting
+games_per_iteration = 500
+training_steps_per_iteration = 5000
+num_iterations = 200
+batch_size = 512
+num_workers = 16
+inference_batch_size = 256
+eval_stockfish_elo = 2000
+</code></pre>
+<p>Wall-time on Lambda A100: ~50–150 hr. Cost: ~$60–200. We'd also want history planes (10-line addition to <code>encode_board</code>) at this scale.</p>
+<hr>
+<h2 id="7-testing-strategy-critical-invariants">7. Testing strategy + critical invariants</h2>
+<h3 id="inherited-invariants-all-6-still-apply">Inherited invariants (all 6 still apply)</h3>
+<p>The same six "silent failure" invariants from Sub-projects 1 and 2 must hold:</p>
+<ol>
+<li>Self-play uses <code>best_net</code>; training updates <code>candidate_net</code>.</li>
+<li>Dirichlet noise: root only, self-play only.</li>
+<li>Backup flips sign per ply (zero-sum).</li>
+<li><code>canonical_state</code> applied consistently at every encode site.</li>
+<li><code>z</code> is assigned per-ply from THAT ply's mover's POV.</li>
+<li>Replay buffer is NOT reset between iterations.</li>
+</ol>
+<p>These are guarded by the existing <code>tests/test_invariants.py</code> and don't need re-implementing.</p>
+<h3 id="new-chess-specific-invariants">New chess-specific invariants</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Invariant</th>
+<th>Failure mode if broken</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7</td>
+<td>Move encoding is bijective: <code>index_to_move(state, move_to_index(state, m)) == m</code> for every legal move in every reachable position</td>
+<td>Training data has wrong action targets; the agent learns to play illegal/incorrect moves</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Workers don't share <code>chess.Board</code> objects</td>
+<td>One worker's <code>push()</code> corrupts another worker's game; data poisoning</td>
+</tr>
+<tr>
+<td>9</td>
+<td>NN-server batched output preserves input ordering</td>
+<td>Worker A gets B's value/policy; complete training corruption</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Stockfish subprocesses are closed cleanly</td>
+<td>Zombie processes accumulate; eventually exhausts process limits</td>
+</tr>
+</tbody>
+</table>
+<h3 id="test-pyramid">Test pyramid</h3>
+<table>
+<thead>
+<tr>
+<th>File</th>
+<th>Tests</th>
+<th>Coverage</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>tests/test_game_chess.py</code></td>
+<td>~25</td>
+<td>Interface (initial_state, current_player, legal_actions_mask, apply, terminal_value, encode, canonical_state); terminal detection for all draw types (3-fold, 50-move, stalemate, insufficient material); canonical_state mirror is self-inverse</td>
+</tr>
+<tr>
+<td><code>tests/test_move_encoding.py</code></td>
+<td>~15</td>
+<td>Exhaustive round-trip: every queen direction × distance from every source square; all 8 knight moves; all 9 underpromotions; castling encoded correctly (kingside = king moves 2 east); en passant captures encoded correctly</td>
+</tr>
+<tr>
+<td><code>tests/test_chess_minimax.py</code></td>
+<td>~5</td>
+<td>StockfishOpponent plays only legal moves; UCI_Elo configuration takes effect; clean shutdown on <code>close()</code> and <code>__del__</code></td>
+</tr>
+<tr>
+<td><code>tests/test_parallel_selfplay.py</code></td>
+<td>~10</td>
+<td>Single-worker matches serial behavior; N workers produce N independent games; NN-server preserves batch ordering; clean shutdown with no zombie processes; stress test with 100 games</td>
+</tr>
+<tr>
+<td><code>tests/test_invariants_chess.py</code></td>
+<td>4</td>
+<td>The 4 new invariants (#7–#10)</td>
+</tr>
+<tr>
+<td><code>tests/test_e2e_chess.py</code> (<code>@pytest.mark.slow</code>)</td>
+<td>1</td>
+<td>The kill criterion</td>
+</tr>
+</tbody>
+</table>
+<h3 id="the-kill-criterion">The kill criterion</h3>
+<pre><code class="language-python">@pytest.mark.slow
+def test_e2e_chess_beats_stockfish_1500(tmp_path, monkeypatch):
+    &quot;&quot;&quot;Train + ≥50% win rate vs Stockfish ELO=1500 over 100 games.&quot;&quot;&quot;
+    monkeypatch.chdir(tmp_path)
+    config = load_config(REPO_ROOT / &quot;configs/chess.toml&quot;)
+    opponent = StockfishOpponent(elo=1500, time_per_move=0.5)
+
+    trainer = Trainer(Chess(), config)
+    trainer.run(eval_opponent=opponent)
+
+    agent = trainer._make_argmax_mcts_agent(trainer.best_net)
+    result = play_match(Chess(), agent, opponent, num_games=100)
+    opponent.close()
+
+    print(f&quot;\nFinal: wins={result.wins_a} draws={result.draws} &quot;
+          f&quot;losses={result.losses_a} win_rate={result.win_rate:.2%}&quot;)
+    assert result.win_rate &gt;= 0.50, (
+        f&quot;Agent only reached {result.win_rate:.1%} win rate vs Stockfish 1500 ELO. &quot;
+        f&quot;Increase num_iterations or num_simulations in configs/chess.toml.&quot;
+    )
+</code></pre>
+<p>This test is <strong>slow</strong> — full training + 100-game eval against Stockfish takes 3-8 hours depending on hardware. Run via <code>pytest -m slow tests/test_e2e_chess.py -v -s</code>.</p>
+<p><strong>Pass criterion: <code>result.win_rate ≥ 0.50</code></strong> against Stockfish at UCI_Elo=1500. 50% means matching 1500 ELO play; &gt;50% means slightly stronger.</p>
+<hr>
+<h2 id="8-success-criterion-recap">8. Success criterion (recap)</h2>
+<p><strong>Sub-project 3 is done when:</strong></p>
+<blockquote>
+<p><code>pytest -m slow tests/test_e2e_chess.py</code> passes consistently with <code>result.win_rate &gt;= 0.50</code> against <code>StockfishOpponent(elo=1500, time_per_move=0.5)</code> over 100 games (alternating colors).</p>
+</blockquote>
+<p>After this passes, Sub-project 4 (productionize: UCI engine, scale to 2000+ ELO) can begin.</p>
+<hr>
+<h2 id="9-project-layout">9. Project layout</h2>
+<pre><code>src/alphazero/
+├── games/
+│   ├── chess_game.py                ← new — Chess(Game) class
+│   └── chess_move_encoding.py       ← new — 8×8×73 encoding helpers
+├── opponents/
+│   └── stockfish.py                 ← new — StockfishOpponent
+├── parallel_selfplay.py             ← new — worker pool + NN-server
+├── trainer.py                       ← extend — dispatch parallel path when num_workers &gt; 1
+└── cli.py                           ← extend — chess dispatch in --game
+
+configs/
+└── chess.toml                       ← new — starting hyperparameters
+
+bin/
+├── setup.sh                         ← new — portable install with Stockfish detection
+└── train_chess.sh                   ← new — convenience wrapper
+
+tests/
+├── test_game_chess.py               ← new
+├── test_move_encoding.py            ← new
+├── test_chess_minimax.py            ← new
+├── test_parallel_selfplay.py        ← new
+├── test_invariants_chess.py         ← new
+└── test_e2e_chess.py                ← new (@pytest.mark.slow)
+
+notebooks/
+└── train_chess_colab.ipynb          ← new — sibling to train_connect4_colab.ipynb
+
+Dockerfile                           ← new — reproducible env (Python + Stockfish + torch)
+</code></pre>
+<h3 id="new-dependencies">New dependencies</h3>
+<p><code>pyproject.toml</code>:</p>
+<pre><code class="language-toml">dependencies = [
+    &quot;torch&gt;=2.2&quot;,
+    &quot;numpy&gt;=1.26&quot;,
+    &quot;tomli&gt;=2.0&quot;,
+    &quot;tqdm&gt;=4.66&quot;,
+    &quot;tensorboard&gt;=2.16&quot;,
+    &quot;python-chess&gt;=1.10&quot;,       # NEW
+]
+</code></pre>
+<p>System-level: <code>stockfish</code> binary on PATH. Documented in <code>bin/setup.sh</code>:</p>
+<pre><code class="language-bash">#!/usr/bin/env bash
+# bin/setup.sh — install all dependencies. Idempotent; safe to re-run.
+set -euo pipefail
+
+# Detect platform &amp; install Stockfish
+if [[ &quot;$(uname)&quot; == &quot;Darwin&quot; ]]; then
+    brew list stockfish &amp;&gt;/dev/null || brew install stockfish
+elif [[ -f /etc/debian_version ]]; then
+    dpkg -s stockfish &amp;&gt;/dev/null || sudo apt-get install -y stockfish
+else
+    echo &quot;Unknown platform; install stockfish manually.&quot; &gt;&amp;2
+fi
+
+# Python deps
+pip install -e &quot;.[dev]&quot;
+
+# Verify
+python3 -c &quot;
+import chess.engine
+eng = chess.engine.SimpleEngine.popen_uci('stockfish')
+eng.configure({'UCI_LimitStrength': True, 'UCI_Elo': 1500})
+print('Stockfish OK; UCI_Elo configurable')
+eng.quit()
+&quot;
+</code></pre>
+<hr>
+<h2 id="10-out-of-scope-saved-for-future-sub-projects">10. Out of scope (saved for future sub-projects)</h2>
+<ul>
+<li><strong>Pushing past 1800 ELO</strong> — Sub-project 4. Requires bigger network (15×192 → 19×256), more sims (400–800), more iterations (150–300), and likely history planes. Cost: hundreds of $ on cloud GPU.</li>
+<li><strong>UCI engine protocol</strong> — Sub-project 4. Lets the agent play in Lichess / any chess GUI / public bot leagues.</li>
+<li><strong>History planes</strong> — 10-line addition to <code>encode_board()</code> when needed. Mainly helps endgame repetition handling.</li>
+<li><strong>Distillation from Stockfish / supervised pre-training on master games</strong> — Sub-project 5. Trades "pure self-play" purity for much faster convergence to high ELO.</li>
+<li><strong>MCTS optimizations</strong>: virtual loss, batched simulations within a single search (different from our worker-pool approach). Marginal gain on top of our setup; ignore for SP3.</li>
+<li><strong>Bitboard move generation</strong>: <code>python-chess</code> is pure-Python and not the fastest. A C-accelerated alternative could be ~5× faster for move generation. Not the bottleneck for us; revisit only if profiling shows it dominates.</li>
+<li><strong>Distributed training</strong> across multiple GPUs. Not needed at our scale; SP4 may want it.</li>
+</ul>
+<hr>
+<h2 id="11-references">11. References</h2>
+<ul>
+<li><strong>AlphaZero paper</strong> — Silver et al. 2017: https://arxiv.org/abs/1712.01815 — primary reference for the 8×8×73 encoding, 119-plane input, and overall architecture.</li>
+<li><strong>alpha-zero-general</strong> — Surag Nair: https://github.com/suragnair/alpha-zero-general — pedagogical reference (no chess in master, but referenceable for general framework patterns we've already adopted).</li>
+<li><strong>chess-zero</strong> — https://github.com/Zeta36/chess-alpha-zero — earlier chess-AlphaZero implementation; useful cross-reference for move encoding.</li>
+<li><strong>Lc0 (Leela Chess Zero)</strong> — https://lczero.org/ — production-grade AlphaZero-style chess engine. Reference for move encoding details + scaling tricks (we deliberately avoid the optimizations they use; we want a clean learning implementation).</li>
+<li><strong>python-chess docs</strong> — https://python-chess.readthedocs.io/ — primary library reference.</li>
+<li><strong>Sub-project 1 spec</strong>: <a href="2026-05-15-alphazero-framework-tictactoe-design.md"><code>2026-05-15-alphazero-framework-tictactoe-design.md</code></a> — the framework Sub-project 3 reuses.</li>
+<li><strong>Sub-project 2 spec</strong>: <a href="2026-05-15-connect4-design.md"><code>2026-05-15-connect4-design.md</code></a> — pattern for adding a new game.</li>
+</ul></article>
+  </main>
+</body>
+</html>
