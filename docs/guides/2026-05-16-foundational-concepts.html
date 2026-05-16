@@ -1,0 +1,1065 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Foundational Concepts — AlphaZero from Scratch</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav">
+      <a href="../../../../../../../index.html">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; Guides · Foundational Concepts</span>
+    </nav>
+    <header class="hero">
+      <p class="kicker">Learning notes</p>
+      <h1>Foundational Concepts — AlphaZero from Scratch</h1>
+      <div class="hero-meta">
+      <span><strong>date:</strong>2026-05-16</span>
+      <span><strong>kicker:</strong>Learning notes</span>
+      </div>
+    </header>
+    <article class="spec"><h1 id="foundational-concepts">Foundational Concepts</h1>
+<p>A consolidated reference for the AlphaZero project — companion to the codebase and the visual primer at <a href="../../concepts.html"><code>concepts.html</code></a>. Designed to be re-read whenever a term feels fuzzy.</p>
+<p>This is the <strong>text-heavy reference</strong>; <code>concepts.html</code> is the visual companion. Both cover overlapping ground. Use whichever fits the moment.</p>
+<hr>
+<h2 id="1-the-big-picture-in-one-paragraph">1. The big picture in one paragraph</h2>
+<p>AlphaZero is the marriage of two ML traditions that, individually, cannot solve hard games:</p>
+<ul>
+<li><strong>Neural networks</strong> give <em>fast intuition</em> ("this position looks bad for me") but cannot plan deeply.</li>
+<li><strong>Tree search</strong> gives <em>deep planning</em> but combinatorially explodes — you cannot search all possible chess games (~10⁴³ positions).</li>
+</ul>
+<p>AlphaZero combines them. The neural network gives the search a starting hunch (which moves to explore, how good each position is). The search refines that hunch by looking ahead a few moves. The refined judgment becomes the network's new training data. Both improve together; neither can do it alone.</p>
+<hr>
+<h2 id="2-the-training-loop-in-one-diagram">2. The training loop in one diagram</h2>
+<pre><code>                                          ┌──────────────────────┐
+                                          │   best_net (frozen)   │
+                                          └───────────┬──────────┘
+                                                      │ used by
+                                                      ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │   1. SELF-PLAY                                            │
+       │      100 games using MCTS + best_net                      │
+       │      Each ply → (encoded_state, π, current_player)        │
+       │      End of game → fill in z = ±1/0 per ply               │
+       └──────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │   2. ADD TO REPLAY BUFFER (FIFO of recent tuples)         │
+       └──────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │   3. TRAIN candidate_net                                  │
+       │      1000 minibatches × 64 samples                       │
+       │      loss = CE(policy, π) + MSE(value, z) + L2 reg        │
+       └──────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │   4. PROMOTE  best_net ← candidate_net  (unconditional)   │
+       └──────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+       ┌──────────────────────────────────────────────────────────┐
+       │   5. (Periodic) EVAL vs ground-truth opponent             │
+       └──────────────────────┬───────────────────────────────────┘
+                              │
+                              ▼
+                       (loop back to step 1)
+</code></pre>
+<p>Each iteration's best_net is slightly stronger than the previous one. After 30-50 iterations on TTT, the agent reaches perfect play. After thousands of iterations on chess (with massive compute), the agent reaches superhuman.</p>
+<hr>
+<h2 id="3-basic-terminology">3. Basic terminology</h2>
+<h3 id="ply">Ply</h3>
+<p>A single move by one player. A chess full-move is 2 plies (white + black). TTT games are 5-9 plies. Connect 4 games average 20-30 plies.</p>
+<h3 id="state-s">State (s)</h3>
+<p>The current board position. In our code, a NumPy array (<code>(3, 3)</code> for TTT, <code>(6, 7)</code> for Connect 4).</p>
+<h3 id="action-a">Action (a)</h3>
+<p>A legal move from a state. Represented as an integer index — 0-8 for TTT (one per square), 0-6 for Connect 4 (one per column).</p>
+<h3 id="policy">Policy</h3>
+<p>A probability distribution over actions. Two flavors:
+- <strong><code>P(s, a)</code></strong> (capital P) — the neural network's prior policy (one forward pass)
+- <strong><code>π(s, a)</code></strong> (lowercase pi) — the MCTS-improved policy (after N simulations)</p>
+<p>These are related but distinct. PUCT uses <code>P</code> to guide search; training pushes the NN to predict <code>π</code>.</p>
+<h3 id="value">Value</h3>
+<p>A scalar in <code>[-1, +1]</code> indicating the predicted/actual game outcome from the current player's POV.
+- <strong><code>v(s)</code></strong> — the neural network's predicted value (one forward pass)
+- <strong><code>z</code></strong> — the actual realized outcome at the end of a game</p>
+<h3 id="episode-game">Episode / game</h3>
+<p>One complete play from the initial state to a terminal state. Produces a batch of training tuples (one per ply) sharing the same outcome <code>z</code>.</p>
+<h3 id="iteration">Iteration</h3>
+<p>One full cycle of the training loop: self-play → buffer → training → promote → eval. NOT to be confused with an "epoch" (one pass through a dataset) in supervised learning.</p>
+<hr>
+<h2 id="4-neural-network-basics">4. Neural network basics</h2>
+<h3 id="what-is-a-neural-network-in-this-project">What is a "neural network" in this project?</h3>
+<p>A function <code>f: state → (policy, value)</code> parameterized by weights. The weights are adjusted by gradient descent so that <code>f</code>'s predictions match the training targets <code>(π, z)</code>.</p>
+<p>In our code, this is <code>AlphaZeroNet</code> in <code>src/alphazero/network.py</code>. It's a <code>torch.nn.Module</code> with two output heads.</p>
+<h3 id="conv-layer-convolution">Conv layer (convolution)</h3>
+<p>A convolution slides a small <strong>kernel</strong> (weight matrix) across the input, computing a weighted sum at each spatial position. For a 3×3 kernel:</p>
+<pre><code>For each output position (x, y):
+    output[c_out, x, y] = Σ_{c_in, dx, dy} W[c_out, c_in, dx, dy] · input[c_in, x+dx, y+dy]
+</code></pre>
+<p>Each "channel" of the input is processed separately; the kernel combines them with learned weights. Convolutions are great for grid-structured data (images, game boards) because they exploit spatial locality.</p>
+<h3 id="11-conv-specifically">1×1 conv specifically</h3>
+<p>Kernel size of 1×1 — doesn't combine neighboring pixels at all. Just remixes channels at each spatial position. It's a per-pixel linear transformation.</p>
+<p>Why?
+- <strong>Channel reduction</strong>: backbone has 64 channels; we don't need that many for the policy head. A 1×1 conv collapses 64 → 2 channels.
+- <strong>Cheap</strong>: fewer parameters than a 3×3 conv.</p>
+<h3 id="batch-normalization-bn">Batch normalization (BN)</h3>
+<p>Normalizes activations across the batch dimension. For each channel:</p>
+<pre><code>mean_c, var_c = mean / variance across (batch, spatial)
+output = (input - mean_c) / sqrt(var_c + ε) · γ_c + β_c
+</code></pre>
+<p>Where <code>γ</code> and <code>β</code> are learnable. BN keeps activations in a sane numeric range during training, stabilizes gradient flow, and lets you use higher learning rates. <strong>Almost universal in modern CNNs.</strong></p>
+<p><strong>Subtle quirk</strong>: BN behaves differently in training vs eval mode. During training it uses batch statistics; during eval it uses running statistics accumulated during training. Always call <code>model.eval()</code> before inference and <code>model.train()</code> before training. Forgetting this is the source of many training bugs.</p>
+<h3 id="relu-rectified-linear-unit">ReLU (Rectified Linear Unit)</h3>
+<p>The simplest nonlinearity: <code>f(x) = max(0, x)</code>. Anything negative becomes 0; anything positive passes through. The nonlinear part is what lets neural networks learn complex functions — stacking linear layers without nonlinearities just gives you another linear function.</p>
+<p>ReLU is the default activation because it's simple, fast, and avoids the vanishing-gradient problem of older activations like sigmoid/tanh.</p>
+<h3 id="flatten">Flatten</h3>
+<p>Reshapes a multi-dimensional tensor to 2D, preserving the batch dimension. <code>(4, 2, 6, 7)</code> becomes <code>(4, 84)</code>. Needed because the next layer (Linear) expects 1D input per sample.</p>
+<h3 id="linear-layer">Linear layer</h3>
+<p>Fully connected layer: <code>output = input @ W + b</code>. Maps <code>input_dim</code> features to <code>output_dim</code> features. Used at the end of each head to produce the final outputs.</p>
+<h3 id="logits-and-softmax">Logits and softmax</h3>
+<p><strong>Logits</strong> are the raw pre-softmax outputs of a classification network. They can be any real number, positive or negative. To convert to probabilities, apply softmax:</p>
+<pre><code>prob[i] = exp(logit[i]) / Σ_j exp(logit[j])
+</code></pre>
+<p>We work in logits internally because they're more numerically stable (log-sum-exp trick avoids underflow on tiny probabilities). Loss functions like <code>cross_entropy(logits, target)</code> operate on logits directly.</p>
+<h3 id="backbone-vs-heads">Backbone vs heads</h3>
+<p>In a multi-head network:
+- <strong>Backbone</strong>: the shared feature extractor — everything before the branches
+- <strong>Heads</strong>: small sub-networks at the end, each producing one output</p>
+<p>In AlphaZeroNet:</p>
+<pre><code>input → backbone (input conv + N residual blocks) → features
+                                                      ├── policy head
+                                                      └── value head
+</code></pre>
+<p>The backbone is the big computation; the heads are tiny linear-conv-linear stacks.</p>
+<hr>
+<h2 id="5-residual-networks-resnet">5. Residual networks (ResNet)</h2>
+<h3 id="what-is-a-residual-block">What is a residual block?</h3>
+<p>A composable layer module that computes:</p>
+<pre><code>y = ReLU(x + F(x))
+
+Where F(x) is typically:
+    conv → BatchNorm → ReLU → conv → BatchNorm
+</code></pre>
+<p>The <code>+x</code> is the <strong>skip connection</strong> (a.k.a. residual connection). It's the entire trick — without it, deep networks are hard to train.</p>
+<h3 id="why-the-skip-connection-matters">Why the skip connection matters</h3>
+<p>In a deep network, the gradient of the loss with respect to early-layer weights is the product of the Jacobian of every later layer. If each layer's Jacobian has magnitude <code>&lt;1</code>, the product shrinks toward zero — gradients <strong>vanish</strong>, early layers stop learning.</p>
+<p>With a skip connection:</p>
+<pre><code>y = F(x) + x
+∂y/∂x = ∂F/∂x + 1
+                ↑
+        the &quot;1&quot; is the skip's contribution
+</code></pre>
+<p>That "1" guarantees gradient gets through, even when <code>∂F/∂x</code> is tiny. This is why ResNets can train hundreds of layers deep; previous architectures plateaued at maybe 20.</p>
+<h3 id="n-residual-blocks-of-k-channels">"N residual blocks of K channels"</h3>
+<p>A common architecture sizing notation:
+- <strong>N</strong>: how many blocks are stacked in sequence (depth)
+- <strong>K</strong>: how many channels each block's intermediate features have (width)</p>
+<p>For TTT: 4 blocks × 32 channels (~76K params). For Connect 4: 6 blocks × 64 channels (~600K params). For original AlphaZero on chess: 19 blocks × 256 channels (~46M params).</p>
+<p>Tradeoff:
+- More blocks (depth): hierarchical compositional reasoning, slower per forward pass
+- More channels (width): more pattern variety per spatial position, quadratic in memory</p>
+<h3 id="forward-pass">Forward pass</h3>
+<p>Given a board state, run it through the network to produce a policy and value:</p>
+<pre><code class="language-python">def forward(self, x):
+    h = F.relu(self.input_bn(self.input_conv(x)))    # input conv → BN → ReLU
+    h = self.blocks(h)                                # N residual blocks
+
+    # Policy head
+    p = F.relu(self.policy_bn(self.policy_conv(h)))
+    policy_logits = self.policy_fc(p.flatten(start_dim=1))
+
+    # Value head
+    v = F.relu(self.value_bn(self.value_conv(h)))
+    v = F.relu(self.value_fc1(v.flatten(start_dim=1)))
+    value = torch.tanh(self.value_fc2(v)).squeeze(-1)
+
+    return policy_logits, value
+</code></pre>
+<p>That's it. The same code runs on TTT, Connect 4, and chess — only the input shape and action_size differ.</p>
+<h3 id="backward-pass-backpropagation">Backward pass (backpropagation)</h3>
+<p>How the network <em>learns</em>. Given a training tuple <code>(state, target_policy_π, target_value_z)</code>:</p>
+<ol>
+<li><strong>Forward</strong> through the net → predicted policy logits + predicted value</li>
+<li><strong>Compute loss</strong>:
+   - Policy loss: cross-entropy between predicted distribution and <code>π</code>. Penalizes the net for putting probability mass on moves MCTS didn't visit.
+   - Value loss: MSE between predicted value and <code>z</code>. Penalizes the net for thinking a position is good when it actually led to a loss.
+   - Total = policy_loss + value_loss + L2 regularization (via weight decay in AdamW)</li>
+<li><strong>Backward</strong> (<code>loss.backward()</code>): PyTorch walks the computation graph in reverse, applying the chain rule to compute <code>∂loss/∂w</code> for every parameter. The skip connections keep these gradients meaningful 20+ layers deep.</li>
+<li><strong>Optimizer step</strong> (<code>optimizer.step()</code>): <code>w ← w - learning_rate · gradient</code> (AdamW also does per-param adaptive scaling).</li>
+</ol>
+<p>After thousands of these steps, the network's predictions get sharper.</p>
+<hr>
+<h2 id="6-monte-carlo-tree-search-mcts">6. Monte Carlo Tree Search (MCTS)</h2>
+<h3 id="the-four-phases-per-simulation">The four phases (per simulation)</h3>
+<p>For one MCTS simulation, starting at the current position:</p>
+<p><strong>1. SELECT</strong> — walk down the existing tree, picking the most promising child via PUCT until you hit a leaf (an unexpanded node).</p>
+<p><strong>2. EXPAND</strong> — call the NN: <code>priors, value = eval_fn(state)</code>. Create child nodes for each legal action, each with its NN-assigned prior.</p>
+<p><strong>3. (Implicit "simulate")</strong> — classical MCTS does random rollouts here. AlphaZero replaces them with the NN's value head output. The leaf's value is the NN's prediction.</p>
+<p><strong>4. BACKUP</strong> — walk back up the path. At each node: increment visit count <code>N</code>, add the leaf value to total <code>W</code>, flip sign (zero-sum game).</p>
+<p>After 50-100 such simulations, the root's children have visit counts. Normalize to get <code>π = visits / total</code>. That's MCTS's "improved policy".</p>
+<h3 id="puct-the-selection-rule">PUCT — the selection rule</h3>
+<p>For each candidate action <code>a</code> from node <code>s</code>:</p>
+<pre><code>PUCT(s, a) = Q(s, a) + c_puct · P(s, a) · √(Σ_b N(s, b)) / (1 + N(s, a))
+            └─exploit─┘   └────────────exploration──────────────┘
+
+   Q(s, a) = mean value seen for action a so far
+   P(s, a) = NN's prior probability for action a
+   N(s, a) = visit count for action a
+   c_puct  = exploration constant (1.5-2.5 typically)
+</code></pre>
+<p>MCTS picks <code>argmax_a PUCT(s, a)</code> at every step of every simulation. Two effects play out:
+- <strong>Q grows</strong> for promising actions (exploitation)
+- <strong>U shrinks</strong> for already-explored actions (since N appears in denominator)</p>
+<p>The NN's prior <code>P</code> biases exploration toward moves it thinks are good — that's what makes AlphaZero so much more efficient than classical MCTS (which used uniform priors).</p>
+<h3 id="why-mcts-sharpens-the-nns-hunch">Why MCTS sharpens the NN's hunch</h3>
+<p>This is the central insight, and it's subtle.</p>
+<p>Suppose the NN's raw policy at the start of a Connect 4 game gives:</p>
+<pre><code>column:    0      1      2      3 (center)   4      5      6
+prior:    0.10   0.12   0.15   0.30          0.15   0.12   0.06
+</code></pre>
+<p>Center is highest but only marginally. The NN isn't confident.</p>
+<p>Now MCTS runs 100 simulations. Each one descends the tree guided by PUCT, evaluating leaf positions via the value head. Simulations through center tend to discover good positions; simulations through column 6 tend to discover bad positions.</p>
+<p>After 100 sims, visit counts might be:</p>
+<pre><code>column:    0    1    2    3    4    5    6
+visits:    2    3    8    78   5    3    1
+π:         0.02 0.03 0.08 0.78 0.05 0.03 0.01
+</code></pre>
+<p>MCTS-improved <code>π</code> puts 78% on center — much sharper than the raw NN's 30%. <strong>This sharpened π is what the NN trains on next iteration.</strong> The NN learns to predict the sharper distribution. Next iteration its raw prior is already closer to 78% on center, so MCTS's exploration is even better targeted. Both improve.</p>
+<h3 id="dirichlet-noise-root-only-self-play-only">Dirichlet noise (root only, self-play only)</h3>
+<p><strong>Dirichlet distribution</strong> is a probability distribution <em>over probability distributions</em>. A draw from <code>Dir(α)</code> is itself a vector summing to 1.</p>
+<pre><code class="language-python">np.random.dirichlet([0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5])
+# Returns something like:
+# [0.05, 0.13, 0.31, 0.08, 0.12, 0.07, 0.24]   (sums to 1.0)
+</code></pre>
+<p>Parameter <code>α</code> controls concentration:
+- Large α (e.g., 1.0): noise is near-uniform
+- Small α (e.g., 0.3): noise is "spiky" — concentrated on a few actions</p>
+<p><strong>How we apply it</strong>: during self-play only, when MCTS expands the root, we mix the NN's prior <code>P</code> with a Dirichlet draw:</p>
+<pre><code>P_new[a] = (1 - ε) · P[a] + ε · Dir(α)[a]
+</code></pre>
+<p>With <code>ε = 0.25</code> and <code>α</code> set per-game (1.0 for TTT, 0.5 for Connect 4, 0.3 for chess).</p>
+<p><strong>Why we need it</strong>: MCTS with a fixed network and fixed starting state is <em>deterministic</em>. Without noise, every self-play game would explore the same tree → same π → similar games → narrow training data. Dirichlet noise perturbs the root once per game, fanning out the exploration.</p>
+<p><strong>Why only at the root</strong>: deeper noise would just be random distraction without purpose. The root is special because we want diverse game <em>openings</em>.</p>
+<p><strong>Why only during self-play</strong>: arena/eval should be deterministic so we get an accurate read on model strength.</p>
+<h3 id="temperature-schedule">Temperature schedule</h3>
+<p>Controls how the MCTS visit distribution is converted into the actual move played.</p>
+<table>
+<thead>
+<tr>
+<th>τ value</th>
+<th>Behavior</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>τ = 1</strong></td>
+<td>Sample from π proportionally — exploration. Used early in the game.</td>
+</tr>
+<tr>
+<td><strong>τ = 0</strong></td>
+<td>Argmax — always pick the most-visited action. Used later.</td>
+</tr>
+</tbody>
+</table>
+<p>The switch happens at <code>temperature_threshold</code> plies:
+- TTT: 6 plies (basically the whole game)
+- Connect 4: 15 plies (cover the opening)
+- Chess: ~30 plies</p>
+<p><strong>Why</strong>: with argmax for the whole game, every self-play game would reach the same positions. Sampling for the first N plies creates diverse openings; argmax later ensures the engame is played optimally.</p>
+<p>Combined with Dirichlet noise at the root, the two mechanisms produce game-to-game diversity.</p>
+<hr>
+<h2 id="7-self-play">7. Self-play</h2>
+<h3 id="what-it-is">What it is</h3>
+<p>Two copies of the agent play each other. Each ply produces one training tuple:</p>
+<pre><code>(s, π, z)
+   ↑   ↑   ↑
+   │   │   eventual game outcome from this player's POV (+1, 0, -1)
+   │   MCTS-improved policy at this position
+   encoded canonical board state
+</code></pre>
+<p>A Connect 4 game produces ~25 plies → ~25 tuples per game. Self-play of 100 games per iteration → ~2500 tuples per iteration (×2 with symmetry augmentation).</p>
+<h3 id="why-bootstrap-works">Why bootstrap works</h3>
+<p>This is the magic. At iteration 0, both agents are random networks. Games are won/lost by luck. <strong>But MCTS, even with a random NN, sees a few moves ahead</strong> — winning positions get found via tree expansion + the value head's (slightly-biased) output.</p>
+<p>Over iterations:
+- Value head learns "this kind of position leads to a win"
+- Policy head learns "this is the move MCTS typically prefers"
+- MCTS gets sharper as priors improve
+- Self-play games get higher quality
+- → better training data → better network → repeat</p>
+<p>The agent climbs from random play to optimal play by <strong>always training against targets that are slightly better than itself</strong> (because MCTS sharpens the NN's own predictions).</p>
+<h3 id="symmetry-augmentation">Symmetry augmentation</h3>
+<p>Many games have positions that are equivalent under some transformation (rotation, reflection). If π says "70% on center" for the original board, the same applies to all rotations/reflections.</p>
+<table>
+<thead>
+<tr>
+<th>Game</th>
+<th># symmetries</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TTT</td>
+<td>8</td>
+<td>D₄ dihedral group: 4 rotations × 2 reflections (no constraint on the board)</td>
+</tr>
+<tr>
+<td>Connect 4</td>
+<td>2</td>
+<td>Identity + horizontal mirror only (gravity prevents vertical symmetry)</td>
+</tr>
+<tr>
+<td>Chess</td>
+<td>1</td>
+<td>No symmetries — castling, pawn direction, en-passant all break them</td>
+</tr>
+</tbody>
+</table>
+<p>Augmentation = take each (state, π) and produce all equivalent transformed versions. For TTT, one ply becomes 8 training tuples. Same compute cost (we already ran MCTS); more training data; better generalization.</p>
+<p>In our code: <code>Connect4.symmetries(encoded, policy)</code> returns <code>[(identity, π), (mirrored, mirrored_π)]</code>.</p>
+<h3 id="per-ply-z-assignment">Per-ply z-assignment</h3>
+<p>After a game ends, we know the final outcome (X won, O won, or draw). For each recorded ply, we assign <code>z</code> from THAT PLY'S MOVER'S POV:</p>
+<ul>
+<li>X-won game: plies where X moved get <code>z=+1</code>; plies where O moved get <code>z=-1</code></li>
+<li>O-won game: vice versa</li>
+<li>Draw: all plies get <code>z=0</code></li>
+</ul>
+<p>This is <strong>the most bug-prone part of the framework</strong>. Getting the sign wrong silently corrupts the value head's training signal. Our <code>tests/test_selfplay.py</code> has hand-traced tests for the three cases (X wins, O wins, draw) to lock the behavior down.</p>
+<hr>
+<h2 id="8-the-interlocking-loop">8. The interlocking loop</h2>
+<h3 id="why-the-combination-is-special">Why the combination is special</h3>
+<p>Three things make AlphaZero's combination uniquely powerful, none of which work alone:</p>
+<p><strong>A. Search compresses NN noise.</strong>
+A single NN forward pass is noisy. Running 50-100 forward passes along different futures and aggregating produces a much more reliable judgment. MCTS is essentially a Monte Carlo <em>estimator</em> of which move is best, weighted by visit counts.</p>
+<p><strong>B. The training target is <em>better than the model</em></strong>.
+In normal supervised learning, you train against labels at least as good as your model (e.g., human chess games). In AlphaZero, you train against MCTS-improved policies that are <strong>strictly better than the raw NN they came from</strong> — because MCTS used the NN as an oracle 50-100 times and aggregated. The NN is being told "be more like your own future-self-with-thinking-time."</p>
+<p><strong>C. Self-play creates an opponent that scales with you.</strong>
+If you trained on fixed human games, you'd plateau at human level. Self-play creates an opponent exactly as strong as you are right now — neither too weak (no challenge) nor too strong (you can't learn from them). You're always playing at the edge of your competence, which is the optimal training signal.</p>
+<h3 id="why-training-data-is-better-than-the-model">Why training data is "better than the model"</h3>
+<p>A single NN forward pass at position <code>s</code> gives a noisy <code>P(s, ·)</code> and <code>v(s)</code>. MCTS runs 50-100 of those forwards plus aggregation, giving:
+- A much sharper <code>π(s, ·)</code> (visit distribution)
+- A more reliable value estimate (the backed-up tree value)</p>
+<p>The sharper π is the training target for the policy head — training pushes the NN to <em>be</em> what its own MCTS-augmented self computes. The actual game outcome <code>z</code> is the training target for the value head — training pushes the NN to predict eventual outcomes more accurately than its own current value estimates.</p>
+<p>Both targets are slightly better than the current model. Train, repeat.</p>
+<hr>
+<h2 id="9-how-to-trace-the-code-to-fully-understand-it">9. How to trace the code (to fully understand it)</h2>
+<p>A concrete reading path. ~4 hours of focused work to "fully understand."</p>
+<h3 id="phase-1-the-big-picture-15-min">Phase 1: The big picture (15 min)</h3>
+<ul>
+<li>README.md</li>
+<li>This document</li>
+<li>The 5 concept cards on <code>concepts.html</code></li>
+</ul>
+<p>Build the mental model before opening code.</p>
+<h3 id="phase-2-trace-one-iteration-end-to-end-30-45-min">Phase 2: Trace ONE iteration end-to-end (30-45 min)</h3>
+<p>Top-down call graph:</p>
+<pre><code>cli.py:_cmd_train()              ← entry point
+    └─ trainer.py:Trainer.run()  ← the iteration loop
+        ├─ _run_self_play_iteration()
+        │   └─ selfplay.py:run_one_game()
+        │       ├─ mcts.py:MCTS.search()
+        │       │   └─ MCTS._simulate() — select/expand/backup
+        │       │       └─ _expand() — calls eval_fn
+        │       └─ _assign_z()
+        ├─ _train_step()
+        │   └─ AlphaZeroNet.forward() + loss.backward()
+        ├─ _promote_candidate_to_best()
+        ├─ _eval_vs_opponent() (every 5 iters)
+        └─ _save_checkpoint()
+</code></pre>
+<p>After this you know what data flows where.</p>
+<h3 id="phase-3-read-supporting-modules-20-30-min">Phase 3: Read supporting modules (20-30 min)</h3>
+<p>The smaller pieces, top-to-bottom:
+- <code>games/base.py</code> — abstract <code>Game</code> interface
+- <code>games/tictactoe.py</code> — simplest concrete game
+- <code>games/connect4.py</code> — same interface, different game
+- <code>replay_buffer.py</code> — trivial FIFO
+- <code>arena.py</code> — head-to-head match runner
+- <code>solvers/tictactoe_solver.py</code> — perfect minimax
+- <code>opponents/connect4_minimax.py</code> — α-β minimax</p>
+<h3 id="phase-4-read-tests-as-executable-spec-30-min">Phase 4: Read tests as executable spec (30 min)</h3>
+<p>Tests are <strong>executable specifications</strong>. Each test shows expected behavior more concretely than any docstring.</p>
+<p>For each component you traced, read its test file:
+- <code>tests/test_game_tictactoe.py</code> (25 tests showing exact behavior)
+- <code>tests/test_mcts.py</code> (12 tests with hand-computed expectations)
+- <code>tests/test_selfplay.py</code> (z-assignment tests are illuminating)
+- <code>tests/test_invariants.py</code> (6 invariant guards)</p>
+<p>If you read <code>tests/test_mcts.py:test_backup_flips_sign_per_ply</code>, you'll see exactly how MCTS treats values — the test is more concrete than any comment.</p>
+<h3 id="phase-5-trace-at-runtime-the-gold-standard-30-min">Phase 5: Trace at runtime (the gold standard, 30+ min)</h3>
+<p>Open a Python REPL or Jupyter cell and run a tiny example:</p>
+<pre><code class="language-python">from alphazero.games.tictactoe import TicTacToe
+from alphazero.network import AlphaZeroNet
+from alphazero.mcts import MCTS
+import numpy as np
+import torch
+
+ttt = TicTacToe()
+net = AlphaZeroNet(input_shape=(3, 3, 3), action_size=9, n_blocks=1, n_channels=4)
+net.eval()
+
+def eval_fn(encoded):
+    with torch.no_grad():
+        x = torch.from_numpy(encoded).float().unsqueeze(0)
+        logits, value = net(x)
+        priors = torch.softmax(logits, dim=-1).squeeze(0).numpy()
+    return priors.astype(np.float32), float(value.item())
+
+state = ttt.initial_state()
+mcts = MCTS(ttt, eval_fn)
+pi = mcts.search(state, num_simulations=20, add_root_noise=False)
+print(&quot;MCTS visit distribution:&quot;, pi)
+</code></pre>
+<p>Run with <code>num_simulations=20</code> then <code>num_simulations=200</code>. Compare. You'll <em>feel</em> what MCTS does.</p>
+<p>Use <code>import pdb; pdb.set_trace()</code> inside <code>MCTS._simulate()</code> to step through select/expand/backup one line at a time.</p>
+<h3 id="useful-tracing-tricks">Useful tracing tricks</h3>
+<ol>
+<li><strong>Track tensor shapes</strong> mentally as you read forward functions. Write the shape at each layer.</li>
+<li><strong>Run individual tests</strong> with <code>pytest tests/.../test_name.py::test_specific -v -s</code> and add prints.</li>
+<li><strong><code>git log --oneline</code> + <code>git blame</code></strong> — commit messages explain <em>why</em> a piece exists.</li>
+<li><strong>Read specs alongside code</strong>: <code>docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html</code> for design rationale.</li>
+</ol>
+<hr>
+<h2 id="10-glossary">10. Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>One-line definition</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Action (a)</strong></td>
+<td>A legal move from a state, represented as an integer index</td>
+</tr>
+<tr>
+<td><strong>Activation function</strong></td>
+<td>Nonlinear function applied between layers (we use ReLU)</td>
+</tr>
+<tr>
+<td><strong>AdamW</strong></td>
+<td>Adam optimizer with decoupled weight decay; converges faster than vanilla SGD</td>
+</tr>
+<tr>
+<td><strong>Backbone</strong></td>
+<td>Shared feature extractor of a multi-head network</td>
+</tr>
+<tr>
+<td><strong>BatchNorm (BN)</strong></td>
+<td>Normalizes activations across the batch dimension; stabilizes training</td>
+</tr>
+<tr>
+<td><strong>Backup</strong></td>
+<td>Final phase of MCTS simulation: walk up path, update visit counts, flip sign</td>
+</tr>
+<tr>
+<td><strong>Backpropagation</strong></td>
+<td>Algorithm to compute gradients via the chain rule, walking the computation graph in reverse</td>
+</tr>
+<tr>
+<td><strong>Backward pass</strong></td>
+<td>One step of computing gradients with respect to the loss</td>
+</tr>
+<tr>
+<td><strong>Best net</strong></td>
+<td>The frozen network used to generate self-play training data</td>
+</tr>
+<tr>
+<td><strong>Candidate net</strong></td>
+<td>The network being actively trained (becomes the new best after each iteration)</td>
+</tr>
+<tr>
+<td><strong>Canonical state</strong></td>
+<td>Board rewritten so current player's pieces are +1; lets NN never learn whose-turn-is-it</td>
+</tr>
+<tr>
+<td><strong>Channel</strong></td>
+<td>One feature map produced by a conv layer; "32 channels" = 32 features per spatial position</td>
+</tr>
+<tr>
+<td><strong>Checkpoint</strong></td>
+<td>Saved state of the trainer (best_net, candidate_net, optimizer, iteration)</td>
+</tr>
+<tr>
+<td><strong>Conv (convolution)</strong></td>
+<td>A learnable filter that slides across the input computing weighted sums</td>
+</tr>
+<tr>
+<td><strong>1×1 conv</strong></td>
+<td>A conv that only remixes channels per-pixel (no spatial mixing); used for channel reduction</td>
+</tr>
+<tr>
+<td><strong>Cross-entropy</strong></td>
+<td>Loss function measuring distance between predicted and target probability distributions</td>
+</tr>
+<tr>
+<td><strong>c_puct</strong></td>
+<td>Exploration constant in PUCT (~1.5-2.5)</td>
+</tr>
+<tr>
+<td><strong>Dirichlet noise</strong></td>
+<td>Random perturbation added to MCTS root priors during self-play for game-to-game diversity</td>
+</tr>
+<tr>
+<td><strong>Epoch</strong></td>
+<td>(Term from supervised learning) one pass through the dataset; we use "iteration" instead</td>
+</tr>
+<tr>
+<td><strong>eval_fn</strong></td>
+<td>Function <code>state → (priors, value)</code>; the boundary between MCTS and the NN</td>
+</tr>
+<tr>
+<td><strong>Expand</strong></td>
+<td>Phase of MCTS: call eval_fn at a leaf, create child nodes for each legal action</td>
+</tr>
+<tr>
+<td><strong>Filter</strong></td>
+<td>Synonym for "convolution kernel"; one filter produces one output channel</td>
+</tr>
+<tr>
+<td><strong>Flatten</strong></td>
+<td>Reshape multi-dimensional tensor → 1D (preserving batch dim)</td>
+</tr>
+<tr>
+<td><strong>Forward pass</strong></td>
+<td>Running a state through the network to produce predictions</td>
+</tr>
+<tr>
+<td><strong>Game</strong></td>
+<td>(a) The abstract Game class, (b) A single episode of self-play</td>
+</tr>
+<tr>
+<td><strong>Head</strong></td>
+<td>A small sub-network producing one output (policy head, value head)</td>
+</tr>
+<tr>
+<td><strong>Inference</strong></td>
+<td>Using a trained model to make predictions (no gradient updates)</td>
+</tr>
+<tr>
+<td><strong>Iteration</strong></td>
+<td>One cycle: self-play → buffer → train → promote → eval</td>
+</tr>
+<tr>
+<td><strong>Kernel</strong></td>
+<td>The weight matrix of a convolution; "3×3 kernel" means a 3-by-3 weight grid</td>
+</tr>
+<tr>
+<td><strong>L2 regularization</strong></td>
+<td>Penalizes large weights; helps prevent overfitting; applied via AdamW's weight_decay</td>
+</tr>
+<tr>
+<td><strong>Leaf</strong></td>
+<td>A node in the MCTS tree that hasn't been expanded yet</td>
+</tr>
+<tr>
+<td><strong>Linear layer</strong></td>
+<td>Fully connected layer: <code>output = input @ W + b</code></td>
+</tr>
+<tr>
+<td><strong>Logits</strong></td>
+<td>Raw pre-softmax scores; can be any real number</td>
+</tr>
+<tr>
+<td><strong>Loss</strong></td>
+<td>Scalar quantifying prediction error; minimized via gradient descent</td>
+</tr>
+<tr>
+<td><strong>MCTS</strong></td>
+<td>Monte Carlo Tree Search — the search algorithm that turns the NN's hunch into a sharper decision</td>
+</tr>
+<tr>
+<td><strong>Minibatch</strong></td>
+<td>A small random subset of training data used for one gradient step (size 64 in our config)</td>
+</tr>
+<tr>
+<td><strong>Minimax</strong></td>
+<td>Classical game-tree search with alpha-beta pruning; our eval baseline for Connect 4</td>
+</tr>
+<tr>
+<td><strong>MSE (Mean Squared Error)</strong></td>
+<td>Loss function used for the value head: <code>(predicted - target)²</code></td>
+</tr>
+<tr>
+<td><strong>Policy</strong></td>
+<td>A probability distribution over actions</td>
+</tr>
+<tr>
+<td><strong>Policy head</strong></td>
+<td>NN sub-network outputting action logits</td>
+</tr>
+<tr>
+<td><strong>Prior (P)</strong></td>
+<td>The NN's pre-search probability for each action; used by PUCT</td>
+</tr>
+<tr>
+<td><strong>PUCT</strong></td>
+<td>Polynomial Upper Confidence applied to Trees — the MCTS selection rule</td>
+</tr>
+<tr>
+<td><strong>Ply</strong></td>
+<td>A single move by one player</td>
+</tr>
+<tr>
+<td><strong>π (improved policy)</strong></td>
+<td>MCTS visit-count distribution; the training target for the policy head</td>
+</tr>
+<tr>
+<td><strong>Q-value</strong></td>
+<td>Mean value seen for an action so far (<code>W / N</code> at a node)</td>
+</tr>
+<tr>
+<td><strong>Replay buffer</strong></td>
+<td>FIFO queue of recent training tuples (capacity 50K-200K)</td>
+</tr>
+<tr>
+<td><strong>ReLU</strong></td>
+<td><code>max(0, x)</code> — the default nonlinearity</td>
+</tr>
+<tr>
+<td><strong>Residual block</strong></td>
+<td><code>y = ReLU(x + F(x))</code> — the building block of ResNet</td>
+</tr>
+<tr>
+<td><strong>ResNet</strong></td>
+<td>A neural network architecture made of stacked residual blocks; trains deep networks reliably</td>
+</tr>
+<tr>
+<td><strong>RL (Reinforcement Learning)</strong></td>
+<td>ML paradigm where an agent learns by interacting with an environment and receiving rewards</td>
+</tr>
+<tr>
+<td><strong>Self-play</strong></td>
+<td>Two copies of the agent playing each other to generate training data</td>
+</tr>
+<tr>
+<td><strong>Skip connection</strong></td>
+<td>The <code>+x</code> in a residual block; lets gradients flow through deep networks</td>
+</tr>
+<tr>
+<td><strong>Softmax</strong></td>
+<td>Converts logits to a probability distribution: <code>exp(logit_i) / Σ_j exp(logit_j)</code></td>
+</tr>
+<tr>
+<td><strong>State (s)</strong></td>
+<td>The current board position</td>
+</tr>
+<tr>
+<td><strong>Symmetry</strong></td>
+<td>A transformation that preserves the game's meaning (rotation, reflection)</td>
+</tr>
+<tr>
+<td><strong>Temperature (τ)</strong></td>
+<td>Controls how the MCTS visit distribution is converted to an action (τ=1: sample, τ=0: argmax)</td>
+</tr>
+<tr>
+<td><strong>Tensor</strong></td>
+<td>A multi-dimensional numerical array (PyTorch's equivalent of numpy ndarrays)</td>
+</tr>
+<tr>
+<td><strong>Value head</strong></td>
+<td>NN sub-network outputting a single scalar in [−1, +1] (predicted game outcome)</td>
+</tr>
+<tr>
+<td><strong>Visit count (N)</strong></td>
+<td>Number of MCTS simulations that have visited a node</td>
+</tr>
+<tr>
+<td><strong>Weight</strong></td>
+<td>A learnable parameter of the network</td>
+</tr>
+<tr>
+<td><strong>z</strong></td>
+<td>Actual realized outcome of a game from a specific ply's mover's POV (+1 / 0 / −1)</td>
+</tr>
+<tr>
+<td><strong>Zero-sum</strong></td>
+<td>Game where one player's gain is the other's loss (sum of values = 0)</td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="where-each-concept-lives-in-the-code">Where each concept lives in the code</h2>
+<table>
+<thead>
+<tr>
+<th>Concept</th>
+<th>File</th>
+<th>Function/class</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Game interface</td>
+<td><code>src/alphazero/games/base.py</code></td>
+<td><code>Game</code> ABC</td>
+</tr>
+<tr>
+<td>Tic-Tac-Toe</td>
+<td><code>src/alphazero/games/tictactoe.py</code></td>
+<td><code>TicTacToe</code></td>
+</tr>
+<tr>
+<td>Connect 4</td>
+<td><code>src/alphazero/games/connect4.py</code></td>
+<td><code>Connect4</code></td>
+</tr>
+<tr>
+<td>ResNet</td>
+<td><code>src/alphazero/network.py</code></td>
+<td><code>AlphaZeroNet</code>, <code>ResidualBlock</code></td>
+</tr>
+<tr>
+<td>Forward pass</td>
+<td><code>network.py:AlphaZeroNet.forward()</code></td>
+<td>one pass through the net</td>
+</tr>
+<tr>
+<td>Backward pass</td>
+<td><code>trainer.py:Trainer._train_step()</code></td>
+<td><code>loss.backward(); optimizer.step()</code></td>
+</tr>
+<tr>
+<td>MCTS</td>
+<td><code>src/alphazero/mcts.py</code></td>
+<td><code>MCTS.search()</code>, <code>_simulate()</code></td>
+</tr>
+<tr>
+<td>PUCT</td>
+<td><code>mcts.py:MCTS._select_child()</code></td>
+<td>implementation of the formula</td>
+</tr>
+<tr>
+<td>Self-play</td>
+<td><code>src/alphazero/selfplay.py</code></td>
+<td><code>run_one_game()</code>, <code>_assign_z()</code></td>
+</tr>
+<tr>
+<td>Dirichlet noise</td>
+<td><code>mcts.py:MCTS._add_dirichlet_noise()</code></td>
+<td>mixed in at root expansion</td>
+</tr>
+<tr>
+<td>Temperature schedule</td>
+<td><code>selfplay.py:run_one_game()</code></td>
+<td>the <code>if move_idx &lt; temperature_threshold:</code> branch</td>
+</tr>
+<tr>
+<td>Symmetries</td>
+<td><code>games/tictactoe.py</code>, <code>games/connect4.py</code></td>
+<td><code>symmetries()</code> method on each game</td>
+</tr>
+<tr>
+<td>Replay buffer</td>
+<td><code>src/alphazero/replay_buffer.py</code></td>
+<td><code>ReplayBuffer</code></td>
+</tr>
+<tr>
+<td>Arena match runner</td>
+<td><code>src/alphazero/arena.py</code></td>
+<td><code>play_match()</code>, <code>MatchResult</code></td>
+</tr>
+<tr>
+<td>Training loop</td>
+<td><code>src/alphazero/trainer.py</code></td>
+<td><code>Trainer.run()</code></td>
+</tr>
+<tr>
+<td>TTT perfect solver</td>
+<td><code>src/alphazero/solvers/tictactoe_solver.py</code></td>
+<td><code>solve_tictactoe_action()</code></td>
+</tr>
+<tr>
+<td>Connect 4 minimax</td>
+<td><code>src/alphazero/opponents/connect4_minimax.py</code></td>
+<td><code>Connect4MinimaxOpponent</code></td>
+</tr>
+<tr>
+<td>CLI</td>
+<td><code>src/alphazero/cli.py</code></td>
+<td><code>_cmd_train</code>, <code>_cmd_eval</code>, <code>_cmd_play</code></td>
+</tr>
+</tbody>
+</table>
+<hr>
+<h2 id="further-reading">Further reading</h2>
+<ul>
+<li><strong>AlphaZero paper</strong> (Silver et al. 2017): https://arxiv.org/abs/1712.01815</li>
+<li><strong>AlphaGo Zero paper</strong> (Silver et al. 2017): https://www.nature.com/articles/nature24270 — earlier version with arena gating</li>
+<li><strong>alpha-zero-general</strong> (Surag Nair): https://github.com/suragnair/alpha-zero-general — the canonical pedagogical implementation; our framework's spiritual ancestor</li>
+<li><strong>muzero-general</strong> (Werner Duvaud): https://github.com/werner-duvaud/muzero-general — same spirit for MuZero, the successor algorithm</li>
+<li><strong>Visual primer</strong>: <a href="../../concepts.html"><code>concepts.html</code></a> — animated SVGs of MCTS, ResNet, PUCT, replay buffer, arena</li>
+<li><strong>Sub-project 1 spec</strong> (TTT): <a href="../superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.md"><code>docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.md</code></a></li>
+<li><strong>Sub-project 2 spec</strong> (Connect 4): <a href="../superpowers/specs/2026-05-15-connect4-design.md"><code>docs/superpowers/specs/2026-05-15-connect4-design.md</code></a></li>
+</ul></article>
+  </main>
+</body>
+</html>
