@@ -135,7 +135,18 @@ class Trainer:
         return result.win_rate
 
     def _maybe_accept_candidate(self) -> bool:
-        """Run arena gate. If candidate wins >= threshold, accept; else revert."""
+        """Run arena gate. If candidate wins >= threshold, accept; else revert.
+
+        Special case: if arena_threshold <= 0, skip the arena entirely and
+        always accept the candidate. This matches the AlphaZero paper (2017),
+        which dropped the arena step that AlphaGo Zero used. Arena gating
+        causes stagnation when MCTS smooths over small NN differences, so
+        most matches end ~50/50 and never beat the threshold.
+        """
+        if self.config.arena_threshold <= 0:
+            self.best_net = copy.deepcopy(self.candidate_net)
+            self.best_net.eval()
+            return True
         win_rate = self._arena_win_rate()
         if win_rate >= self.config.arena_threshold:
             self.best_net = copy.deepcopy(self.candidate_net)

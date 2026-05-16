@@ -19,7 +19,10 @@ min_buffer_size = 5_000
 
 arena_interval = 5
 arena_games = 40
-arena_threshold = 0.55
+# Set to 0 to skip arena (AlphaZero paper behavior — always promote candidate).
+# AlphaGo Zero's 0.55 caused stagnation on TTT: MCTS smoothed over NN
+# differences, most matches drew, threshold was never met, best_net froze.
+arena_threshold = 0.0
 
 eval_interval = 5
 eval_games = 200
