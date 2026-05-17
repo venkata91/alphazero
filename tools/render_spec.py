@@ -349,7 +349,6 @@ HTML_TEMPLATE = """<!doctype html>
       <span class="crumb">AlphaZero &middot; {crumb}</span>
     </nav>
     <header class="hero">
-      <p class="kicker">{kicker}</p>
       <h1>{heading}</h1>
 {meta_block}
     </header>
