@@ -67,6 +67,59 @@ def test_play_one_game_returns_positions_with_correct_shapes():
         assert p.z in (-1, 0, 1)
 
 
+def test_write_shard_creates_npz_with_correct_keys_and_dtypes(tmp_path):
+    """Writing a shard produces a .npz with states, move_indices, outcomes."""
+    from alphazero.corpus import Position, write_shard
+
+    positions = [
+        Position(
+            encoded_state=np.ones((20, 8, 8), dtype=np.int8),
+            move_index=42,
+            z=1,
+        ),
+        Position(
+            encoded_state=np.zeros((20, 8, 8), dtype=np.int8),
+            move_index=100,
+            z=-1,
+        ),
+    ]
+    shard_path = write_shard(tmp_path, worker_id=3, shard_counter=7, positions=positions)
+    assert shard_path.exists()
+    assert shard_path.name == "shard_w3_s0007.npz"
+
+    data = np.load(shard_path)
+    assert set(data.files) == {"states", "move_indices", "outcomes"}
+    assert data["states"].shape == (2, 20, 8, 8)
+    assert data["states"].dtype == np.int8
+    assert data["move_indices"].shape == (2,)
+    assert data["move_indices"].dtype == np.int32
+    assert data["move_indices"].tolist() == [42, 100]
+    assert data["outcomes"].shape == (2,)
+    assert data["outcomes"].dtype == np.int8
+    assert data["outcomes"].tolist() == [1, -1]
+
+
+def test_write_shard_round_trip_preserves_data(tmp_path):
+    """Round-trip: write a shard, load it, verify all values match."""
+    from alphazero.corpus import Position, write_shard
+
+    rng = np.random.default_rng(42)
+    positions = []
+    for i in range(50):
+        positions.append(Position(
+            encoded_state=rng.integers(0, 2, size=(20, 8, 8), dtype=np.int8),
+            move_index=int(rng.integers(0, 4672)),
+            z=int(rng.choice([-1, 0, 1])),
+        ))
+    shard_path = write_shard(tmp_path, worker_id=0, shard_counter=0, positions=positions)
+
+    data = np.load(shard_path)
+    for i, p in enumerate(positions):
+        assert np.array_equal(data["states"][i], p.encoded_state)
+        assert data["move_indices"][i] == p.move_index
+        assert data["outcomes"][i] == p.z
+
+
 def test_play_one_game_z_values_alternate_within_game():
     """In a decisive game, z values alternate sign between plies (mover POV)."""
     import chess.engine

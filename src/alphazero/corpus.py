@@ -42,10 +42,39 @@ def random_opening_moves(
         board.push(move)
 
 
+from pathlib import Path
+
 import chess.engine
 
 from .games.chess_game import Chess
 from .games.chess_move_encoding import move_to_index
+
+
+def write_shard(
+    output_dir: Path,
+    worker_id: int,
+    shard_counter: int,
+    positions: list[Position],
+) -> Path:
+    """Write a list of Positions to a compressed .npz shard.
+
+    Filename format: shard_w{worker_id}_s{shard_counter:04d}.npz
+    """
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shard_path = output_dir / f"shard_w{worker_id}_s{shard_counter:04d}.npz"
+
+    states = np.stack([p.encoded_state for p in positions]).astype(np.int8)
+    move_indices = np.array([p.move_index for p in positions], dtype=np.int32)
+    outcomes = np.array([p.z for p in positions], dtype=np.int8)
+
+    np.savez_compressed(
+        shard_path,
+        states=states,
+        move_indices=move_indices,
+        outcomes=outcomes,
+    )
+    return shard_path
 
 
 def play_one_game(
