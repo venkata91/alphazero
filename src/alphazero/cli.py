@@ -208,6 +208,15 @@ def _cmd_play(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_pretrain(args: argparse.Namespace) -> int:
+    """Run supervised pre-training using a PretrainConfig from TOML."""
+    from .supervised import load_pretrain_config, pretrain_supervised
+
+    config = load_pretrain_config(args.config)
+    pretrain_supervised(config)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m alphazero")
     subs = parser.add_subparsers(dest="cmd", required=True)
@@ -243,6 +252,11 @@ def main(argv: list[str] | None = None) -> int:
     p_play.add_argument("--as", dest="as_player", choices=["x", "o", "X", "O"], default="x",
                         help="Play as X (moves first) or O (moves second). Default: x.")
     p_play.set_defaults(func=_cmd_play)
+
+    p_pretrain = subs.add_parser("pretrain", help="Supervised pre-training on a corpus")
+    p_pretrain.add_argument("--config", type=Path, required=True,
+                            help="Path to a chess-pretrain.toml file")
+    p_pretrain.set_defaults(func=_cmd_pretrain)
 
     args = parser.parse_args(argv)
     return args.func(args)

@@ -87,3 +87,34 @@ def test_cmd_train_wires_chess_eval_opponent(tmp_path, monkeypatch):
     assert exit_code == 0
     assert isinstance(captured["eval_opponent"], StockfishOpponent)
     captured["eval_opponent"].close()
+
+
+def test_cmd_pretrain_calls_pretrain_supervised(tmp_path, monkeypatch):
+    """Regression test: `pretrain` subcommand wires config + calls pretrain_supervised."""
+    from alphazero.cli import _cmd_pretrain
+
+    monkeypatch.chdir(tmp_path)
+
+    cfg_path = tmp_path / "p.toml"
+    cfg_path.write_text("""
+n_blocks = 1
+n_channels = 8
+num_epochs = 1
+batch_size = 32
+corpus_dir = "fake_corpus"
+output_checkpoint = "pretrained.pt"
+log_dir = "runs"
+device = "cpu"
+""")
+
+    captured = {}
+    def fake_pretrain(config):
+        captured["config"] = config
+
+    with patch("alphazero.supervised.pretrain_supervised", fake_pretrain):
+        args = argparse.Namespace(config=cfg_path)
+        exit_code = _cmd_pretrain(args)
+
+    assert exit_code == 0
+    assert captured["config"].n_blocks == 1
+    assert captured["config"].batch_size == 32
