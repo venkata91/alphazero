@@ -107,3 +107,30 @@ def iter_batches(
             m = torch.from_numpy(move_indices[idx]).to(torch.int64).to(device)
             z = torch.from_numpy(outcomes[idx]).to(torch.float32).to(device)
             yield s, m, z
+
+
+import math
+
+
+def lr_schedule(
+    *,
+    step: int,
+    warmup_steps: int,
+    total_steps: int,
+    peak_lr: float,
+    end_lr: float,
+) -> float:
+    """Linear warmup over warmup_steps, then cosine decay to end_lr at total_steps.
+
+    During warmup (step < warmup_steps):
+        lr = peak_lr * (step + 1) / warmup_steps
+
+    After warmup (step >= warmup_steps):
+        progress = (step - warmup_steps) / (total_steps - warmup_steps)
+        lr = end_lr + 0.5 * (peak_lr - end_lr) * (1 + cos(pi * progress))
+    """
+    if step < warmup_steps:
+        return peak_lr * (step + 1) / warmup_steps
+    progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+    progress = min(progress, 1.0)
+    return end_lr + 0.5 * (peak_lr - end_lr) * (1 + math.cos(math.pi * progress))

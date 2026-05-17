@@ -132,6 +132,47 @@ def test_iter_batches_shuffles_when_requested(tmp_path):
     assert not torch.equal(no_shuffle[1], yes_shuffle[1])
 
 
+def test_lr_schedule_warmup_ramps_linearly_from_zero():
+    """During warmup, lr ramps linearly from ~0 to peak_lr."""
+    from alphazero.supervised import lr_schedule
+
+    lr_at_0 = lr_schedule(step=0, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    lr_at_50 = lr_schedule(step=50, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    lr_at_99 = lr_schedule(step=99, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+
+    assert lr_at_0 == pytest.approx(1e-5, rel=0.01)
+    assert lr_at_50 == pytest.approx(0.51 * 1e-3, rel=0.01)
+    assert lr_at_99 == pytest.approx(1.0 * 1e-3, rel=0.01)
+
+
+def test_lr_schedule_after_warmup_starts_at_peak():
+    """At step == warmup_steps, lr equals peak_lr."""
+    from alphazero.supervised import lr_schedule
+
+    lr = lr_schedule(step=100, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    assert lr == pytest.approx(1e-3, rel=0.01)
+
+
+def test_lr_schedule_at_total_steps_reaches_end_lr():
+    """At step == total_steps, lr equals end_lr (cosine has fully decayed)."""
+    from alphazero.supervised import lr_schedule
+
+    lr = lr_schedule(step=1000, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    assert lr == pytest.approx(1e-4, rel=0.01)
+
+
+def test_lr_schedule_monotonic_decay_after_warmup():
+    """After warmup, lr only decreases."""
+    from alphazero.supervised import lr_schedule
+
+    lrs = [
+        lr_schedule(step=s, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+        for s in range(100, 1001, 50)
+    ]
+    for i in range(len(lrs) - 1):
+        assert lrs[i] >= lrs[i + 1] - 1e-9
+
+
 def test_pretrain_config_rejects_unknown_keys(tmp_path):
     """Unknown TOML keys raise ValueError (typo protection)."""
     from alphazero.supervised import load_pretrain_config
