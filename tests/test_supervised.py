@@ -210,6 +210,74 @@ def test_compute_val_loss_runs_without_grad(tmp_path):
     assert val_loss > 0
 
 
+def test_pretrain_supervised_writes_checkpoint(tmp_path):
+    """End-to-end on a tiny corpus: pretrain runs and writes a checkpoint."""
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+
+    corpus_dir = tmp_path / "corpus"
+    corpus_dir.mkdir()
+    for i in range(3):
+        _write_fake_shard(corpus_dir / f"shard_w0_s{i:04d}.npz", 64, seed=i)
+
+    ckpt_path = tmp_path / "test_pretrained.pt"
+
+    cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=1,
+        batch_size=32,
+        warmup_steps=2,
+        holdout_fraction=0.34,
+        early_stopping_patience=10,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(ckpt_path),
+        log_dir=str(tmp_path / "runs"),
+        device="cpu",
+    )
+
+    pretrain_supervised(cfg)
+
+    assert ckpt_path.exists()
+    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+    assert set(ckpt.keys()) >= {"iteration", "config", "best_net", "candidate_net", "optimizer"}
+    assert ckpt["iteration"] == 0
+
+
+def test_pretrain_supervised_early_stops_when_val_loss_diverges(tmp_path, monkeypatch):
+    """If val_loss never improves, early stopping triggers."""
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+    import alphazero.supervised as sup
+
+    corpus_dir = tmp_path / "corpus"
+    corpus_dir.mkdir()
+    for i in range(3):
+        _write_fake_shard(corpus_dir / f"shard_w0_s{i:04d}.npz", 64, seed=i)
+
+    counter = [0.5]
+    def fake_val_loss(*args, **kwargs):
+        counter[0] += 1.0
+        return counter[0]
+    monkeypatch.setattr(sup, "compute_val_loss", fake_val_loss)
+
+    cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=10,
+        batch_size=32,
+        warmup_steps=2,
+        holdout_fraction=0.34,
+        early_stopping_patience=2,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(tmp_path / "p.pt"),
+        log_dir=str(tmp_path / "runs"),
+        device="cpu",
+    )
+    pretrain_supervised(cfg)
+
+    # First call sets best (1.5), then 2 worsening calls (2.5, 3.5) trip patience=2
+    assert counter[0] <= 4.0
+
+
 def test_pretrain_config_rejects_unknown_keys(tmp_path):
     """Unknown TOML keys raise ValueError (typo protection)."""
     from alphazero.supervised import load_pretrain_config

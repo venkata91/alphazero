@@ -191,3 +191,128 @@ def compute_val_loss(
     if total_samples == 0:
         return float("nan")
     return total_loss / total_samples
+
+
+import copy
+import time
+from dataclasses import asdict
+
+
+def _resolve_device(device_str: str) -> torch.device:
+    """Mirrors Trainer._resolve_device for consistency."""
+    if device_str == "auto":
+        if torch.backends.mps.is_available():
+            return torch.device("mps")
+        if torch.cuda.is_available():
+            return torch.device("cuda")
+        return torch.device("cpu")
+    return torch.device(device_str)
+
+
+def pretrain_supervised(config: PretrainConfig) -> None:
+    """Main pre-training loop.
+
+    Loads corpus, trains for up to config.num_epochs with early stopping
+    on val loss, saves checkpoint in Trainer-compatible format.
+    """
+    torch.manual_seed(config.seed)
+    device = _resolve_device(config.device)
+
+    train_shards, val_shards = load_corpus(config.corpus_dir, config.holdout_fraction)
+    print(
+        f"Pre-training: {len(train_shards)} train shards, "
+        f"{len(val_shards)} val shards on device={device}",
+        flush=True,
+    )
+
+    sample_shard = np.load(train_shards[0])
+    positions_per_shard = sample_shard["states"].shape[0]
+    total_train_positions = positions_per_shard * len(train_shards)
+    steps_per_epoch = max(1, total_train_positions // config.batch_size)
+    total_steps = steps_per_epoch * config.num_epochs
+
+    net = AlphaZeroNet(
+        input_shape=(20, 8, 8),
+        action_size=4672,
+        n_blocks=config.n_blocks,
+        n_channels=config.n_channels,
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        net.parameters(), lr=config.peak_lr, weight_decay=config.weight_decay
+    )
+
+    best_val_loss = float("inf")
+    patience_counter = 0
+    global_step = 0
+    lr = config.peak_lr
+
+    for epoch in range(1, config.num_epochs + 1):
+        net.train()
+        epoch_start = time.time()
+        epoch_loss_sum = 0.0
+        epoch_samples = 0
+
+        for batch in iter_batches(train_shards, config.batch_size, device, shuffle=True):
+            lr = lr_schedule(
+                step=global_step,
+                warmup_steps=config.warmup_steps,
+                total_steps=total_steps,
+                peak_lr=config.peak_lr,
+                end_lr=config.end_lr,
+            )
+            total_loss, _, _ = pretrain_step(net, batch, optimizer, lr=lr)
+            epoch_loss_sum += total_loss * batch[0].shape[0]
+            epoch_samples += batch[0].shape[0]
+            global_step += 1
+
+        train_loss = epoch_loss_sum / max(1, epoch_samples)
+        val_loss = compute_val_loss(net, val_shards, config.batch_size, device)
+        elapsed = time.time() - epoch_start
+
+        print(
+            f"  epoch {epoch}/{config.num_epochs}: "
+            f"train_loss={train_loss:.4f} val_loss={val_loss:.4f} "
+            f"lr={lr:.2e} elapsed={elapsed:.1f}s",
+            flush=True,
+        )
+
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            _save_pretrained_checkpoint(net, optimizer, config, epoch)
+        else:
+            patience_counter += 1
+            if patience_counter >= config.early_stopping_patience:
+                print(
+                    f"  early stopping: val_loss did not improve for "
+                    f"{patience_counter} epochs (best={best_val_loss:.4f})",
+                    flush=True,
+                )
+                break
+
+    print(f"Done. best_val_loss={best_val_loss:.4f}", flush=True)
+
+
+def _save_pretrained_checkpoint(
+    net: AlphaZeroNet,
+    optimizer: torch.optim.Optimizer,
+    config: PretrainConfig,
+    epoch: int,
+) -> None:
+    """Save checkpoint in Trainer-compatible format.
+
+    Trainer expects keys: iteration, config, best_net, candidate_net, optimizer.
+    We populate both best_net and candidate_net with the pretrained weights so
+    that --resume-from loads them as the starting best_net.
+    """
+    output = Path(config.output_checkpoint)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    sd = net.state_dict()
+    torch.save({
+        "iteration": 0,
+        "config": asdict(config),
+        "best_net": sd,
+        "candidate_net": copy.deepcopy(sd),
+        "optimizer": optimizer.state_dict(),
+        "_pretrain_epoch": epoch,
+    }, output)
