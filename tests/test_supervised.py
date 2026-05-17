@@ -278,6 +278,57 @@ def test_pretrain_supervised_early_stops_when_val_loss_diverges(tmp_path, monkey
     assert counter[0] <= 4.0
 
 
+def test_pretrained_checkpoint_loads_in_trainer_via_resume(tmp_path):
+    """A pretrained.pt should be loadable by Trainer.load_from_checkpoint."""
+    from alphazero.config import TrainingConfig
+    from alphazero.games.chess_game import Chess
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+    from alphazero.trainer import Trainer
+
+    corpus_dir = tmp_path / "corpus"
+    corpus_dir.mkdir()
+    for i in range(3):
+        _write_fake_shard(corpus_dir / f"shard_w0_s{i:04d}.npz", 64, seed=i)
+
+    ckpt_path = tmp_path / "pretrained.pt"
+    pre_cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=1,
+        batch_size=32,
+        warmup_steps=2,
+        holdout_fraction=0.34,
+        early_stopping_patience=10,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(ckpt_path),
+        log_dir=str(tmp_path / "runs"),
+        device="cpu",
+    )
+    pretrain_supervised(pre_cfg)
+
+    train_cfg = TrainingConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_iterations=1,
+        games_per_iteration=1,
+        training_steps_per_iteration=1,
+        batch_size=8,
+        min_buffer_size=1,
+        replay_buffer_capacity=100,
+        num_simulations=2,
+        device="cpu",
+        checkpoint_dir=str(tmp_path / "ckpts"),
+    )
+    trainer = Trainer(Chess(), train_cfg)
+    trainer.load_from_checkpoint(ckpt_path)
+
+    pretrained_sd = torch.load(ckpt_path, map_location="cpu", weights_only=False)["best_net"]
+    for k in pretrained_sd:
+        assert torch.equal(pretrained_sd[k], trainer.best_net.state_dict()[k]), (
+            f"Weight mismatch at {k} — pretrained checkpoint did not load correctly"
+        )
+
+
 def test_pretrain_config_rejects_unknown_keys(tmp_path):
     """Unknown TOML keys raise ValueError (typo protection)."""
     from alphazero.supervised import load_pretrain_config
