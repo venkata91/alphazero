@@ -23,12 +23,19 @@ env/
 
 # Training artifacts (we'll add these as the project grows)
 checkpoints/
+checkpoints_refine/
 runs/
+runs_pretrain/
+runs_refine/
 wandb/
 *.pt
 *.pth
 *.ckpt
 logs/
+
+# Generated corpora (regenerable from scripts/generate_chess_corpus.py)
+data/
+*.npz
 
 # Test artifacts
 checkpoints_test/
