@@ -77,6 +77,47 @@ def write_shard(
     return shard_path
 
 
+def worker_generate(
+    worker_id: int,
+    n_games: int,
+    output_dir: Path,
+    time_per_move: float,
+    seed: int,
+    *,
+    shard_size: int = 10_000,
+    stockfish_path: str = "stockfish",
+) -> None:
+    """Worker process entry point. Plays n_games and writes shards.
+
+    Each worker is fully independent — owns its own Stockfish subprocess,
+    its own RNG, its own shard counter, writes to its own filenames.
+    """
+    rng = random.Random(seed + worker_id)
+    engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+    engine.configure({"Threads": 1, "Hash": 16})
+
+    shard_buffer: list[Position] = []
+    shard_counter = 0
+
+    try:
+        for _ in range(n_games):
+            positions = play_one_game(engine, time_per_move=time_per_move, rng=rng)
+            shard_buffer.extend(positions)
+
+            while len(shard_buffer) >= shard_size:
+                write_shard(output_dir, worker_id, shard_counter, shard_buffer[:shard_size])
+                shard_buffer = shard_buffer[shard_size:]
+                shard_counter += 1
+
+        if shard_buffer:
+            write_shard(output_dir, worker_id, shard_counter, shard_buffer)
+    finally:
+        try:
+            engine.quit()
+        except (chess.engine.EngineTerminatedError, BrokenPipeError):
+            pass
+
+
 def play_one_game(
     engine: chess.engine.SimpleEngine,
     time_per_move: float,
