@@ -1,0 +1,664 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Sub-Project 3b: Supervised Pre-Training + AlphaZero Refinement</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav">
+      <a href="../../../index.html">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; Specs · Supervised Pretraining Design</span>
+    </nav>
+    <header class="hero">
+      <p class="kicker">Notes</p>
+      <h1>Sub-Project 3b: Supervised Pre-Training + AlphaZero Refinement</h1>
+
+    </header>
+    <article class="spec"><blockquote>
+<p><strong>Status:</strong> Design — pending approval to proceed to implementation plan.
+<strong>Predecessor:</strong> <a href="./2026-05-16-chess-design.md">SP3 — Chess on the AlphaZero framework</a> (complete; framework code shipped).
+<strong>Successor:</strong> SP4 — Productionize (UCI engine, 2000+ ELO target).</p>
+</blockquote>
+<hr>
+<h2 id="1-context">1. Context</h2>
+<p>SP3 shipped the chess framework end-to-end: <code>Chess(Game)</code>, AlphaZero 8×8×73 move encoding, <code>StockfishOpponent</code>, parallel self-play with NN-server + workers, Trainer dispatch, CLI, configs, tests. The framework works.</p>
+<p>However, when the user launched the SP3 training run on M4 Pro MPS:</p>
+<pre><code>[iter 1/80]
+  parallel self-play (iter 1): 8 workers × 100 games
+  checkpoint: checkpoints/iter_0001.pt (13838.9s)
+</code></pre>
+<p>That is <strong>~3.85 hours per iteration</strong>, projecting <strong>~13 days</strong> for the full 80-iteration run. Pure AlphaZero self-play from random initialization is wall-clock infeasible on consumer hardware for chess.</p>
+<p>The root cause is the "cold start" problem: an untrained network produces near-uniform priors, MCTS exploration is uninformed, games are very long (hit the 75-move rule because random moves rarely deliver checkmate), and the resulting (state, π, z) tuples are weak training signal.</p>
+<h2 id="2-goal">2. Goal</h2>
+<p>Train a chess agent that meets the SP3 kill criterion (≥50% win rate vs Stockfish ELO=1500 over 100 games) in <strong>wall-clock days, not weeks</strong> on M4 Pro by:</p>
+<ol>
+<li><strong>Bootstrapping the network via supervised pre-training</strong> on a corpus of strong-engine games. After pre-training, the policy head produces meaningful priors and the value head estimates positions reasonably — eliminating the cold start.</li>
+<li><strong>Refining the pre-trained network with a short AlphaZero loop</strong> (10 iterations instead of 80). The MCTS-improved targets push the agent past the teacher's behavior-cloning ceiling.</li>
+</ol>
+<p>Wall-clock target: <strong>~16 hours total on M4 Pro</strong> (or ~10 hours if AZ refinement runs on Colab L4).</p>
+<h2 id="3-non-goals">3. Non-goals</h2>
+<ul>
+<li>Beating full-strength Stockfish, or reaching 3000+ ELO. Those are SP4 / SP5 targets.</li>
+<li>Multi-PV soft policy targets (top-K weighted by eval). The simpler hard-one-hot target is enough for v1.</li>
+<li>Using a Lichess / CCRL human-game corpus. Stockfish self-generation keeps the pipeline self-contained and deterministic. Lichess corpora are an SP5 enhancement.</li>
+<li>Distillation from a teacher network. Out of scope for SP3b.</li>
+<li>UCI engine wrapper (lichess-bot integration). SP4.</li>
+</ul>
+<h2 id="4-whats-new-vs-whats-reused">4. What's new vs what's reused</h2>
+<p><strong>New code (~480 lines):</strong></p>
+<ul>
+<li><code>scripts/generate_chess_corpus.py</code> (~150 lines) — multi-process Stockfish-vs-Stockfish game generator</li>
+<li><code>src/alphazero/supervised.py</code> (~150 lines) — <code>load_corpus</code>, <code>pretrain_supervised</code>, early stopping, lr schedule</li>
+<li><code>src/alphazero/cli.py</code> — small extension (~30 lines) for new <code>pretrain</code> subcommand</li>
+<li><code>tests/test_chess_corpus.py</code> (~60 lines), <code>tests/test_supervised.py</code> (~80 lines), <code>tests/test_cli.py</code> extension (~30 lines)</li>
+<li><code>configs/chess-pretrain.toml</code>, <code>configs/chess-refine.toml</code> (new)</li>
+</ul>
+<p><strong>Reused unchanged:</strong></p>
+<ul>
+<li><code>AlphaZeroNet</code> — same architecture, just sized larger (n_blocks=15, n_channels=192 ≈ 15M params)</li>
+<li><code>Chess(Game)</code> — state encoding, move encoding, terminal_value, canonical_state</li>
+<li><code>chess_move_encoding.py</code> — <code>move_to_index</code> and <code>index_to_move</code> used during corpus generation</li>
+<li><code>StockfishOpponent</code> — used by the corpus generator (with <code>Threads=1</code>)</li>
+<li><code>parallel_selfplay.py</code> — used by AZ refinement phase via <code>Trainer.run()</code></li>
+<li><code>Trainer.run()</code> and the <code>--resume-from</code> flag — loads pre-trained checkpoint, continues AZ loop unchanged</li>
+<li><code>_train_step</code>, <code>_assign_z</code>, replay buffer, all framework primitives</li>
+</ul>
+<h2 id="5-architecture-three-phases-producing-three-checkpoints">5. Architecture: three phases producing three checkpoints</h2>
+<pre><code>Phase 1: Corpus generation
+  ┌────────────────────────────────────────┐
+  │  scripts/generate_chess_corpus.py      │
+  │  10 parallel workers, each playing     │
+  │  Stockfish-vs-Stockfish games          │
+  └─────────────────┬──────────────────────┘
+                    │ writes
+                    ▼
+        data/chess_corpus/shard_NNNN.npz  (~300 shards, ~3.8GB)
+
+Phase 2: Supervised pre-training
+  ┌────────────────────────────────────────┐
+  │  python -m alphazero pretrain \         │
+  │    --corpus data/chess_corpus/ \        │
+  │    --config configs/chess-pretrain.toml │
+  └─────────────────┬──────────────────────┘
+                    │ writes
+                    ▼
+              pretrained.pt
+
+Phase 3: AlphaZero refinement
+  ┌────────────────────────────────────────┐
+  │  python -m alphazero train \            │
+  │    --game chess \                       │
+  │    --config configs/chess-refine.toml \ │
+  │    --resume-from pretrained.pt          │
+  └─────────────────┬──────────────────────┘
+                    │ writes
+                    ▼
+        checkpoints/iter_0001.pt ... iter_0010.pt
+</code></pre>
+<p>Each phase is independently restartable. If pre-training converges and AZ refinement disappoints, you can re-run just Phase 3 with different hyperparameters from the same <code>pretrained.pt</code>.</p>
+<h2 id="6-phase-1-corpus-generation">6. Phase 1: Corpus generation</h2>
+<h3 id="61-architecture-embarrassingly-parallel">6.1 Architecture: embarrassingly parallel</h3>
+<p>Unlike <code>parallel_selfplay.py</code> (which needs a central NN-server to batch GPU inference), corpus generation has no neural network involved. Each worker is fully independent — it spawns its own Stockfish subprocess, plays games, and writes its own shards. No queues, no shared state, no IPC beyond initial work assignment.</p>
+<pre><code>Main process (orchestrator)
+    │
+    ├─ Worker 0 ── Stockfish ── plays 5,000 games ── writes shard_0_*.npz
+    ├─ Worker 1 ── Stockfish ── plays 5,000 games ── writes shard_1_*.npz
+    ├─ ...
+    └─ Worker 9 ── Stockfish ── plays 5,000 games ── writes shard_9_*.npz
+</code></pre>
+<h3 id="62-per-game-flow">6.2 Per-game flow</h3>
+<p>For each game:
+1. Initialize <code>board = chess.Board()</code>
+2. <strong>Random first 4 plies</strong> (diversity) — sample uniformly from <code>board.legal_moves</code>, push to board
+3. <strong>Stockfish plays both sides for the rest of the game.</strong> At each ply:
+   - Call <code>engine.play(board, chess.engine.Limit(time=0.05))</code>
+   - Record <code>(board.fen(), move, current_player)</code> into game's position log
+   - Push the move
+4. When game ends (mate / draw / 75-move rule):
+   - Compute <code>outcome z ∈ {-1, 0, +1}</code> from the final result
+   - For each recorded position: encode board via <code>Chess.encode(board)</code>, encode move via <code>move_to_index(board, move)</code>, assign z from mover's POV (re-uses <code>_assign_z</code> logic)
+   - Append <code>(encoded_state, move_idx, z)</code> to worker's shard buffer
+5. When shard buffer reaches 10,000 positions, flush to disk as <code>shard_W_S.npz</code> (W = worker id, S = shard counter)</p>
+<h3 id="63-worker-count-and-stockfish-configuration">6.3 Worker count and Stockfish configuration</h3>
+<p><strong>10 workers</strong> on M4 Pro (10 P-cores + 4 E-cores). All P-cores fully utilized; E-cores stay free for OS responsiveness. Each Stockfish subprocess is configured with:</p>
+<pre><code class="language-python">engine.configure({
+    &quot;Threads&quot;: 1,    # critical — prevents thread oversubscription across workers
+    &quot;Hash&quot;: 16,      # 16MB transposition table, plenty for depth ~10-12
+})
+</code></pre>
+<p>Without <code>Threads=1</code>, each Stockfish instance would spawn multiple internal threads → 10 workers × 4-8 threads each → ~50-80 threads contending for 14 cores → severe slowdown.</p>
+<h3 id="64-shard-format">6.4 Shard format</h3>
+<p>Each shard is a numpy <code>.npz</code> archive:</p>
+<pre><code class="language-python">np.savez_compressed(
+    shard_path,
+    states=np.array(states, dtype=np.int8),       # (N, 20, 8, 8) — encoded boards
+    move_indices=np.array(moves, dtype=np.int32), # (N,) — flat action indices [0, 4672)
+    outcomes=np.array(zs, dtype=np.int8),         # (N,) — z values in {-1, 0, +1}
+)
+</code></pre>
+<p><code>int8</code> for states and outcomes keeps shards small (~13MB each compressed). Cast to <code>float32</code> at training-batch-load time.</p>
+<h3 id="65-targets-and-budget">6.5 Targets and budget</h3>
+<ul>
+<li><strong>50,000 total games</strong> → ~3M positions → ~300 shards → ~3.8GB on disk</li>
+<li><strong>Wall-clock: ~4.2 hours</strong> on M4 Pro with 10 workers</li>
+<li><strong>CLI:</strong> <code>python scripts/generate_chess_corpus.py --num-games 50000 --num-workers 10 --output data/chess_corpus/</code></li>
+</ul>
+<h2 id="7-phase-2-supervised-pre-training">7. Phase 2: Supervised pre-training</h2>
+<h3 id="71-loss-formulation">7.1 Loss formulation</h3>
+<p>Identical to the existing <code>_train_step</code>: cross-entropy on policy + MSE on value, equal weight.</p>
+<pre><code class="language-python">policy_loss = F.cross_entropy(predicted_logits, target_move_indices)
+value_loss = F.mse_loss(predicted_values, target_outcomes)
+total_loss = policy_loss + value_loss
+</code></pre>
+<p>The only difference vs AlphaZero training is the source of the targets:
+- <strong>AZ self-play:</strong> <code>target_policy = MCTS visit distribution π</code>, <code>target_value = game outcome z</code>
+- <strong>Pre-training:</strong> <code>target_policy = one-hot(Stockfish's move)</code>, <code>target_value = game outcome z</code></p>
+<p>Same loss function, same checkpoint format, same network class.</p>
+<h3 id="72-held-out-validation-early-stopping">7.2 Held-out validation + early stopping</h3>
+<p>To detect overfitting, split corpus shards 95/5: train on 95%, validate on 5% (the last ~15 shards). After each epoch:</p>
+<ol>
+<li>Run forward pass on all validation positions (no gradient updates)</li>
+<li>Compute <code>val_loss = policy_loss + value_loss</code> averaged over validation set</li>
+<li>If <code>val_loss</code> improved → save checkpoint, reset patience counter</li>
+<li>If <code>val_loss</code> did not improve → increment patience counter</li>
+<li>If patience counter ≥ 2 → stop training (early stopping)</li>
+</ol>
+<p>Maximum epochs: 3. Patience: 2. Typical behavior: train for 2-3 epochs, val_loss flattens, stop.</p>
+<h3 id="73-learning-rate-schedule-linear-warmup-cosine-decay">7.3 Learning rate schedule: linear warmup + cosine decay</h3>
+<p>For a 15M-parameter network, naive lr=1e-3 risks first-step parameter explosion (Adam's running gradient stats are unreliable at step 0). The schedule:</p>
+<pre><code class="language-python">def lr_schedule(step, warmup_steps=500, total_steps=N, peak_lr=5e-4, end_lr=5e-5):
+    if step &lt; warmup_steps:
+        return peak_lr * (step + 1) / warmup_steps
+    progress = (step - warmup_steps) / (total_steps - warmup_steps)
+    return end_lr + 0.5 * (peak_lr - end_lr) * (1 + math.cos(math.pi * progress))
+</code></pre>
+<ul>
+<li>Linear warmup over the first 500 steps: lr rises from 0 → 5e-4</li>
+<li>After warmup: cosine decay from 5e-4 → 5e-5 over the remaining steps</li>
+<li><code>total_steps = num_epochs × (corpus_size // batch_size)</code> ≈ 3 × 12,000 = 36,000 for our setup</li>
+</ul>
+<h3 id="74-hyperparameters-configschess-pretraintoml">7.4 Hyperparameters (<code>configs/chess-pretrain.toml</code>)</h3>
+<pre><code class="language-toml"># Network — matches what chess-refine.toml will load
+n_blocks = 15
+n_channels = 192
+
+# Pre-training
+num_epochs = 3                # maximum; early stopping may halt sooner
+batch_size = 256
+peak_lr = 5e-4
+end_lr = 5e-5
+warmup_steps = 500
+weight_decay = 1e-4
+holdout_fraction = 0.05
+early_stopping_patience = 2
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+corpus_dir = &quot;data/chess_corpus&quot;
+output_checkpoint = &quot;pretrained.pt&quot;
+log_dir = &quot;runs_pretrain&quot;
+</code></pre>
+<h3 id="75-new-cli-subcommand">7.5 New CLI subcommand</h3>
+<pre><code class="language-bash">python -m alphazero pretrain --config configs/chess-pretrain.toml
+</code></pre>
+<p>The subcommand reads <code>corpus_dir</code> from the config, splits shards into train/val, runs the pre-training loop, writes <code>pretrained.pt</code> at the path specified by <code>output_checkpoint</code>.</p>
+<p><code>pretrained.pt</code> is in the <strong>exact same format</strong> as Trainer's <code>iter_NNNN.pt</code> checkpoints (keys: <code>iteration</code>, <code>config</code>, <code>best_net</code>, <code>candidate_net</code>, <code>optimizer</code>). This lets Phase 3 load it via the existing <code>--resume-from</code> flag with zero changes to Trainer.</p>
+<h3 id="76-wall-clock-estimate">7.6 Wall-clock estimate</h3>
+<ul>
+<li>~3M positions × 3 epochs × 1 batch of 256 / batch_size = ~36K SGD steps</li>
+<li>~10ms per step on M4 Pro MPS for 15M-param net at batch 256 → ~6 minutes per epoch</li>
+<li>3 epochs × 6 min = ~18 minutes of pure training, plus ~10 minutes for validation eval at each epoch</li>
+<li>Plus disk I/O for loading shards: ~30 seconds per epoch (3.8GB streamed)</li>
+<li><strong>Total: ~30 minutes</strong></li>
+</ul>
+<p>Note: this is much faster than the initial ~2 hour estimate because the corpus fits in disk cache after the first epoch and SGD on MPS is fast for this network size. Will refine the estimate after the first run.</p>
+<h2 id="8-phase-3-alphazero-refinement">8. Phase 3: AlphaZero refinement</h2>
+<h3 id="81-no-code-changes-just-config">8.1 No code changes — just config</h3>
+<p>Phase 3 is <strong>the existing AlphaZero loop</strong> with two changes:</p>
+<ol>
+<li>Start from <code>pretrained.pt</code> (via <code>--resume-from</code>) instead of random initialization</li>
+<li>Use reduced hyperparameters: 10 iterations, 50 MCTS sims per move</li>
+</ol>
+<h3 id="82-hyperparameters-configschess-refinetoml">8.2 Hyperparameters (<code>configs/chess-refine.toml</code>)</h3>
+<pre><code class="language-toml"># Network — must match pretrained.pt
+n_blocks = 15
+n_channels = 192
+
+# MCTS — reduced from chess.toml
+num_simulations = 50          # down from 200; pre-trained priors compensate
+c_puct = 2.5
+dirichlet_alpha = 0.3
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 30
+
+# Training
+training_steps_per_iteration = 2000
+batch_size = 256
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer — smaller since we don't need a huge ramp from cold start
+replay_buffer_capacity = 200_000
+min_buffer_size = 10_000
+
+# Eval (vs Stockfish ELO=1500)
+eval_interval = 2             # eval every 2 iterations
+eval_games = 100
+
+# Schedule — reduced from 80 iters
+num_iterations = 10
+
+# Parallel self-play
+num_workers = 10              # match P-core count
+inference_batch_size = 64
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+checkpoint_dir = &quot;checkpoints_refine&quot;
+log_dir = &quot;runs_refine&quot;
+</code></pre>
+<h3 id="83-running-it">8.3 Running it</h3>
+<pre><code class="language-bash">python -m alphazero train \
+  --game chess \
+  --config configs/chess-refine.toml \
+  --resume-from pretrained.pt
+</code></pre>
+<h3 id="84-wall-clock-estimate">8.4 Wall-clock estimate</h3>
+<p>10 iterations × ~1 hour per iter (reduced sims + 15M-param net) = ~10 hours on M4 Pro. Or ~2 hours on Colab L4.</p>
+<h2 id="9-end-to-end-wall-clock">9. End-to-end wall-clock</h2>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>M4 Pro local</th>
+<th>Colab L4 (refinement only)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. Corpus generation</td>
+<td>~4.2 hr</td>
+<td>—</td>
+</tr>
+<tr>
+<td>2. Supervised pre-training</td>
+<td>~0.5 hr</td>
+<td>—</td>
+</tr>
+<tr>
+<td>3. AZ refinement</td>
+<td>~10 hr</td>
+<td>~2 hr</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>~14.7 hr</strong></td>
+<td><strong>~6.7 hr</strong></td>
+</tr>
+</tbody>
+</table>
+<p>Either path fits comfortably in a day or two of wall-clock time, vs the 13-day projection for cold-start AZ.</p>
+<h2 id="10-success-criteria">10. Success criteria</h2>
+<ol>
+<li><strong>Corpus generation</strong> completes 50K games without worker crashes; produces ~300 shards totaling ~3.8GB</li>
+<li><strong>Pre-training</strong> converges: validation loss strictly decreases for at least 1 epoch; final policy accuracy on held-out set ≥ 30% (top-1 move match with Stockfish) — a reasonable baseline given Stockfish has ~30+ plausible moves per position</li>
+<li><strong>Pre-trained checkpoint</strong> is loadable by Trainer via <code>--resume-from</code>; first refinement iteration completes without crashes</li>
+<li><strong>Final agent (after 10 refinement iters)</strong> wins ≥ 50% of 100 games vs Stockfish ELO=1500 (alternating colors)</li>
+</ol>
+<h2 id="11-testing-strategy">11. Testing strategy</h2>
+<h3 id="111-unit-tests-teststest_chess_corpuspy-teststest_supervisedpy">11.1 Unit tests (<code>tests/test_chess_corpus.py</code>, <code>tests/test_supervised.py</code>)</h3>
+<ul>
+<li>Corpus shard format: load a shard, verify shapes/dtypes match spec</li>
+<li>Corpus generation: run a tiny corpus job (50 games, 2 workers), verify shard files appear</li>
+<li><code>load_corpus</code>: returns train/val split correctly, holdout_fraction respected</li>
+<li><code>pretrain_supervised</code>: runs 1 epoch on synthetic data without crashing, val_loss is computed</li>
+<li>Early stopping: synthetic increasing val_loss triggers stop at expected step</li>
+<li>Lr schedule: warmup ramp + cosine decay produce expected values at key step counts</li>
+<li>CLI: <code>pretrain</code> subcommand wires correctly (regression test pattern from SP3 task 16)</li>
+</ul>
+<h3 id="112-integration-tests">11.2 Integration tests</h3>
+<ul>
+<li>E2E sanity (<code>tests/test_e2e_supervised.py</code>, marked <code>@pytest.mark.slow</code>): generate 100 games, pre-train 1 epoch, run 1 AZ iter, confirm pipeline produces a checkpoint</li>
+<li>The actual kill criterion is verified manually after the full ~15-hour pipeline run</li>
+</ul>
+<h3 id="113-invariants-worth-checking">11.3 Invariants worth checking</h3>
+<ul>
+<li><strong>Corpus encoding invariant:</strong> for any <code>(encoded_state, move_idx, z)</code> in a shard, <code>Chess.legal_actions_mask(decoded_state)[move_idx] == True</code> — the recorded move is always legal in the recorded state</li>
+<li><strong>Outcome invariant:</strong> for any game's positions, the recorded z values follow the alternating sign pattern <code>_assign_z</code> produces (z of first-player-to-move ≠ z of second-player-to-move within the same game, unless draw)</li>
+<li><strong>Shard count invariant:</strong> total positions across all shards ≈ num_games × avg_plies_per_game (sanity check that no shards were dropped)</li>
+</ul>
+<h2 id="12-risks-and-mitigations">12. Risks and mitigations</h2>
+<table>
+<thead>
+<tr>
+<th>Risk</th>
+<th>Likelihood</th>
+<th>Impact</th>
+<th>Mitigation</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stockfish at 0.05s plays at lower ELO than expected (~2000 instead of 2400), capping student strength</td>
+<td>Medium</td>
+<td>Medium</td>
+<td>Test corpus quality by manually evaluating a few games before full run. Bump time_per_move to 0.1s if needed (doubles wall-clock)</td>
+</tr>
+<tr>
+<td>Behavior cloning ceiling causes student to plateau before clearing 1500 ELO bar</td>
+<td>Low-Medium</td>
+<td>High</td>
+<td>AZ refinement should push past cloning ceiling. If not, increase <code>num_iterations</code> to 20+ or add more corpus games</td>
+</tr>
+<tr>
+<td>15M-param net overfits 3M positions in 3 epochs</td>
+<td>Low</td>
+<td>Medium</td>
+<td>Early stopping with val loss catches this. Reduce to 2 epochs if val loss diverges in epoch 2</td>
+</tr>
+<tr>
+<td>MPS out-of-memory at batch 256 with 15M params</td>
+<td>Low</td>
+<td>Medium</td>
+<td>Drop batch to 128 if OOM. Will slow training ~2× but still fits in budget</td>
+</tr>
+<tr>
+<td>Shard format incompatibility (int8 cast issues)</td>
+<td>Low</td>
+<td>Low</td>
+<td>Unit test loads a shard and verifies round-trip integrity</td>
+</tr>
+<tr>
+<td>Random-first-4-plies still produces too many duplicate game lines</td>
+<td>Low</td>
+<td>Medium</td>
+<td>If observed, increase to first 6 random plies; or sample first move from a fixed opening book</td>
+</tr>
+<tr>
+<td>Corpus generation worker crashes mid-run, losing partial shards</td>
+<td>Low</td>
+<td>Low</td>
+<td>Each worker writes its own shards independently; restart just the failed worker(s) with adjusted game count</td>
+</tr>
+</tbody>
+</table>
+<h2 id="13-future-work-deferred">13. Future work (deferred)</h2>
+<ul>
+<li><strong>Multi-PV soft policy targets</strong> — richer signal but slower corpus gen. Worth trying if v1 plateaus too low.</li>
+<li><strong>Lichess corpus</strong> — millions of real human games at varied ELO. Would replace or augment Stockfish-generated corpus. SP5.</li>
+<li><strong>Distillation</strong> — train a smaller student to mimic a larger teacher network's policy + value output. SP5.</li>
+<li><strong>Continuous pre-training during AZ</strong> — periodically retrain on a fresh Stockfish corpus during refinement. Stabilizes against catastrophic forgetting in long runs.</li>
+</ul></article>
+  </main>
+</body>
+</html>

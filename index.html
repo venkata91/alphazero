@@ -282,6 +282,8 @@
         <a href="#concepts">Concepts</a>
         <a href="#sp1">Sub-project 1 &mdash; Tic-Tac-Toe</a>
         <a href="#sp2">Sub-project 2 &mdash; Connect 4</a>
+        <a href="#sp3">Sub-project 3 &mdash; Chess</a>
+        <a href="#sp3b">Sub-project 3b &mdash; Supervised Pre-training</a>
         <a href="#future">Future</a>
       </nav>
 
@@ -351,15 +353,54 @@
         </div>
       </section>
 
+      <!-- Sub-project 3 -->
+      <section class="section" id="sp3">
+        <h2 class="section-label">Sub-project 3 &mdash; Chess</h2>
+        <p class="section-sub">Full 8&times;8 chess: AlphaZero 8&times;8&times;73 = 4672 move encoding, 20-plane input, Stockfish-as-eval-baseline, and parallel self-play with NN-server batching inference across worker processes.</p>
+        <div class="card-grid">
+          <a class="card" href="./docs/superpowers/specs/2026-05-16-chess-design.html">
+            <p class="card-type">Spec</p>
+            <h3>Chess Design</h3>
+            <p>Game wrapper around python-chess, 4672-action encoding (queen-like + knight + underpromotion), StockfishOpponent via UCI, parallel self-play architecture, and scaling path to Sub-project 4.</p>
+            <span class="card-arrow">Read spec &#8594;</span>
+          </a>
+          <a class="card" href="./docs/superpowers/plans/2026-05-16-chess.html">
+            <p class="card-type">Plan</p>
+            <h3>Implementation Plan &mdash; Chess</h3>
+            <p>18 tasks across move encoding, Chess(Game) implementation, Stockfish opponent, parallel self-play module (NN-server + worker processes + orchestrator), trainer dispatch, CLI, and E2E kill criterion.</p>
+            <span class="card-arrow">Read plan &#8594;</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- Sub-project 3b -->
+      <section class="section" id="sp3b">
+        <h2 class="section-label">Sub-project 3b &mdash; Supervised Pre-training + AZ Refinement</h2>
+        <p class="section-sub">Cold-start AlphaZero on chess is wall-clock infeasible on consumer hardware (~13 days for 80 iterations on M4 Pro). Bootstrap the network from Stockfish-vs-Stockfish games, then refine with a short AlphaZero loop. ~15 hours total.</p>
+        <div class="card-grid">
+          <a class="card" href="./docs/superpowers/specs/2026-05-16-supervised-pretraining-design.html">
+            <p class="card-type">Spec</p>
+            <h3>Supervised Pre-training Design</h3>
+            <p>Three-phase pipeline: parallel Stockfish-vs-Stockfish corpus generation (50k games), supervised pre-training with early stopping + lr warmup/cosine decay, AZ refinement from the pretrained checkpoint via --resume-from.</p>
+            <span class="card-arrow">Read spec &#8594;</span>
+          </a>
+          <a class="card" href="./docs/superpowers/plans/2026-05-16-supervised-pretraining.html">
+            <p class="card-type">Plan</p>
+            <h3>Implementation Plan &mdash; Pre-training</h3>
+            <p>17 tasks: corpus generation primitives + orchestrator + CLI, PretrainConfig, corpus loader, lr schedule, pretrain step/epoch, early stopping loop, refinement config, integration tests, E2E slow test.</p>
+            <span class="card-arrow">Read plan &#8594;</span>
+          </a>
+        </div>
+      </section>
+
       <!-- Future -->
       <section class="section" id="future">
         <h2 class="section-label">Future Sub-projects</h2>
         <p class="section-sub">Planned &mdash; not yet started. Specs and plans will appear here when ready.</p>
         <div class="future-list">
           <ul>
-            <li><strong>Sub-project 3 &mdash; Chess</strong> &nbsp; Full 8&times;8 board, move encoding, opening book integration, and stronger neural architecture.</li>
-            <li><strong>Sub-project 4 &mdash; Productionize</strong> &nbsp; Distributed self-play workers, model checkpointing, evaluation arena, and experiment tracking.</li>
-            <li><strong>Sub-project 5 &mdash; Hybrid Search</strong> &nbsp; Combining learned heuristics with classical search (alpha-beta, endgame tablebases).</li>
+            <li><strong>Sub-project 4 &mdash; Productionize</strong> &nbsp; UCI engine wrapper for lichess-bot / Arena, scaling to 2000+ ELO, distributed self-play across cloud workers, experiment tracking.</li>
+            <li><strong>Sub-project 5 &mdash; Hybrid Search</strong> &nbsp; Combining learned heuristics with classical search (alpha-beta, endgame tablebases). Distillation from larger teacher networks.</li>
           </ul>
         </div>
       </section>

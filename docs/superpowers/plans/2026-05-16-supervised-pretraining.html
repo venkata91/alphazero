@@ -1,0 +1,2375 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Supervised Pre-Training + AlphaZero Refinement Implementation Plan</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+  <style>
+:root {
+  color-scheme: light;
+  --bg: #fbf3e2;
+  --bg-soft: #fff8ec;
+  --paper: #ffffff;
+  --paper-tint: #fffaf0;
+  --ink: #1f2547;
+  --ink-soft: #4a5680;
+  --ink-faint: #6b7290;
+  --blue: #3a55c4;
+  --blue-deep: #2a3f9a;
+  --blue-soft: rgba(58, 85, 196, 0.18);
+  --blue-bg: rgba(58, 85, 196, 0.08);
+  --orange: #ee8a30;
+  --orange-deep: #d6741e;
+  --orange-soft: rgba(238, 138, 48, 0.22);
+  --orange-bg: rgba(238, 138, 48, 0.08);
+  --green: #3aa860;
+  --green-bg: rgba(58, 168, 96, 0.10);
+  --line: #2a3a8a;
+  --line-faint: rgba(42, 58, 138, 0.20);
+  --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
+  --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+  --cursive: 'Caveat', 'Patrick Hand', cursive;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  font-family: var(--hand);
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
+    radial-gradient(circle at 92% 6%, rgba(58, 85, 196, 0.10), transparent 30%),
+    radial-gradient(circle at 50% 100%, rgba(238, 138, 48, 0.05), transparent 40%),
+    var(--bg);
+  background-attachment: fixed;
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(31, 37, 71, 0.05) 1px, transparent 1px);
+  background-size: 22px 22px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.65;
+}
+
+a {
+  color: var(--blue);
+  text-decoration: none;
+  border-bottom: 2px dotted var(--line-faint);
+  padding-bottom: 1px;
+}
+a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+.shell {
+  width: min(960px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 40px 0 80px;
+}
+
+.hero, .spec {
+  background: var(--paper);
+  border: 2.5px solid var(--line);
+  border-radius: 26px;
+  box-shadow: var(--shadow);
+  padding: 30px 38px;
+}
+.hero { margin-bottom: 20px; position: relative; }
+.hero::before, .hero::after {
+  content: "";
+  position: absolute;
+  width: 26px; height: 26px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ee8a30' stroke-width='2' stroke-linecap='round'><path d='M12 2 L12 8 M12 16 L12 22 M2 12 L8 12 M16 12 L22 12 M5 5 L9 9 M15 15 L19 19 M5 19 L9 15 M15 9 L19 5'/></svg>");
+  background-repeat: no-repeat;
+  background-size: contain;
+  opacity: 0.8;
+}
+.hero::before { top: 18px; right: 28px; transform: rotate(12deg); }
+.hero::after  { bottom: 18px; left: 28px; width: 20px; height: 20px; transform: rotate(-18deg); opacity: 0.55; }
+
+.kicker {
+  margin: 0 0 6px;
+  font-family: var(--cursive);
+  font-weight: 700;
+  color: var(--orange);
+  font-size: 1.3rem;
+}
+.hero h1 {
+  margin: 0;
+  color: var(--blue);
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: clamp(2.2rem, 6vw, 3.6rem);
+  line-height: 1.1;
+  letter-spacing: 1px;
+}
+.hero-meta {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--line-faint);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  color: var(--ink-soft);
+  font-size: 0.96rem;
+}
+.hero-meta span strong {
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-weight: 700;
+  margin-right: 6px;
+}
+
+/* Rendered markdown body */
+.spec h1, .spec h2, .spec h3, .spec h4 {
+  font-family: var(--cursive);
+  letter-spacing: 0.5px;
+  font-weight: 700;
+  line-height: 1.15;
+  margin: 28px 0 10px;
+}
+.spec h1 { font-size: 2.4rem; color: var(--blue);      border-bottom: 2.5px solid var(--blue-soft); padding-bottom: 6px; margin-top: 8px; }
+.spec h2 { font-size: 1.85rem; color: var(--blue);     margin-top: 32px; }
+.spec h3 { font-size: 1.45rem; color: var(--blue-deep); }
+.spec h4 { font-size: 1.2rem;  color: var(--orange-deep); }
+
+.spec p { margin: 10px 0; color: var(--ink-soft); }
+.spec strong { color: var(--blue-deep); }
+.spec em { color: var(--ink); }
+
+.spec ul, .spec ol {
+  padding-left: 26px;
+  color: var(--ink-soft);
+}
+.spec li { margin: 4px 0; }
+.spec li > p { margin: 4px 0; }
+
+.spec blockquote {
+  margin: 14px 0;
+  padding: 12px 18px;
+  border-left: 4px solid var(--orange);
+  background: var(--orange-bg);
+  border-radius: 10px;
+  color: var(--ink);
+}
+.spec blockquote p { margin: 4px 0; color: var(--ink); }
+
+.spec code {
+  font-family: var(--mono);
+  font-size: 0.92em;
+  padding: 1.5px 6px;
+  border-radius: 6px;
+  background: var(--blue-bg);
+  border: 1.5px dashed var(--blue-soft);
+  color: var(--blue-deep);
+}
+.spec pre {
+  margin: 14px 0;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  overflow-x: auto;
+  line-height: 1.45;
+}
+.spec pre code {
+  display: block;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: var(--ink);
+  font-size: 0.92rem;
+  white-space: pre;
+}
+
+.spec table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 16px 0;
+  background: var(--paper-tint);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  overflow: hidden;
+}
+.spec table th, .spec table td {
+  padding: 9px 14px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--line-faint);
+  vertical-align: top;
+  font-size: 0.96rem;
+}
+.spec table th {
+  background: var(--blue-bg);
+  color: var(--blue-deep);
+  font-family: var(--cursive);
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+.spec table tr:last-child td { border-bottom: none; }
+.spec table tr:hover td { background: var(--orange-bg); }
+
+.spec hr {
+  border: none;
+  border-top: 2.5px dashed var(--line-faint);
+  margin: 28px 0;
+}
+
+.toc {
+  margin: 18px 0 6px;
+  padding: 14px 18px;
+  background: var(--paper-tint);
+  border: 2px dashed var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.96rem;
+}
+.toc > ul { padding-left: 22px; margin: 4px 0; }
+.toc a { border-bottom: none; }
+.toc a:hover { text-decoration: underline; }
+
+.page-nav {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 20px;
+  margin-bottom: 18px;
+  background: var(--paper);
+  border: 2px solid var(--line-faint);
+  border-radius: 14px;
+  font-size: 0.94rem;
+  font-family: var(--hand);
+}
+.page-nav a {
+  color: var(--blue);
+  border-bottom: none;
+  font-family: var(--cursive);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.page-nav a:hover { color: var(--orange-deep); }
+.page-nav .crumb { color: var(--ink-faint); }
+
+@media (max-width: 720px) {
+  .shell { padding: 24px 0 64px; }
+  .hero, .spec { padding: 22px 22px; }
+  body { font-size: 17px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+}
+</style>
+</head>
+<body>
+  <main class="shell">
+    <nav class="page-nav">
+      <a href="../../../index.html">&#8592; All docs</a>
+      <span class="crumb">AlphaZero &middot; Plans · Supervised Pretraining</span>
+    </nav>
+    <header class="hero">
+      <p class="kicker">Notes</p>
+      <h1>Supervised Pre-Training + AlphaZero Refinement Implementation Plan</h1>
+
+    </header>
+    <article class="spec"><blockquote>
+<p><strong>For agentic workers:</strong> REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (<code>- [ ]</code>) syntax for tracking.</p>
+</blockquote>
+<p><strong>Goal:</strong> Implement supervised pre-training of <code>AlphaZeroNet</code> on a corpus of Stockfish-vs-Stockfish games, then refine with a short AlphaZero loop, to reach ≥50% win rate vs Stockfish ELO=1500 in ~15 hours wall-clock on M4 Pro (vs 13 days for cold-start AZ).</p>
+<p><strong>Architecture:</strong> Three phases producing three checkpoints — (1) embarrassingly parallel corpus generation via 10 worker processes each running their own Stockfish subprocess at <code>Threads=1</code>, (2) supervised pre-training with held-out validation + early stopping + lr warmup/cosine decay, (3) AZ refinement (10 iters × 50 sims) starting from the pretrained checkpoint via existing <code>--resume-from</code> flag.</p>
+<p><strong>Tech Stack:</strong> Same as SP3 + <code>multiprocessing</code> (already imported elsewhere) + numpy <code>.npz</code> shards for corpus storage. All framework code (<code>AlphaZeroNet</code>, <code>Chess(Game)</code>, <code>chess_move_encoding</code>, <code>StockfishOpponent</code>, <code>parallel_selfplay</code>, <code>Trainer.run()</code>) reused unchanged.</p>
+<p><strong>Spec:</strong> <a href="../specs/2026-05-16-supervised-pretraining-design.md"><code>docs/superpowers/specs/2026-05-16-supervised-pretraining-design.md</code></a></p>
+<hr>
+<h2 id="file-structure">File Structure</h2>
+<pre><code>scripts/generate_chess_corpus.py        ← new (~180 lines) CLI + orchestrator
+src/alphazero/corpus.py                 ← new (~150 lines) worker, single-game, shard writer
+src/alphazero/supervised.py             ← new (~200 lines) load_corpus, lr_schedule, pretrain_supervised, PretrainConfig
+src/alphazero/cli.py                    ← extend (~40 lines) new `pretrain` subcommand
+configs/chess-pretrain.toml             ← new
+configs/chess-refine.toml               ← new
+tests/test_chess_corpus.py              ← new (~120 lines)
+tests/test_supervised.py                ← new (~150 lines)
+tests/test_cli.py                       ← extend (~25 lines) regression test for pretrain wiring
+tests/test_e2e_supervised.py            ← new (~80 lines, @pytest.mark.slow)
+</code></pre>
+<p>Tasks proceed in dependency order: corpus primitives → corpus orchestrator → corpus generator CLI → small corpus smoke test → supervised loaders → lr schedule → pretrain step/epoch → early stopping + main loop → pretrain CLI subcommand → configs → refinement config + verify --resume-from → E2E test → final sweep.</p>
+<hr>
+<h2 id="conventions">Conventions</h2>
+<ul>
+<li>Commit messages: HEREDOC with <code>Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;</code> footer.</li>
+<li>TDD: red → green → commit. Each task has its own commit.</li>
+<li>All paths absolute from repo root unless noted.</li>
+<li>Run pytest from repo root: <code>cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest &lt;args&gt;</code>.</li>
+</ul>
+<hr>
+<h2 id="task-1-position-type-random-opening-helper">Task 1: Position type + random opening helper</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/corpus.py</code>
+- Create: <code>tests/test_chess_corpus.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write failing tests</strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/tests/test_chess_corpus.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Tests for the chess corpus generation primitives.&quot;&quot;&quot;
+import random
+
+import chess
+import pytest
+
+from alphazero.corpus import Position, random_opening_moves
+
+
+def test_random_opening_moves_pushes_n_plies():
+    &quot;&quot;&quot;random_opening_moves should advance the board by exactly n_plies.&quot;&quot;&quot;
+    board = chess.Board()
+    rng = random.Random(42)
+    random_opening_moves(board, n_plies=4, rng=rng)
+    assert len(board.move_stack) == 4
+
+
+def test_random_opening_moves_produces_only_legal_moves():
+    &quot;&quot;&quot;Every move in the opening sequence must be legal at its time.&quot;&quot;&quot;
+    board = chess.Board()
+    rng = random.Random(42)
+    random_opening_moves(board, n_plies=4, rng=rng)
+    # Walk through the move stack and verify each is legal-at-its-time
+    replay = chess.Board()
+    for m in board.move_stack:
+        assert m in replay.legal_moves
+        replay.push(m)
+
+
+def test_random_opening_moves_diverse_across_seeds():
+    &quot;&quot;&quot;Different seeds should produce different opening sequences (usually).&quot;&quot;&quot;
+    boards = []
+    for seed in range(5):
+        board = chess.Board()
+        random_opening_moves(board, n_plies=4, rng=random.Random(seed))
+        boards.append(tuple(m.uci() for m in board.move_stack))
+    # At least 2 of the 5 should differ
+    assert len(set(boards)) &gt;= 2
+
+
+def test_random_opening_moves_stops_if_game_ends():
+    &quot;&quot;&quot;If the game ends mid-opening (shouldn't happen, but defensive), stop early.&quot;&quot;&quot;
+    # Construct a position where black is checkmated and only legal &quot;move&quot; is none
+    board = chess.Board(&quot;rnb1kbnr/pppp1ppp/8/4p3/6Pq/5P2/PPPPP2P/RNBQKBNR w KQkq - 1 3&quot;)
+    assert board.is_checkmate()
+    rng = random.Random(42)
+    random_opening_moves(board, n_plies=4, rng=rng)
+    # No moves should have been pushed since game is over
+    assert len(board.move_stack) == 0
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: ImportError on <code>alphazero.corpus</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>src/alphazero/corpus.py</code></strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/src/alphazero/corpus.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Chess corpus generation primitives.
+
+Stockfish-vs-Stockfish game generation for supervised pre-training of
+AlphaZeroNet. Each worker process plays games independently and writes
+its own .npz shards.
+
+A Position is a (encoded_state, move_index, z) tuple where:
+    encoded_state: np.ndarray of shape (20, 8, 8), dtype int8
+        — Chess.encode(board) cast to int8 for compact storage
+    move_index: int in [0, 4672)
+        — chess_move_encoding.move_to_index(board, move)
+    z: int in {-1, 0, +1}
+        — game outcome from the mover's POV at that position
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import random
+from typing import NamedTuple
+
+import chess
+import numpy as np
+
+
+class Position(NamedTuple):
+    encoded_state: np.ndarray   # (20, 8, 8) int8
+    move_index: int             # [0, 4672)
+    z: int                      # {-1, 0, +1}
+
+
+def random_opening_moves(
+    board: chess.Board, n_plies: int, rng: random.Random
+) -&gt; None:
+    &quot;&quot;&quot;Play n_plies uniformly-random legal moves into the board (in place).
+
+    Stops early if the game ends before n_plies (defensive; rare).
+    &quot;&quot;&quot;
+    for _ in range(n_plies):
+        if board.is_game_over(claim_draw=True):
+            return
+        legal = list(board.legal_moves)
+        move = rng.choice(legal)
+        board.push(move)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: 4 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/corpus.py tests/test_chess_corpus.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add corpus.py with Position type + random_opening_moves
+
+Foundation for supervised pre-training corpus generation. Position is
+the (encoded_state, move_index, z) tuple stored per training sample.
+random_opening_moves provides game diversity by playing 4 uniformly
+random legal plies before Stockfish takes over — without this, all
+Stockfish-vs-Stockfish games would share the same opening line.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-2-single-game-generator">Task 2: Single-game generator</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/corpus.py</code>
+- Modify: <code>tests/test_chess_corpus.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_chess_corpus.py</code>:</p>
+<pre><code class="language-python">def test_play_one_game_returns_positions_with_correct_shapes():
+    &quot;&quot;&quot;A single game should return a list of Position with correct shapes.&quot;&quot;&quot;
+    import chess.engine
+    from alphazero.corpus import play_one_game
+
+    engine = chess.engine.SimpleEngine.popen_uci(&quot;stockfish&quot;)
+    engine.configure({&quot;Threads&quot;: 1, &quot;Hash&quot;: 16})
+    try:
+        rng = random.Random(42)
+        positions = play_one_game(engine, time_per_move=0.01, rng=rng)
+    finally:
+        engine.quit()
+
+    assert len(positions) &gt; 4   # at least the random opening + some Stockfish moves
+    for p in positions:
+        assert p.encoded_state.shape == (20, 8, 8)
+        assert p.encoded_state.dtype == np.int8
+        assert 0 &lt;= p.move_index &lt; 4672
+        assert p.z in (-1, 0, 1)
+
+
+def test_play_one_game_z_values_alternate_within_game():
+    &quot;&quot;&quot;In a decisive game, z values alternate sign between plies (mover POV).&quot;&quot;&quot;
+    import chess.engine
+    from alphazero.corpus import play_one_game
+
+    engine = chess.engine.SimpleEngine.popen_uci(&quot;stockfish&quot;)
+    engine.configure({&quot;Threads&quot;: 1, &quot;Hash&quot;: 16})
+    try:
+        rng = random.Random(123)
+        positions = play_one_game(engine, time_per_move=0.01, rng=rng)
+    finally:
+        engine.quit()
+
+    z_values = [p.z for p in positions]
+    if z_values[-1] == 0:
+        # Draw: all z = 0
+        assert all(z == 0 for z in z_values)
+    else:
+        # Decisive: adjacent positions have opposite signs (or both zero, but not here)
+        for i in range(len(z_values) - 1):
+            assert z_values[i] == -z_values[i + 1], (
+                f&quot;At ply {i}: z={z_values[i]} but next z={z_values[i+1]}, &quot;
+                f&quot;expected alternation in decisive game&quot;
+            )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: ImportError on <code>play_one_game</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>play_one_game</code> in <code>src/alphazero/corpus.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/corpus.py</code>:</p>
+<pre><code class="language-python">import chess.engine
+
+from .games.chess_game import Chess
+from .games.chess_move_encoding import move_to_index
+
+
+def play_one_game(
+    engine: chess.engine.SimpleEngine,
+    time_per_move: float,
+    rng: random.Random,
+    *,
+    opening_plies: int = 4,
+) -&gt; list[Position]:
+    &quot;&quot;&quot;Play one Stockfish-vs-Stockfish game and return Position tuples.
+
+    Flow:
+        1. Random opening (4 plies) for diversity
+        2. Stockfish plays both sides until game ends
+        3. For each recorded position, compute z from the final outcome
+           in the position-mover's POV
+    &quot;&quot;&quot;
+    game = Chess()
+    board = chess.Board()
+    random_opening_moves(board, n_plies=opening_plies, rng=rng)
+
+    # Record (encoded_state, move_index, mover_player) for each ply
+    history: list[tuple[np.ndarray, int, int]] = []
+
+    while not board.is_game_over(claim_draw=True):
+        result = engine.play(board, chess.engine.Limit(time=time_per_move))
+        move = result.move
+        if move is None:
+            # Defensive: engine.play normally returns a move; if not, stop
+            break
+        encoded = game.encode(board).astype(np.int8)
+        mv_idx = move_to_index(board, move)
+        mover_player = 1 if board.turn == chess.WHITE else -1
+        history.append((encoded, mv_idx, mover_player))
+        board.push(move)
+
+    # Determine final outcome from the white-POV signed value
+    outcome = board.outcome(claim_draw=True)
+    if outcome is None or outcome.winner is None:
+        white_pov_z = 0
+    elif outcome.winner == chess.WHITE:
+        white_pov_z = 1
+    else:
+        white_pov_z = -1
+
+    # Build Position tuples — z is from the mover's POV at that position
+    positions = []
+    for encoded, mv_idx, mover_player in history:
+        z_from_mover_pov = white_pov_z * mover_player
+        positions.append(Position(
+            encoded_state=encoded,
+            move_index=mv_idx,
+            z=int(z_from_mover_pov),
+        ))
+    return positions
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: 6 tests pass (4 from Task 1 + 2 new).</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/corpus.py tests/test_chess_corpus.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add play_one_game: Stockfish vs Stockfish single-game generator
+
+Plays one full game using a Stockfish engine for both sides, after a
+random 4-ply opening. Records (encoded_state, move_index, z) tuples
+with z assigned from each ply's mover POV — alternating ±1 in decisive
+games, 0 throughout in draws. The encoded_state is cast to int8 for
+compact storage in the corpus shards.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-3-shard-writer">Task 3: Shard writer</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/corpus.py</code>
+- Modify: <code>tests/test_chess_corpus.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_chess_corpus.py</code>:</p>
+<pre><code class="language-python">def test_write_shard_creates_npz_with_correct_keys_and_dtypes(tmp_path):
+    &quot;&quot;&quot;Writing a shard produces a .npz with states, move_indices, outcomes.&quot;&quot;&quot;
+    from alphazero.corpus import Position, write_shard
+
+    positions = [
+        Position(
+            encoded_state=np.ones((20, 8, 8), dtype=np.int8),
+            move_index=42,
+            z=1,
+        ),
+        Position(
+            encoded_state=np.zeros((20, 8, 8), dtype=np.int8),
+            move_index=100,
+            z=-1,
+        ),
+    ]
+    shard_path = write_shard(tmp_path, worker_id=3, shard_counter=7, positions=positions)
+    assert shard_path.exists()
+    assert shard_path.name == &quot;shard_w3_s0007.npz&quot;
+
+    data = np.load(shard_path)
+    assert set(data.files) == {&quot;states&quot;, &quot;move_indices&quot;, &quot;outcomes&quot;}
+    assert data[&quot;states&quot;].shape == (2, 20, 8, 8)
+    assert data[&quot;states&quot;].dtype == np.int8
+    assert data[&quot;move_indices&quot;].shape == (2,)
+    assert data[&quot;move_indices&quot;].dtype == np.int32
+    assert data[&quot;move_indices&quot;].tolist() == [42, 100]
+    assert data[&quot;outcomes&quot;].shape == (2,)
+    assert data[&quot;outcomes&quot;].dtype == np.int8
+    assert data[&quot;outcomes&quot;].tolist() == [1, -1]
+
+
+def test_write_shard_round_trip_preserves_data(tmp_path):
+    &quot;&quot;&quot;Round-trip: write a shard, load it, verify all values match.&quot;&quot;&quot;
+    from alphazero.corpus import Position, write_shard
+
+    rng = np.random.default_rng(42)
+    positions = []
+    for i in range(50):
+        positions.append(Position(
+            encoded_state=rng.integers(0, 2, size=(20, 8, 8), dtype=np.int8),
+            move_index=int(rng.integers(0, 4672)),
+            z=int(rng.choice([-1, 0, 1])),
+        ))
+    shard_path = write_shard(tmp_path, worker_id=0, shard_counter=0, positions=positions)
+
+    data = np.load(shard_path)
+    for i, p in enumerate(positions):
+        assert np.array_equal(data[&quot;states&quot;][i], p.encoded_state)
+        assert data[&quot;move_indices&quot;][i] == p.move_index
+        assert data[&quot;outcomes&quot;][i] == p.z
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: ImportError on <code>write_shard</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>write_shard</code> in <code>src/alphazero/corpus.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/corpus.py</code>:</p>
+<pre><code class="language-python">from pathlib import Path
+
+
+def write_shard(
+    output_dir: Path,
+    worker_id: int,
+    shard_counter: int,
+    positions: list[Position],
+) -&gt; Path:
+    &quot;&quot;&quot;Write a list of Positions to a compressed .npz shard.
+
+    Filename format: shard_w{worker_id}_s{shard_counter:04d}.npz
+    &quot;&quot;&quot;
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    shard_path = output_dir / f&quot;shard_w{worker_id}_s{shard_counter:04d}.npz&quot;
+
+    states = np.stack([p.encoded_state for p in positions]).astype(np.int8)
+    move_indices = np.array([p.move_index for p in positions], dtype=np.int32)
+    outcomes = np.array([p.z for p in positions], dtype=np.int8)
+
+    np.savez_compressed(
+        shard_path,
+        states=states,
+        move_indices=move_indices,
+        outcomes=outcomes,
+    )
+    return shard_path
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: 8 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/corpus.py tests/test_chess_corpus.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add write_shard: compressed .npz writer for corpus shards
+
+Shards use int8 states + int32 move indices + int8 outcomes for
+compact on-disk size (~13MB compressed per 10k positions). Filename
+format shard_w{wid}_s{counter:04d}.npz lets each worker write
+independently without filename collisions.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-4-worker-entry-point">Task 4: Worker entry point</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/corpus.py</code>
+- Modify: <code>tests/test_chess_corpus.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_chess_corpus.py</code>:</p>
+<pre><code class="language-python">def test_worker_generate_writes_shards(tmp_path):
+    &quot;&quot;&quot;A worker should produce at least one shard for a small game count.&quot;&quot;&quot;
+    from alphazero.corpus import worker_generate
+
+    worker_generate(
+        worker_id=0,
+        n_games=3,
+        output_dir=tmp_path,
+        time_per_move=0.01,
+        seed=42,
+        shard_size=10_000,   # large so we get exactly one shard at the end
+    )
+
+    shards = sorted(tmp_path.glob(&quot;shard_w0_*.npz&quot;))
+    assert len(shards) &gt;= 1
+    # Total positions across all shards should be &gt; 0
+    total_positions = sum(np.load(s)[&quot;states&quot;].shape[0] for s in shards)
+    assert total_positions &gt; 6   # ~3 games × ~few plies each minimum
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py::test_worker_generate_writes_shards -v
+</code></pre>
+<p>Expected: ImportError on <code>worker_generate</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>worker_generate</code> in <code>src/alphazero/corpus.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/corpus.py</code>:</p>
+<pre><code class="language-python">def worker_generate(
+    worker_id: int,
+    n_games: int,
+    output_dir: Path,
+    time_per_move: float,
+    seed: int,
+    *,
+    shard_size: int = 10_000,
+    stockfish_path: str = &quot;stockfish&quot;,
+) -&gt; None:
+    &quot;&quot;&quot;Worker process entry point. Plays n_games and writes shards.
+
+    Each worker is fully independent — owns its own Stockfish subprocess,
+    its own RNG, its own shard counter, writes to its own filenames.
+    &quot;&quot;&quot;
+    rng = random.Random(seed + worker_id)
+    engine = chess.engine.SimpleEngine.popen_uci(stockfish_path)
+    engine.configure({&quot;Threads&quot;: 1, &quot;Hash&quot;: 16})
+
+    shard_buffer: list[Position] = []
+    shard_counter = 0
+
+    try:
+        for _ in range(n_games):
+            positions = play_one_game(engine, time_per_move=time_per_move, rng=rng)
+            shard_buffer.extend(positions)
+
+            while len(shard_buffer) &gt;= shard_size:
+                write_shard(output_dir, worker_id, shard_counter, shard_buffer[:shard_size])
+                shard_buffer = shard_buffer[shard_size:]
+                shard_counter += 1
+
+        # Flush remainder
+        if shard_buffer:
+            write_shard(output_dir, worker_id, shard_counter, shard_buffer)
+    finally:
+        try:
+            engine.quit()
+        except (chess.engine.EngineTerminatedError, BrokenPipeError):
+            pass
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: 9 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/corpus.py tests/test_chess_corpus.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add worker_generate: per-worker game-playing loop
+
+Each worker owns its own Stockfish subprocess (configured Threads=1 to
+prevent thread oversubscription across workers) and its own RNG seeded
+by base_seed + worker_id. Flushes shards every shard_size positions
+plus a final remainder shard at the end. Defensive engine.quit() in a
+finally block ensures the subprocess is reaped even on worker failure.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-5-orchestrator-multi-process-spawn-join">Task 5: Orchestrator (multi-process spawn + join)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/corpus.py</code>
+- Modify: <code>tests/test_chess_corpus.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_chess_corpus.py</code>:</p>
+<pre><code class="language-python">def test_generate_corpus_spawns_workers_and_distributes_games(tmp_path):
+    &quot;&quot;&quot;End-to-end: 2 workers each play 2 games; shards exist for both workers.&quot;&quot;&quot;
+    from alphazero.corpus import generate_corpus
+
+    generate_corpus(
+        target_games=4,
+        num_workers=2,
+        output_dir=tmp_path,
+        time_per_move=0.01,
+        seed=42,
+    )
+
+    # Both workers should have produced at least one shard each
+    w0_shards = sorted(tmp_path.glob(&quot;shard_w0_*.npz&quot;))
+    w1_shards = sorted(tmp_path.glob(&quot;shard_w1_*.npz&quot;))
+    assert len(w0_shards) &gt;= 1
+    assert len(w1_shards) &gt;= 1
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py::test_generate_corpus_spawns_workers_and_distributes_games -v
+</code></pre>
+<p>Expected: ImportError on <code>generate_corpus</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>generate_corpus</code> in <code>src/alphazero/corpus.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/corpus.py</code>:</p>
+<pre><code class="language-python">import multiprocessing as mp
+
+
+def generate_corpus(
+    *,
+    target_games: int,
+    num_workers: int,
+    output_dir: Path,
+    time_per_move: float,
+    seed: int,
+    shard_size: int = 10_000,
+    stockfish_path: str = &quot;stockfish&quot;,
+) -&gt; None:
+    &quot;&quot;&quot;Spawn num_workers processes, distribute target_games across them.
+
+    Embarrassingly parallel — workers don't communicate. Each writes its
+    own shards to output_dir.
+    &quot;&quot;&quot;
+    ctx = mp.get_context(&quot;spawn&quot;)
+    games_per_worker = target_games // num_workers
+    remainder = target_games % num_workers
+
+    processes = []
+    for wid in range(num_workers):
+        # Distribute the remainder games to the first `remainder` workers
+        n = games_per_worker + (1 if wid &lt; remainder else 0)
+        if n == 0:
+            continue
+        p = ctx.Process(
+            target=worker_generate,
+            args=(wid, n, output_dir, time_per_move, seed),
+            kwargs={&quot;shard_size&quot;: shard_size, &quot;stockfish_path&quot;: stockfish_path},
+        )
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()
+        if p.exitcode != 0:
+            raise RuntimeError(
+                f&quot;Worker process exited with code {p.exitcode}; &quot;
+                f&quot;check stderr for traceback&quot;
+            )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_chess_corpus.py -v
+</code></pre>
+<p>Expected: 10 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/corpus.py tests/test_chess_corpus.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add generate_corpus orchestrator: spawn N workers, partition work
+
+Spawn context (CUDA-safe, also avoids fork issues on macOS). Games are
+partitioned via integer division + remainder so the total never deviates
+from target_games. Each worker is fully independent — no IPC, no shared
+state, no queues. Orchestrator just joins and propagates non-zero exit
+codes as RuntimeError.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-6-cli-script-for-corpus-generation">Task 6: CLI script for corpus generation</h2>
+<p><strong>Files:</strong>
+- Create: <code>scripts/generate_chess_corpus.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create the CLI script</strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/scripts/generate_chess_corpus.py</code>:</p>
+<pre><code class="language-python">#!/usr/bin/env python3
+&quot;&quot;&quot;Generate a Stockfish-vs-Stockfish corpus for supervised pre-training.
+
+Usage:
+    python3 scripts/generate_chess_corpus.py \\
+        --num-games 50000 \\
+        --num-workers 10 \\
+        --output data/chess_corpus/ \\
+        --time-per-move 0.05 \\
+        --seed 42
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import argparse
+import time
+from pathlib import Path
+
+from alphazero.corpus import generate_corpus
+
+
+def main() -&gt; int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(&quot;--num-games&quot;, type=int, required=True,
+                        help=&quot;Total games to generate across all workers&quot;)
+    parser.add_argument(&quot;--num-workers&quot;, type=int, default=10,
+                        help=&quot;Number of parallel worker processes (default: 10)&quot;)
+    parser.add_argument(&quot;--output&quot;, type=Path, default=Path(&quot;data/chess_corpus&quot;),
+                        help=&quot;Output directory for shard files&quot;)
+    parser.add_argument(&quot;--time-per-move&quot;, type=float, default=0.05,
+                        help=&quot;Stockfish thinking time per move in seconds (default: 0.05)&quot;)
+    parser.add_argument(&quot;--seed&quot;, type=int, default=42,
+                        help=&quot;Base RNG seed; per-worker seed = base + worker_id&quot;)
+    parser.add_argument(&quot;--shard-size&quot;, type=int, default=10_000,
+                        help=&quot;Positions per shard file (default: 10000)&quot;)
+    parser.add_argument(&quot;--stockfish-path&quot;, type=str, default=&quot;stockfish&quot;,
+                        help=&quot;Path to stockfish binary (default: 'stockfish' on PATH)&quot;)
+    args = parser.parse_args()
+
+    start = time.time()
+    print(
+        f&quot;Generating {args.num_games} games with {args.num_workers} workers; &quot;
+        f&quot;time_per_move={args.time_per_move}s; output={args.output}&quot;,
+        flush=True,
+    )
+
+    generate_corpus(
+        target_games=args.num_games,
+        num_workers=args.num_workers,
+        output_dir=args.output,
+        time_per_move=args.time_per_move,
+        seed=args.seed,
+        shard_size=args.shard_size,
+        stockfish_path=args.stockfish_path,
+    )
+
+    elapsed = time.time() - start
+    shards = sorted(args.output.glob(&quot;shard_*.npz&quot;))
+    print(
+        f&quot;Done. {len(shards)} shards written in {elapsed:.1f}s &quot;
+        f&quot;({elapsed/60:.1f} min).&quot;,
+        flush=True,
+    )
+    return 0
+
+
+if __name__ == &quot;__main__&quot;:
+    raise SystemExit(main())
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Make it executable</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; chmod +x scripts/generate_chess_corpus.py
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 3: Smoke-test it with a tiny corpus</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+rm -rf /tmp/test_corpus
+python3 scripts/generate_chess_corpus.py --num-games 4 --num-workers 2 --output /tmp/test_corpus --time-per-move 0.01
+ls /tmp/test_corpus/
+</code></pre>
+<p>Expected: prints <code>Done. N shards written...</code> and <code>ls</code> shows at least 2 shard files (<code>shard_w0_*.npz</code>, <code>shard_w1_*.npz</code>).</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add scripts/generate_chess_corpus.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add scripts/generate_chess_corpus.py: CLI entry point for corpus gen
+
+Wraps corpus.generate_corpus with argparse. Defaults tuned for M4 Pro
+(10 workers, 0.05s/move). Prints summary line at end with shard count
+and wall-clock for monitoring overnight runs.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-7-pretrainconfig-dataclass-toml-loader">Task 7: PretrainConfig dataclass + TOML loader</h2>
+<p><strong>Files:</strong>
+- Create: <code>src/alphazero/supervised.py</code>
+- Create: <code>tests/test_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write failing tests</strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/tests/test_supervised.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Tests for supervised pre-training.&quot;&quot;&quot;
+from __future__ import annotations
+
+from pathlib import Path
+
+import pytest
+
+
+def test_pretrain_config_defaults():
+    &quot;&quot;&quot;PretrainConfig has expected default values.&quot;&quot;&quot;
+    from alphazero.supervised import PretrainConfig
+
+    cfg = PretrainConfig(n_blocks=4, n_channels=8)
+    assert cfg.n_blocks == 4
+    assert cfg.n_channels == 8
+    assert cfg.num_epochs == 3
+    assert cfg.batch_size == 256
+    assert cfg.peak_lr == 5e-4
+    assert cfg.end_lr == 5e-5
+    assert cfg.warmup_steps == 500
+    assert cfg.weight_decay == 1e-4
+    assert cfg.holdout_fraction == 0.05
+    assert cfg.early_stopping_patience == 2
+    assert cfg.corpus_dir == &quot;data/chess_corpus&quot;
+    assert cfg.output_checkpoint == &quot;pretrained.pt&quot;
+    assert cfg.log_dir == &quot;runs_pretrain&quot;
+    assert cfg.seed == 42
+    assert cfg.device == &quot;auto&quot;
+
+
+def test_pretrain_config_loads_from_toml(tmp_path):
+    &quot;&quot;&quot;load_pretrain_config reads a TOML file and constructs a PretrainConfig.&quot;&quot;&quot;
+    from alphazero.supervised import load_pretrain_config
+
+    toml_path = tmp_path / &quot;test.toml&quot;
+    toml_path.write_text(&quot;&quot;&quot;
+n_blocks = 10
+n_channels = 64
+num_epochs = 5
+batch_size = 128
+peak_lr = 1e-3
+&quot;&quot;&quot;)
+    cfg = load_pretrain_config(toml_path)
+    assert cfg.n_blocks == 10
+    assert cfg.n_channels == 64
+    assert cfg.num_epochs == 5
+    assert cfg.batch_size == 128
+    assert cfg.peak_lr == 1e-3
+    # Defaults preserved for unspecified fields
+    assert cfg.warmup_steps == 500
+
+
+def test_pretrain_config_rejects_unknown_keys(tmp_path):
+    &quot;&quot;&quot;Unknown TOML keys raise ValueError (typo protection).&quot;&quot;&quot;
+    from alphazero.supervised import load_pretrain_config
+
+    toml_path = tmp_path / &quot;bad.toml&quot;
+    toml_path.write_text(&quot;&quot;&quot;
+n_blocks = 4
+n_channels = 8
+typo_field = 999
+&quot;&quot;&quot;)
+    with pytest.raises(ValueError, match=&quot;Unknown&quot;):
+        load_pretrain_config(toml_path)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: ImportError on <code>alphazero.supervised</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>src/alphazero/supervised.py</code></strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/src/alphazero/supervised.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;Supervised pre-training of AlphaZeroNet on a Stockfish-generated corpus.
+
+Pipeline:
+    PretrainConfig (loaded from TOML)
+    ├─ load_corpus() — discover shards, split into train/val
+    ├─ iter_batches() — stream batches from shards
+    ├─ lr_schedule() — linear warmup + cosine decay
+    ├─ pretrain_supervised() — main loop with early stopping
+    └─ save checkpoint in Trainer-compatible format
+&quot;&quot;&quot;
+from __future__ import annotations
+
+import tomllib
+from dataclasses import dataclass, fields
+from pathlib import Path
+
+
+@dataclass(frozen=True)
+class PretrainConfig:
+    &quot;&quot;&quot;Configuration for supervised pre-training.
+
+    Mirrors TrainingConfig style (frozen dataclass, TOML-loadable) but
+    holds only the knobs needed for pre-training. AZ refinement uses
+    TrainingConfig + chess-refine.toml separately.
+    &quot;&quot;&quot;
+    # Network — must match what the refinement phase will load
+    n_blocks: int
+    n_channels: int
+
+    # Training
+    num_epochs: int = 3
+    batch_size: int = 256
+    peak_lr: float = 5e-4
+    end_lr: float = 5e-5
+    warmup_steps: int = 500
+    weight_decay: float = 1e-4
+
+    # Validation
+    holdout_fraction: float = 0.05
+    early_stopping_patience: int = 2
+
+    # I/O
+    corpus_dir: str = &quot;data/chess_corpus&quot;
+    output_checkpoint: str = &quot;pretrained.pt&quot;
+    log_dir: str = &quot;runs_pretrain&quot;
+
+    # Misc
+    seed: int = 42
+    device: str = &quot;auto&quot;
+
+
+def load_pretrain_config(path: Path | str) -&gt; PretrainConfig:
+    &quot;&quot;&quot;Load PretrainConfig from a TOML file. Unknown keys raise ValueError.&quot;&quot;&quot;
+    data = tomllib.loads(Path(path).read_text())
+    field_names = {f.name for f in fields(PretrainConfig)}
+    unknown = set(data) - field_names
+    if unknown:
+        raise ValueError(f&quot;Unknown pretrain config keys: {sorted(unknown)}&quot;)
+    return PretrainConfig(**data)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: 3 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/supervised.py tests/test_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add PretrainConfig + load_pretrain_config
+
+Frozen dataclass mirroring TrainingConfig style. Holds only the
+pretraining-specific knobs (epochs, lr schedule, holdout, early
+stopping). Refinement uses TrainingConfig separately with
+chess-refine.toml — keeping the two config types disjoint avoids
+forcing pretrain-only fields into TrainingConfig.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-8-load_corpus-iter_batches">Task 8: load_corpus + iter_batches</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/supervised.py</code>
+- Modify: <code>tests/test_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_supervised.py</code>:</p>
+<pre><code class="language-python">import numpy as np
+import torch
+
+
+def _write_fake_shard(path: Path, n_positions: int, seed: int):
+    &quot;&quot;&quot;Helper: write a fake shard with random data of the right shapes/dtypes.&quot;&quot;&quot;
+    rng = np.random.default_rng(seed)
+    np.savez_compressed(
+        path,
+        states=rng.integers(0, 2, size=(n_positions, 20, 8, 8), dtype=np.int8),
+        move_indices=rng.integers(0, 4672, size=(n_positions,), dtype=np.int32),
+        outcomes=rng.choice([-1, 0, 1], size=(n_positions,)).astype(np.int8),
+    )
+
+
+def test_load_corpus_splits_shards_into_train_and_val(tmp_path):
+    &quot;&quot;&quot;load_corpus discovers all shards and reserves holdout_fraction for val.&quot;&quot;&quot;
+    from alphazero.supervised import load_corpus
+
+    # Create 20 fake shards
+    for i in range(20):
+        _write_fake_shard(tmp_path / f&quot;shard_w0_s{i:04d}.npz&quot;, 100, seed=i)
+
+    train, val = load_corpus(tmp_path, holdout_fraction=0.1)
+    assert len(train) == 18
+    assert len(val) == 2
+    # Train shards come before val shards (by sorted filename)
+    assert all(t.name &lt; v.name for t in train for v in val)
+
+
+def test_load_corpus_minimum_one_val_shard(tmp_path):
+    &quot;&quot;&quot;Even with a tiny corpus, at least 1 shard is held out.&quot;&quot;&quot;
+    from alphazero.supervised import load_corpus
+
+    for i in range(3):
+        _write_fake_shard(tmp_path / f&quot;shard_w0_s{i:04d}.npz&quot;, 100, seed=i)
+
+    train, val = load_corpus(tmp_path, holdout_fraction=0.01)   # would round to 0
+    assert len(val) &gt;= 1
+
+
+def test_iter_batches_yields_correct_shape_and_dtype(tmp_path):
+    &quot;&quot;&quot;iter_batches reads shards and yields (states, moves, z) tensors.&quot;&quot;&quot;
+    from alphazero.supervised import iter_batches
+
+    _write_fake_shard(tmp_path / &quot;shard_w0_s0000.npz&quot;, 100, seed=0)
+    _write_fake_shard(tmp_path / &quot;shard_w0_s0001.npz&quot;, 100, seed=1)
+    shards = sorted(tmp_path.glob(&quot;*.npz&quot;))
+
+    batches = list(iter_batches(shards, batch_size=32, device=torch.device(&quot;cpu&quot;), shuffle=False))
+    # 200 positions / 32 = 6 full + 1 partial = 7 batches
+    assert len(batches) == 7
+
+    for states, moves, zs in batches[:6]:
+        assert states.shape == (32, 20, 8, 8)
+        assert states.dtype == torch.float32
+        assert moves.shape == (32,)
+        assert moves.dtype == torch.int64
+        assert zs.shape == (32,)
+        assert zs.dtype == torch.float32
+    # Last batch has 200 - 192 = 8 positions
+    last_states, last_moves, last_zs = batches[-1]
+    assert last_states.shape == (8, 20, 8, 8)
+
+
+def test_iter_batches_shuffles_when_requested(tmp_path):
+    &quot;&quot;&quot;shuffle=True produces a different order than shuffle=False.&quot;&quot;&quot;
+    from alphazero.supervised import iter_batches
+
+    _write_fake_shard(tmp_path / &quot;shard_w0_s0000.npz&quot;, 100, seed=0)
+    shards = sorted(tmp_path.glob(&quot;*.npz&quot;))
+
+    torch.manual_seed(42)
+    no_shuffle = next(iter(iter_batches(shards, batch_size=100, device=torch.device(&quot;cpu&quot;), shuffle=False)))
+    torch.manual_seed(42)
+    yes_shuffle = next(iter(iter_batches(shards, batch_size=100, device=torch.device(&quot;cpu&quot;), shuffle=True)))
+
+    # Move indices should differ (with overwhelming probability)
+    assert not torch.equal(no_shuffle[1], yes_shuffle[1])
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: ImportError on <code>load_corpus</code>, <code>iter_batches</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>load_corpus</code> and <code>iter_batches</code> in <code>src/alphazero/supervised.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/supervised.py</code>:</p>
+<pre><code class="language-python">import numpy as np
+import torch
+from typing import Iterator
+
+
+def load_corpus(
+    shard_dir: Path | str, holdout_fraction: float
+) -&gt; tuple[list[Path], list[Path]]:
+    &quot;&quot;&quot;Discover all shards in shard_dir and split into train/val.
+
+    Returns (train_shards, val_shards) — both sorted by filename. The
+    LAST holdout_fraction of shards (by sorted order) becomes val.
+    Always reserves at least 1 shard for val.
+    &quot;&quot;&quot;
+    shard_dir = Path(shard_dir)
+    all_shards = sorted(shard_dir.glob(&quot;shard_*.npz&quot;))
+    if not all_shards:
+        raise ValueError(f&quot;No shards found in {shard_dir}&quot;)
+    n_val = max(1, int(len(all_shards) * holdout_fraction))
+    return all_shards[:-n_val], all_shards[-n_val:]
+
+
+def iter_batches(
+    shards: list[Path],
+    batch_size: int,
+    device: torch.device,
+    shuffle: bool,
+) -&gt; Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    &quot;&quot;&quot;Yield (states, move_indices, outcomes) batches from a list of shards.
+
+    Loads one shard at a time, optionally shuffles within the shard,
+    then yields batches. The final batch may be smaller than batch_size.
+
+    Returns tensors on `device` with dtypes:
+        states: float32 (B, 20, 8, 8)
+        move_indices: int64 (B,)
+        outcomes: float32 (B,)
+    &quot;&quot;&quot;
+    for shard_path in shards:
+        data = np.load(shard_path)
+        states = data[&quot;states&quot;]               # int8 (N, 20, 8, 8)
+        move_indices = data[&quot;move_indices&quot;]   # int32 (N,)
+        outcomes = data[&quot;outcomes&quot;]           # int8 (N,)
+        n = states.shape[0]
+
+        order = torch.randperm(n).numpy() if shuffle else np.arange(n)
+
+        for start in range(0, n, batch_size):
+            idx = order[start : start + batch_size]
+            s = torch.from_numpy(states[idx]).to(torch.float32).to(device)
+            m = torch.from_numpy(move_indices[idx]).to(torch.int64).to(device)
+            z = torch.from_numpy(outcomes[idx]).to(torch.float32).to(device)
+            yield s, m, z
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: 7 tests pass (3 from Task 7 + 4 new).</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/supervised.py tests/test_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add load_corpus + iter_batches for shard streaming
+
+load_corpus splits sorted shard filenames into train/val using
+holdout_fraction. iter_batches reads one shard at a time, optionally
+shuffles within the shard, casts states to float32, and yields batches
+on the target device. Streaming (vs loading all shards at once) keeps
+memory bounded to ~13MB per shard regardless of corpus size.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-9-lr_schedule-warmup-cosine-decay">Task 9: lr_schedule (warmup + cosine decay)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/supervised.py</code>
+- Modify: <code>tests/test_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing tests</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_supervised.py</code>:</p>
+<pre><code class="language-python">import math
+
+
+def test_lr_schedule_warmup_ramps_linearly_from_zero():
+    &quot;&quot;&quot;During warmup, lr ramps linearly from ~0 to peak_lr.&quot;&quot;&quot;
+    from alphazero.supervised import lr_schedule
+
+    # warmup over 100 steps, total 1000 steps
+    lr_at_0 = lr_schedule(step=0, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    lr_at_50 = lr_schedule(step=50, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    lr_at_99 = lr_schedule(step=99, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+
+    assert lr_at_0 == pytest.approx(1e-5, rel=0.01)     # step+1=1, 1/100 of peak
+    assert lr_at_50 == pytest.approx(0.51 * 1e-3, rel=0.01)
+    assert lr_at_99 == pytest.approx(1.0 * 1e-3, rel=0.01)
+
+
+def test_lr_schedule_after_warmup_starts_at_peak():
+    &quot;&quot;&quot;At step == warmup_steps, lr equals peak_lr.&quot;&quot;&quot;
+    from alphazero.supervised import lr_schedule
+
+    lr = lr_schedule(step=100, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    assert lr == pytest.approx(1e-3, rel=0.01)
+
+
+def test_lr_schedule_at_total_steps_reaches_end_lr():
+    &quot;&quot;&quot;At step == total_steps, lr equals end_lr (cosine has fully decayed).&quot;&quot;&quot;
+    from alphazero.supervised import lr_schedule
+
+    lr = lr_schedule(step=1000, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+    assert lr == pytest.approx(1e-4, rel=0.01)
+
+
+def test_lr_schedule_monotonic_decay_after_warmup():
+    &quot;&quot;&quot;After warmup, lr only decreases.&quot;&quot;&quot;
+    from alphazero.supervised import lr_schedule
+
+    lrs = [
+        lr_schedule(step=s, warmup_steps=100, total_steps=1000, peak_lr=1e-3, end_lr=1e-4)
+        for s in range(100, 1001, 50)
+    ]
+    for i in range(len(lrs) - 1):
+        assert lrs[i] &gt;= lrs[i + 1] - 1e-9   # allow tiny float error
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: ImportError on <code>lr_schedule</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>lr_schedule</code> in <code>src/alphazero/supervised.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/supervised.py</code>:</p>
+<pre><code class="language-python">import math
+
+
+def lr_schedule(
+    *,
+    step: int,
+    warmup_steps: int,
+    total_steps: int,
+    peak_lr: float,
+    end_lr: float,
+) -&gt; float:
+    &quot;&quot;&quot;Linear warmup over warmup_steps, then cosine decay to end_lr at total_steps.
+
+    During warmup (step &lt; warmup_steps):
+        lr = peak_lr * (step + 1) / warmup_steps
+
+    After warmup (step &gt;= warmup_steps):
+        progress = (step - warmup_steps) / (total_steps - warmup_steps)
+        lr = end_lr + 0.5 * (peak_lr - end_lr) * (1 + cos(π * progress))
+    &quot;&quot;&quot;
+    if step &lt; warmup_steps:
+        return peak_lr * (step + 1) / warmup_steps
+    progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
+    progress = min(progress, 1.0)
+    return end_lr + 0.5 * (peak_lr - end_lr) * (1 + math.cos(math.pi * progress))
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: 11 tests pass (7 from prior + 4 new).</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/supervised.py tests/test_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add lr_schedule: linear warmup + cosine decay
+
+Standard schedule for pre-training larger networks. Warmup prevents
+Adam's noisy first-step gradient estimates from blowing up the lr ×
+random-gradient product. Cosine decay smoothly reduces lr toward end_lr
+in the late phase where the optimizer is fine-tuning around a minimum.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-10-pretrain-step-epoch-runner">Task 10: Pretrain step + epoch runner</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/supervised.py</code>
+- Modify: <code>tests/test_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_supervised.py</code>:</p>
+<pre><code class="language-python">def test_pretrain_step_returns_losses_and_decreases_loss():
+    &quot;&quot;&quot;One pretrain step on a tiny net + tiny batch should produce a finite loss
+    and reduce the loss when run twice on the same batch (overfitting check).&quot;&quot;&quot;
+    from alphazero.network import AlphaZeroNet
+    from alphazero.supervised import pretrain_step
+
+    net = AlphaZeroNet(input_shape=(20, 8, 8), action_size=4672, n_blocks=1, n_channels=8)
+    net.train()
+    optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+
+    states = torch.zeros((4, 20, 8, 8), dtype=torch.float32)
+    moves = torch.tensor([0, 1, 2, 3], dtype=torch.int64)
+    zs = torch.tensor([1.0, -1.0, 0.0, 1.0], dtype=torch.float32)
+
+    total_1, policy_1, value_1 = pretrain_step(net, (states, moves, zs), optimizer, lr=1e-3)
+    total_2, policy_2, value_2 = pretrain_step(net, (states, moves, zs), optimizer, lr=1e-3)
+
+    assert all(math.isfinite(x) for x in (total_1, policy_1, value_1, total_2, policy_2, value_2))
+    # On the same batch, loss should decrease (model overfits trivially)
+    assert total_2 &lt; total_1
+
+
+def test_compute_val_loss_runs_without_grad(tmp_path):
+    &quot;&quot;&quot;compute_val_loss should evaluate a model on a corpus without producing gradients.&quot;&quot;&quot;
+    from alphazero.network import AlphaZeroNet
+    from alphazero.supervised import compute_val_loss
+
+    _write_fake_shard(tmp_path / &quot;shard_w0_s0000.npz&quot;, 64, seed=0)
+    shards = [tmp_path / &quot;shard_w0_s0000.npz&quot;]
+
+    net = AlphaZeroNet(input_shape=(20, 8, 8), action_size=4672, n_blocks=1, n_channels=8)
+    net.eval()
+
+    val_loss = compute_val_loss(net, shards, batch_size=16, device=torch.device(&quot;cpu&quot;))
+    assert math.isfinite(val_loss)
+    assert val_loss &gt; 0
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: ImportError on <code>pretrain_step</code>, <code>compute_val_loss</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement in <code>src/alphazero/supervised.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/supervised.py</code>:</p>
+<pre><code class="language-python">import torch.nn.functional as F
+
+from .network import AlphaZeroNet
+
+
+def pretrain_step(
+    net: AlphaZeroNet,
+    batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    optimizer: torch.optim.Optimizer,
+    lr: float,
+) -&gt; tuple[float, float, float]:
+    &quot;&quot;&quot;One SGD step on (states, move_indices, outcomes). Returns scalar losses.
+
+    Policy loss = cross-entropy(logits, move_indices) — the target is the
+    one-hot of Stockfish's chosen move (passed as integer index).
+    Value loss = MSE(predicted_value, outcomes) — outcomes are the game
+    result from each position's mover POV.
+    &quot;&quot;&quot;
+    states, move_indices, outcomes = batch
+    for pg in optimizer.param_groups:
+        pg[&quot;lr&quot;] = lr
+
+    optimizer.zero_grad()
+    logits, values = net(states)
+    policy_loss = F.cross_entropy(logits, move_indices)
+    value_loss = F.mse_loss(values, outcomes)
+    total = policy_loss + value_loss
+    total.backward()
+    optimizer.step()
+    return total.item(), policy_loss.item(), value_loss.item()
+
+
+def compute_val_loss(
+    net: AlphaZeroNet,
+    val_shards: list[Path],
+    batch_size: int,
+    device: torch.device,
+) -&gt; float:
+    &quot;&quot;&quot;Compute average (policy + value) loss over val_shards without gradients.&quot;&quot;&quot;
+    net.eval()
+    total_loss = 0.0
+    total_samples = 0
+    with torch.inference_mode():
+        for states, move_indices, outcomes in iter_batches(
+            val_shards, batch_size=batch_size, device=device, shuffle=False
+        ):
+            logits, values = net(states)
+            policy_loss = F.cross_entropy(logits, move_indices, reduction=&quot;sum&quot;)
+            value_loss = F.mse_loss(values, outcomes, reduction=&quot;sum&quot;)
+            total_loss += (policy_loss + value_loss).item()
+            total_samples += states.shape[0]
+    net.train()
+    if total_samples == 0:
+        return float(&quot;nan&quot;)
+    return total_loss / total_samples
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: 13 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/supervised.py tests/test_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add pretrain_step + compute_val_loss
+
+pretrain_step does one SGD update with the same loss structure as
+Trainer._train_step (CE policy + MSE value, equal weight) — but with
+hard one-hot policy targets (Stockfish's chosen move) instead of MCTS
+visit distribution. Per-step lr is set from the schedule by the caller.
+
+compute_val_loss runs the same loss in inference mode without gradient
+updates — used for early stopping. Returns per-sample average so runs
+with different val sizes are comparable.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-11-pretrain_supervised-main-loop-early-stopping-checkpoint">Task 11: pretrain_supervised main loop (early stopping + checkpoint)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/supervised.py</code>
+- Modify: <code>tests/test_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_supervised.py</code>:</p>
+<pre><code class="language-python">def test_pretrain_supervised_writes_checkpoint(tmp_path):
+    &quot;&quot;&quot;End-to-end on a tiny corpus: pretrain runs and writes a checkpoint.&quot;&quot;&quot;
+    from dataclasses import replace
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+
+    # Make a tiny corpus
+    corpus_dir = tmp_path / &quot;corpus&quot;
+    corpus_dir.mkdir()
+    for i in range(3):
+        _write_fake_shard(corpus_dir / f&quot;shard_w0_s{i:04d}.npz&quot;, 64, seed=i)
+
+    ckpt_path = tmp_path / &quot;test_pretrained.pt&quot;
+
+    cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=1,
+        batch_size=32,
+        warmup_steps=2,
+        holdout_fraction=0.34,    # 1 of 3 shards → val
+        early_stopping_patience=10,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(ckpt_path),
+        log_dir=str(tmp_path / &quot;runs&quot;),
+        device=&quot;cpu&quot;,
+    )
+
+    pretrain_supervised(cfg)
+
+    assert ckpt_path.exists()
+    # Verify checkpoint format matches what Trainer.load_from_checkpoint expects
+    ckpt = torch.load(ckpt_path, map_location=&quot;cpu&quot;, weights_only=False)
+    assert set(ckpt.keys()) &gt;= {&quot;iteration&quot;, &quot;config&quot;, &quot;best_net&quot;, &quot;candidate_net&quot;, &quot;optimizer&quot;}
+    assert ckpt[&quot;iteration&quot;] == 0
+
+
+def test_pretrain_supervised_early_stops_when_val_loss_diverges(tmp_path, monkeypatch):
+    &quot;&quot;&quot;If val_loss never improves, early stopping triggers.&quot;&quot;&quot;
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+    import alphazero.supervised as sup
+
+    corpus_dir = tmp_path / &quot;corpus&quot;
+    corpus_dir.mkdir()
+    for i in range(3):
+        _write_fake_shard(corpus_dir / f&quot;shard_w0_s{i:04d}.npz&quot;, 64, seed=i)
+
+    # Force compute_val_loss to return increasing values → triggers patience
+    counter = [0.5]
+    def fake_val_loss(*args, **kwargs):
+        counter[0] += 1.0
+        return counter[0]
+    monkeypatch.setattr(sup, &quot;compute_val_loss&quot;, fake_val_loss)
+
+    cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=10,
+        batch_size=32,
+        warmup_steps=2,
+        holdout_fraction=0.34,
+        early_stopping_patience=2,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(tmp_path / &quot;p.pt&quot;),
+        log_dir=str(tmp_path / &quot;runs&quot;),
+        device=&quot;cpu&quot;,
+    )
+    pretrain_supervised(cfg)
+
+    # Even though num_epochs=10, training stops within 3 epochs due to patience=2
+    # (first call sets best_val_loss, then 2 worsening calls trip patience)
+    assert counter[0] &lt;= 4.0   # at most 3 epochs ran
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: ImportError on <code>pretrain_supervised</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Implement <code>pretrain_supervised</code> in <code>src/alphazero/supervised.py</code></strong></li>
+</ul>
+<p>Append to <code>/Users/vsowrira/git/alphazero/src/alphazero/supervised.py</code>:</p>
+<pre><code class="language-python">import copy
+import time
+from dataclasses import asdict
+
+
+def _resolve_device(device_str: str) -&gt; torch.device:
+    &quot;&quot;&quot;Mirrors Trainer._resolve_device for consistency.&quot;&quot;&quot;
+    if device_str == &quot;auto&quot;:
+        if torch.backends.mps.is_available():
+            return torch.device(&quot;mps&quot;)
+        if torch.cuda.is_available():
+            return torch.device(&quot;cuda&quot;)
+        return torch.device(&quot;cpu&quot;)
+    return torch.device(device_str)
+
+
+def pretrain_supervised(config: PretrainConfig) -&gt; None:
+    &quot;&quot;&quot;Main pre-training loop.
+
+    Loads corpus, trains for up to config.num_epochs with early stopping
+    on val loss, saves checkpoint in Trainer-compatible format.
+    &quot;&quot;&quot;
+    torch.manual_seed(config.seed)
+    device = _resolve_device(config.device)
+
+    train_shards, val_shards = load_corpus(config.corpus_dir, config.holdout_fraction)
+    print(
+        f&quot;Pre-training: {len(train_shards)} train shards, &quot;
+        f&quot;{len(val_shards)} val shards on device={device}&quot;,
+        flush=True,
+    )
+
+    # Estimate total steps for the lr schedule (one-pass estimate; not exact when
+    # shards have variable sizes, but close enough for the cosine schedule)
+    sample_shard = np.load(train_shards[0])
+    positions_per_shard = sample_shard[&quot;states&quot;].shape[0]
+    total_train_positions = positions_per_shard * len(train_shards)
+    steps_per_epoch = max(1, total_train_positions // config.batch_size)
+    total_steps = steps_per_epoch * config.num_epochs
+
+    net = AlphaZeroNet(
+        input_shape=(20, 8, 8),
+        action_size=4672,
+        n_blocks=config.n_blocks,
+        n_channels=config.n_channels,
+    ).to(device)
+    optimizer = torch.optim.AdamW(
+        net.parameters(), lr=config.peak_lr, weight_decay=config.weight_decay
+    )
+
+    best_val_loss = float(&quot;inf&quot;)
+    patience_counter = 0
+    global_step = 0
+
+    for epoch in range(1, config.num_epochs + 1):
+        net.train()
+        epoch_start = time.time()
+        epoch_loss_sum = 0.0
+        epoch_samples = 0
+
+        for batch in iter_batches(train_shards, config.batch_size, device, shuffle=True):
+            lr = lr_schedule(
+                step=global_step,
+                warmup_steps=config.warmup_steps,
+                total_steps=total_steps,
+                peak_lr=config.peak_lr,
+                end_lr=config.end_lr,
+            )
+            total_loss, _, _ = pretrain_step(net, batch, optimizer, lr=lr)
+            epoch_loss_sum += total_loss * batch[0].shape[0]
+            epoch_samples += batch[0].shape[0]
+            global_step += 1
+
+        train_loss = epoch_loss_sum / max(1, epoch_samples)
+        val_loss = compute_val_loss(net, val_shards, config.batch_size, device)
+        elapsed = time.time() - epoch_start
+
+        print(
+            f&quot;  epoch {epoch}/{config.num_epochs}: &quot;
+            f&quot;train_loss={train_loss:.4f} val_loss={val_loss:.4f} &quot;
+            f&quot;lr={lr:.2e} elapsed={elapsed:.1f}s&quot;,
+            flush=True,
+        )
+
+        if val_loss &lt; best_val_loss:
+            best_val_loss = val_loss
+            patience_counter = 0
+            _save_pretrained_checkpoint(net, optimizer, config, epoch)
+        else:
+            patience_counter += 1
+            if patience_counter &gt;= config.early_stopping_patience:
+                print(
+                    f&quot;  early stopping: val_loss did not improve for &quot;
+                    f&quot;{patience_counter} epochs (best={best_val_loss:.4f})&quot;,
+                    flush=True,
+                )
+                break
+
+    print(f&quot;Done. best_val_loss={best_val_loss:.4f}&quot;, flush=True)
+
+
+def _save_pretrained_checkpoint(
+    net: AlphaZeroNet,
+    optimizer: torch.optim.Optimizer,
+    config: PretrainConfig,
+    epoch: int,
+) -&gt; None:
+    &quot;&quot;&quot;Save checkpoint in Trainer-compatible format.
+
+    Trainer expects keys: iteration, config, best_net, candidate_net, optimizer.
+    We populate both best_net and candidate_net with the pretrained weights so
+    that --resume-from loads them as the starting best_net.
+    &quot;&quot;&quot;
+    output = Path(config.output_checkpoint)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    sd = net.state_dict()
+    torch.save({
+        &quot;iteration&quot;: 0,
+        &quot;config&quot;: asdict(config),
+        &quot;best_net&quot;: sd,
+        &quot;candidate_net&quot;: copy.deepcopy(sd),
+        &quot;optimizer&quot;: optimizer.state_dict(),
+        &quot;_pretrain_epoch&quot;: epoch,
+    }, output)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py -v
+</code></pre>
+<p>Expected: 15 tests pass.</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/supervised.py tests/test_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add pretrain_supervised main loop with early stopping
+
+Trains for up to config.num_epochs, evaluates val_loss after each
+epoch, saves checkpoint only when val_loss improves, and stops early
+when val_loss stops improving for config.early_stopping_patience
+epochs. Saves checkpoints in Trainer-compatible format (keys:
+iteration, config, best_net, candidate_net, optimizer) so the AZ
+refinement phase can load via --resume-from without modification.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-12-cli-pretrain-subcommand">Task 12: CLI <code>pretrain</code> subcommand</h2>
+<p><strong>Files:</strong>
+- Modify: <code>src/alphazero/cli.py</code>
+- Modify: <code>tests/test_cli.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_cli.py</code>:</p>
+<pre><code class="language-python">def test_cmd_pretrain_calls_pretrain_supervised(tmp_path, monkeypatch):
+    &quot;&quot;&quot;Regression test: `pretrain` subcommand wires config + calls pretrain_supervised.&quot;&quot;&quot;
+    import argparse
+    from unittest.mock import patch
+    from alphazero.cli import _cmd_pretrain
+
+    monkeypatch.chdir(tmp_path)
+
+    # Write a minimal pretrain config
+    cfg_path = tmp_path / &quot;p.toml&quot;
+    cfg_path.write_text(&quot;&quot;&quot;
+n_blocks = 1
+n_channels = 8
+num_epochs = 1
+batch_size = 32
+corpus_dir = &quot;fake_corpus&quot;
+output_checkpoint = &quot;pretrained.pt&quot;
+log_dir = &quot;runs&quot;
+device = &quot;cpu&quot;
+&quot;&quot;&quot;)
+
+    captured = {}
+    def fake_pretrain(config):
+        captured[&quot;config&quot;] = config
+
+    with patch(&quot;alphazero.supervised.pretrain_supervised&quot;, fake_pretrain):
+        args = argparse.Namespace(config=cfg_path)
+        exit_code = _cmd_pretrain(args)
+
+    assert exit_code == 0
+    assert captured[&quot;config&quot;].n_blocks == 1
+    assert captured[&quot;config&quot;].batch_size == 32
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify failure</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_cli.py::test_cmd_pretrain_calls_pretrain_supervised -v
+</code></pre>
+<p>Expected: ImportError on <code>_cmd_pretrain</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Add <code>_cmd_pretrain</code> to <code>src/alphazero/cli.py</code></strong></li>
+</ul>
+<p>Edit <code>/Users/vsowrira/git/alphazero/src/alphazero/cli.py</code>. Find the end of <code>_cmd_play</code> (around line 208 — search for <code>return 0</code> after the final print statement of the play command). Add this new function AFTER <code>_cmd_play</code>:</p>
+<pre><code class="language-python">def _cmd_pretrain(args: argparse.Namespace) -&gt; int:
+    &quot;&quot;&quot;Run supervised pre-training using a PretrainConfig from TOML.&quot;&quot;&quot;
+    from .supervised import load_pretrain_config, pretrain_supervised
+
+    config = load_pretrain_config(args.config)
+    pretrain_supervised(config)
+    return 0
+</code></pre>
+<p>Then find the parser setup (around line 213 — search for <code>subs = parser.add_subparsers</code>). After the existing <code>p_play.set_defaults(func=_cmd_play)</code> line, add:</p>
+<pre><code class="language-python">    p_pretrain = subs.add_parser(&quot;pretrain&quot;, help=&quot;Supervised pre-training on a corpus&quot;)
+    p_pretrain.add_argument(&quot;--config&quot;, type=Path, required=True,
+                            help=&quot;Path to a chess-pretrain.toml file&quot;)
+    p_pretrain.set_defaults(func=_cmd_pretrain)
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 4: Verify tests pass</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_cli.py -v
+</code></pre>
+<p>Expected: all CLI tests pass (existing + new test).</p>
+<ul>
+<li>[ ] <strong>Step 5: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add src/alphazero/cli.py tests/test_cli.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add `pretrain` CLI subcommand
+
+python -m alphazero pretrain --config configs/chess-pretrain.toml
+Loads a PretrainConfig from TOML and runs pretrain_supervised. Mirrors
+the existing train/eval/play subcommand pattern. Regression test
+follows the same monkeypatch-on-the-implementation approach used for
+the chess eval-opponent wiring.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-13-configschess-pretraintoml">Task 13: configs/chess-pretrain.toml</h2>
+<p><strong>Files:</strong>
+- Create: <code>configs/chess-pretrain.toml</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create the config</strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/configs/chess-pretrain.toml</code>:</p>
+<pre><code class="language-toml"># Chess supervised pre-training config — Sub-project 3b Phase 2.
+# Run with: python -m alphazero pretrain --config configs/chess-pretrain.toml
+# Reads corpus from data/chess_corpus/ (produced by scripts/generate_chess_corpus.py).
+# Writes pretrained.pt for use by AZ refinement (--resume-from pretrained.pt).
+
+# Network — must match configs/chess-refine.toml so --resume-from works
+n_blocks = 15
+n_channels = 192
+
+# Training
+num_epochs = 3
+batch_size = 256
+peak_lr = 5e-4
+end_lr = 5e-5
+warmup_steps = 500
+weight_decay = 1e-4
+
+# Validation + early stopping
+holdout_fraction = 0.05
+early_stopping_patience = 2
+
+# I/O
+corpus_dir = &quot;data/chess_corpus&quot;
+output_checkpoint = &quot;pretrained.pt&quot;
+log_dir = &quot;runs_pretrain&quot;
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the config loads</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -c &quot;from alphazero.supervised import load_pretrain_config; c = load_pretrain_config('configs/chess-pretrain.toml'); print(f'n_blocks={c.n_blocks} n_channels={c.n_channels} epochs={c.num_epochs} peak_lr={c.peak_lr}')&quot;
+</code></pre>
+<p>Expected: prints <code>n_blocks=15 n_channels=192 epochs=3 peak_lr=0.0005</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add configs/chess-pretrain.toml
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add configs/chess-pretrain.toml
+
+15M-param net (n_blocks=15, n_channels=192), 3 epochs max with early
+stopping (patience=2), lr 5e-4 with 500-step warmup and cosine decay
+to 5e-5. Tuned for the ~3M-position corpus produced by 50K
+Stockfish-vs-Stockfish games. Network shape matches chess-refine.toml
+so the pretrained checkpoint loads cleanly via --resume-from.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-14-configschess-refinetoml">Task 14: configs/chess-refine.toml</h2>
+<p><strong>Files:</strong>
+- Create: <code>configs/chess-refine.toml</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Create the config</strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/configs/chess-refine.toml</code>:</p>
+<pre><code class="language-toml"># Chess AZ refinement config — Sub-project 3b Phase 3.
+# Run with:
+#   python -m alphazero train \
+#     --game chess \
+#     --config configs/chess-refine.toml \
+#     --resume-from pretrained.pt
+
+# Network — must match configs/chess-pretrain.toml (the pretrained checkpoint shape)
+n_blocks = 15
+n_channels = 192
+
+# MCTS — reduced from chess.toml since pretrained priors compensate
+num_simulations = 50
+c_puct = 2.5
+dirichlet_alpha = 0.3
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 30
+
+# Training
+training_steps_per_iteration = 2000
+batch_size = 256
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer — smaller since the pretrained net doesn't need a big ramp
+replay_buffer_capacity = 200_000
+min_buffer_size = 10_000
+
+# Eval (vs Stockfish ELO=1500)
+eval_interval = 2
+eval_games = 100
+
+# Schedule
+num_iterations = 10
+
+# Parallel self-play
+num_workers = 10
+inference_batch_size = 64
+
+# Misc
+seed = 42
+device = &quot;auto&quot;
+checkpoint_dir = &quot;checkpoints_refine&quot;
+log_dir = &quot;runs_refine&quot;
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify the config loads</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -c &quot;from alphazero.config import load_config; c = load_config('configs/chess-refine.toml'); print(f'n_blocks={c.n_blocks} n_channels={c.n_channels} num_iterations={c.num_iterations} num_workers={c.num_workers}')&quot;
+</code></pre>
+<p>Expected: prints <code>n_blocks=15 n_channels=192 num_iterations=10 num_workers=10</code>.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add configs/chess-refine.toml
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add configs/chess-refine.toml
+
+Reduced AZ knobs for the post-pretrain refinement phase: 10
+iterations × 100 games × 50 sims (vs chess.toml's 80 × 100 × 200).
+Pretrained priors mean MCTS converges faster, so fewer sims per move
+are sufficient. 10 workers matches M4 Pro P-core count. Network shape
+(n_blocks=15, n_channels=192) matches pretrain config so pretrained.pt
+loads via --resume-from.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-15-verify-resume-from-loads-pretrained-checkpoint-integration-smoke-test">Task 15: Verify --resume-from loads pretrained checkpoint (integration smoke test)</h2>
+<p><strong>Files:</strong>
+- Modify: <code>tests/test_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Append failing test</strong></li>
+</ul>
+<p>Add to <code>/Users/vsowrira/git/alphazero/tests/test_supervised.py</code>:</p>
+<pre><code class="language-python">def test_pretrained_checkpoint_loads_in_trainer_via_resume(tmp_path):
+    &quot;&quot;&quot;A pretrained.pt should be loadable by Trainer.load_from_checkpoint.&quot;&quot;&quot;
+    from dataclasses import replace
+    from alphazero.config import TrainingConfig
+    from alphazero.games.chess_game import Chess
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+    from alphazero.trainer import Trainer
+
+    # Generate a fake corpus
+    corpus_dir = tmp_path / &quot;corpus&quot;
+    corpus_dir.mkdir()
+    for i in range(3):
+        _write_fake_shard(corpus_dir / f&quot;shard_w0_s{i:04d}.npz&quot;, 64, seed=i)
+
+    # Pretrain
+    ckpt_path = tmp_path / &quot;pretrained.pt&quot;
+    pre_cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=1,
+        batch_size=32,
+        warmup_steps=2,
+        holdout_fraction=0.34,
+        early_stopping_patience=10,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(ckpt_path),
+        log_dir=str(tmp_path / &quot;runs&quot;),
+        device=&quot;cpu&quot;,
+    )
+    pretrain_supervised(pre_cfg)
+
+    # Build a Trainer with matching shape and load the pretrained ckpt
+    train_cfg = TrainingConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_iterations=1,
+        games_per_iteration=1,
+        training_steps_per_iteration=1,
+        batch_size=8,
+        min_buffer_size=1,
+        replay_buffer_capacity=100,
+        num_simulations=2,
+        device=&quot;cpu&quot;,
+        checkpoint_dir=str(tmp_path / &quot;ckpts&quot;),
+    )
+    trainer = Trainer(Chess(), train_cfg)
+    trainer.load_from_checkpoint(ckpt_path)
+
+    # Verify best_net weights match what pretrain wrote
+    import torch
+    pretrained_sd = torch.load(ckpt_path, map_location=&quot;cpu&quot;, weights_only=False)[&quot;best_net&quot;]
+    for k in pretrained_sd:
+        assert torch.equal(pretrained_sd[k], trainer.best_net.state_dict()[k]), (
+            f&quot;Weight mismatch at {k} — pretrained checkpoint did not load correctly&quot;
+        )
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Run the test</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest tests/test_supervised.py::test_pretrained_checkpoint_loads_in_trainer_via_resume -v
+</code></pre>
+<p>Expected: passes. If it fails with a key mismatch in the checkpoint, fix <code>_save_pretrained_checkpoint</code> in Task 11 to populate the missing keys, then re-run.</p>
+<ul>
+<li>[ ] <strong>Step 3: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add tests/test_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add integration test: pretrained.pt loads via Trainer.load_from_checkpoint
+
+Regression guard for the checkpoint format contract between
+supervised pre-training and AZ refinement. If a future change to
+_save_pretrained_checkpoint breaks compatibility with
+Trainer.load_from_checkpoint, this test will fail immediately rather
+than discovering the problem 5 hours into a refinement run.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-16-e2e-slow-test-corpus-pretrain-1-refinement-iter">Task 16: E2E slow test (corpus + pretrain + 1 refinement iter)</h2>
+<p><strong>Files:</strong>
+- Create: <code>tests/test_e2e_supervised.py</code></p>
+<ul>
+<li>[ ] <strong>Step 1: Write the E2E test</strong></li>
+</ul>
+<p>Create <code>/Users/vsowrira/git/alphazero/tests/test_e2e_supervised.py</code>:</p>
+<pre><code class="language-python">&quot;&quot;&quot;End-to-end test for the SP3b pipeline: corpus gen → pretrain → 1 AZ refinement iter.
+
+This is a SLOW test — actually spawns Stockfish, generates a tiny corpus, pretrains,
+runs one AZ iteration. Marked slow so it doesn't run in default pytest.
+
+Run with:
+    pytest -m slow tests/test_e2e_supervised.py -v -s
+&quot;&quot;&quot;
+from __future__ import annotations
+
+from dataclasses import replace
+from pathlib import Path
+
+import pytest
+
+
+@pytest.mark.slow
+def test_e2e_corpus_pretrain_refine_pipeline(tmp_path, monkeypatch):
+    &quot;&quot;&quot;Mini run of the full SP3b pipeline. Wall-clock: ~3 minutes.&quot;&quot;&quot;
+    from alphazero.config import TrainingConfig
+    from alphazero.corpus import generate_corpus
+    from alphazero.games.chess_game import Chess
+    from alphazero.supervised import PretrainConfig, pretrain_supervised
+    from alphazero.trainer import Trainer
+
+    monkeypatch.chdir(tmp_path)
+
+    corpus_dir = tmp_path / &quot;corpus&quot;
+
+    # Phase 1: tiny corpus (4 games, 2 workers)
+    generate_corpus(
+        target_games=4,
+        num_workers=2,
+        output_dir=corpus_dir,
+        time_per_move=0.01,
+        seed=42,
+    )
+    shards = sorted(corpus_dir.glob(&quot;shard_*.npz&quot;))
+    assert len(shards) &gt;= 2
+
+    # Phase 2: pretrain a tiny network
+    pretrained_path = tmp_path / &quot;pretrained.pt&quot;
+    pre_cfg = PretrainConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_epochs=1,
+        batch_size=16,
+        warmup_steps=2,
+        holdout_fraction=0.34,
+        early_stopping_patience=10,
+        corpus_dir=str(corpus_dir),
+        output_checkpoint=str(pretrained_path),
+        log_dir=str(tmp_path / &quot;runs_pre&quot;),
+        device=&quot;cpu&quot;,
+    )
+    pretrain_supervised(pre_cfg)
+    assert pretrained_path.exists()
+
+    # Phase 3: 1 iteration of AZ refinement (single-worker, serial path)
+    train_cfg = TrainingConfig(
+        n_blocks=1,
+        n_channels=8,
+        num_iterations=1,
+        games_per_iteration=2,
+        num_simulations=3,
+        training_steps_per_iteration=2,
+        batch_size=4,
+        min_buffer_size=4,
+        replay_buffer_capacity=100,
+        eval_interval=999,        # skip eval
+        device=&quot;cpu&quot;,
+        checkpoint_dir=str(tmp_path / &quot;ckpts&quot;),
+        log_dir=str(tmp_path / &quot;runs_refine&quot;),
+    )
+    trainer = Trainer(Chess(), train_cfg)
+    trainer.load_from_checkpoint(pretrained_path)
+    trainer.run(verbose=False)
+
+    # Verify a refinement checkpoint was written
+    assert (tmp_path / &quot;ckpts&quot; / &quot;iter_0001.pt&quot;).exists()
+</code></pre>
+<ul>
+<li>[ ] <strong>Step 2: Verify it's marked slow + collects correctly</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest --collect-only -m &quot;not slow&quot; 2&gt;&amp;1 | grep test_e2e_supervised || echo &quot;(excluded ✓)&quot;
+cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest --collect-only -m slow tests/test_e2e_supervised.py 2&gt;&amp;1 | tail -5
+</code></pre>
+<p>Expected: first prints <code>(excluded ✓)</code>; second collects 1 test.</p>
+<ul>
+<li>[ ] <strong>Step 3: Actually run it (sanity check the pipeline works)</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest -m slow tests/test_e2e_supervised.py -v -s
+</code></pre>
+<p>Expected: passes in ~1-3 minutes. If it fails, the failure tells you which phase broke.</p>
+<ul>
+<li>[ ] <strong>Step 4: Commit</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+git add tests/test_e2e_supervised.py
+git commit -m &quot;$(cat &lt;&lt;'EOF'
+Add E2E slow test: corpus → pretrain → 1 AZ refinement iter
+
+Mini-run of the full SP3b pipeline: 4 games corpus, 1-epoch pretrain
+on a tiny network, then 1 iter of AZ refinement. Wall-clock ~3 min.
+Catches integration bugs that unit tests miss (e.g., checkpoint format
+mismatch between pretrain and Trainer.load_from_checkpoint, or
+Trainer crashing on a pretrained-format initial state).
+
+Run with: pytest -m slow tests/test_e2e_supervised.py -v -s
+
+Co-Authored-By: Claude Opus 4.7 (1M context) &lt;noreply@anthropic.com&gt;
+EOF
+)&quot;
+</code></pre>
+<hr>
+<h2 id="task-17-final-sweep-push">Task 17: Final sweep + push</h2>
+<ul>
+<li>[ ] <strong>Step 1: Run all non-slow tests</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; python3 -m pytest -m &quot;not slow&quot; 2&gt;&amp;1 | tail -10
+</code></pre>
+<p>Expected: all tests pass. ~165 baseline (post-SP3) + ~20 new SP3b tests = ~185 total.</p>
+<ul>
+<li>[ ] <strong>Step 2: Run linter (informational; ignore minor style)</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; ruff check src tests scripts 2&gt;&amp;1 | tail -15
+</code></pre>
+<p>If there are real correctness errors (not style F401/F841), fix them.</p>
+<ul>
+<li>[ ] <strong>Step 3: Push everything</strong></li>
+</ul>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero &amp;&amp; git push 2&gt;&amp;1 | tail -3
+</code></pre>
+<p>Expected: push succeeds.</p>
+<ul>
+<li>[ ] <strong>Step 4 (Optional): Run a small real-corpus smoke test</strong></li>
+</ul>
+<p>This validates the full pipeline against actual Stockfish before committing to the 4-hour corpus generation. Wall-clock: ~2 minutes.</p>
+<pre><code class="language-bash">cd /Users/vsowrira/git/alphazero
+rm -rf /tmp/sp3b_smoke
+python3 scripts/generate_chess_corpus.py --num-games 20 --num-workers 4 --output /tmp/sp3b_smoke --time-per-move 0.05
+ls /tmp/sp3b_smoke/
+</code></pre>
+<p>Expected: 4 worker shards, ~200-400 positions total.</p>
+<ul>
+<li>[ ] <strong>Step 5 (Manual): Kick off the real pipeline</strong></li>
+</ul>
+<p>Three commands, ~15 hours total wall-clock:</p>
+<pre><code class="language-bash"># Phase 1: ~4.2 hours
+python3 scripts/generate_chess_corpus.py --num-games 50000 --num-workers 10 --output data/chess_corpus/
+
+# Phase 2: ~30 minutes
+python3 -m alphazero pretrain --config configs/chess-pretrain.toml
+
+# Phase 3: ~10 hours
+python3 -m alphazero train --game chess --config configs/chess-refine.toml --resume-from pretrained.pt
+</code></pre>
+<p>Then evaluate:</p>
+<pre><code class="language-bash">python3 -m alphazero eval --game chess --checkpoint checkpoints_refine/iter_0010.pt --num-games 100
+</code></pre>
+<p>Pass criterion: wins / (wins + losses + draws) ≥ 0.50 vs Stockfish ELO=1500.</p>
+<hr>
+<h2 id="final-state">Final state</h2>
+<p>After Task 16, the repo has:</p>
+<ul>
+<li><code>src/alphazero/corpus.py</code> — Stockfish-vs-Stockfish corpus generation primitives + orchestrator</li>
+<li><code>src/alphazero/supervised.py</code> — PretrainConfig, lr_schedule, corpus loader, pretrain step/epoch, main loop</li>
+<li><code>scripts/generate_chess_corpus.py</code> — CLI for corpus generation</li>
+<li><code>src/alphazero/cli.py</code> — extended with <code>pretrain</code> subcommand</li>
+<li><code>configs/chess-pretrain.toml</code> and <code>configs/chess-refine.toml</code></li>
+<li>3 new test files (~350 lines) + extension to <code>tests/test_cli.py</code></li>
+</ul>
+<p>The framework's reuse property is preserved — <code>AlphaZeroNet</code>, <code>Chess(Game)</code>, <code>chess_move_encoding</code>, <code>StockfishOpponent</code>, <code>parallel_selfplay</code>, <code>Trainer.run()</code> with <code>--resume-from</code> are all unchanged.</p>
+<p><strong>Sub-project 3b is done when</strong> <code>python -m alphazero eval --game chess --checkpoint checkpoints_refine/iter_0010.pt --num-games 100</code> reports <code>win_rate ≥ 0.50</code> vs Stockfish ELO=1500.</p></article>
+  </main>
+</body>
+</html>
