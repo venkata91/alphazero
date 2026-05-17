@@ -118,6 +118,50 @@ def worker_generate(
             pass
 
 
+import multiprocessing as mp
+
+
+def generate_corpus(
+    *,
+    target_games: int,
+    num_workers: int,
+    output_dir: Path,
+    time_per_move: float,
+    seed: int,
+    shard_size: int = 10_000,
+    stockfish_path: str = "stockfish",
+) -> None:
+    """Spawn num_workers processes, distribute target_games across them.
+
+    Embarrassingly parallel — workers don't communicate. Each writes its
+    own shards to output_dir.
+    """
+    ctx = mp.get_context("spawn")
+    games_per_worker = target_games // num_workers
+    remainder = target_games % num_workers
+
+    processes = []
+    for wid in range(num_workers):
+        n = games_per_worker + (1 if wid < remainder else 0)
+        if n == 0:
+            continue
+        p = ctx.Process(
+            target=worker_generate,
+            args=(wid, n, output_dir, time_per_move, seed),
+            kwargs={"shard_size": shard_size, "stockfish_path": stockfish_path},
+        )
+        p.start()
+        processes.append(p)
+
+    for p in processes:
+        p.join()
+        if p.exitcode != 0:
+            raise RuntimeError(
+                f"Worker process exited with code {p.exitcode}; "
+                f"check stderr for traceback"
+            )
+
+
 def play_one_game(
     engine: chess.engine.SimpleEngine,
     time_per_move: float,

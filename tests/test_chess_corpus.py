@@ -99,6 +99,24 @@ def test_write_shard_creates_npz_with_correct_keys_and_dtypes(tmp_path):
     assert data["outcomes"].tolist() == [1, -1]
 
 
+def test_generate_corpus_spawns_workers_and_distributes_games(tmp_path):
+    """End-to-end: 2 workers each play 2 games; shards exist for both workers."""
+    from alphazero.corpus import generate_corpus
+
+    generate_corpus(
+        target_games=4,
+        num_workers=2,
+        output_dir=tmp_path,
+        time_per_move=0.01,
+        seed=42,
+    )
+
+    w0_shards = sorted(tmp_path.glob("shard_w0_*.npz"))
+    w1_shards = sorted(tmp_path.glob("shard_w1_*.npz"))
+    assert len(w0_shards) >= 1
+    assert len(w1_shards) >= 1
+
+
 def test_worker_generate_writes_shards(tmp_path):
     """A worker should produce at least one shard for a small game count."""
     from alphazero.corpus import worker_generate
