@@ -800,6 +800,102 @@
           correct: 2,
           explanation: "Diagnose first, fix second. <code>torch.load(checkpoint).get('best_net')</code> from two checkpoints and compare a few weights — if they're identical, best_net is frozen, training data is stale, and no amount of changing other knobs will help. This is the exact pattern that caught the arena-gating bug; it's worth checking on any 'training stalled' symptom before reaching for hyperparameter changes."
         },
+        {
+          topic: "Pre-training",
+          q: "What does <strong>behavior cloning</strong> mean in the context of SP3b?",
+          options: [
+            "Generating self-play games using a copy of the best_net to keep training stable",
+            "Training the network with supervised learning to imitate Stockfish's chosen move, using cross-entropy on the move index",
+            "Using MCTS to clone the policy distribution from the visit counts during refinement",
+            "Copying weights from a pretrained checkpoint into both best_net and candidate_net"
+          ],
+          correct: 1,
+          explanation: "Behavior cloning is classic supervised imitation learning — the student is trained to predict the teacher's actions via cross-entropy on the teacher's chosen action. No search, no rewards, no MCTS. In SP3b, the teacher is Stockfish-at-0.05s, and the student is AlphaZeroNet. The other options describe related concepts (self-play, MCTS-as-policy-improvement, checkpoint loading) but not behavior cloning itself."
+        },
+        {
+          topic: "Pre-training",
+          q: "What is the <strong>teacher ceiling</strong>?",
+          options: [
+            "The maximum number of teacher games we can generate before running out of disk space",
+            "The structural limit that says a student trained purely via behavior cloning can never exceed the teacher's playing strength (typically lands 100–300 ELO weaker)",
+            "The peak learning rate used during pre-training",
+            "The maximum batch size that fits in GPU memory when training the largest network"
+          ],
+          correct: 1,
+          explanation: "Behavior cloning fits the student to mimic the teacher's policy. Mathematically, the best the student can do is reproduce the teacher exactly — typically it loses 100–300 ELO because of finite capacity and lossy compression of search-derived moves into a single forward pass. Why AZ refinement matters: MCTS exploration on the student can discover moves the teacher would have missed, exceeding the teacher's ceiling."
+        },
+        {
+          topic: "Pre-training",
+          q: "Why do we apply a <strong>linear warmup</strong> to the learning rate at the start of pre-training?",
+          options: [
+            "PyTorch's default optimizer fails silently if you start at high lr — warmup is required by the framework",
+            "Adam's running mean/variance estimates are based on too few samples in the first few hundred steps, so a high lr × noisy gradient can destroy the careful weight initialization",
+            "Cosine decay can't start from a nonzero value, so we need warmup to feed it correctly",
+            "The dataset loader needs ~500 steps to prefetch shards into the OS page cache"
+          ],
+          correct: 1,
+          explanation: "Adam (and AdamW) maintains running estimates of the gradient's first and second moments. At step 0, those estimates are based on a single batch — wildly noisy. Applying full peak_lr at step 0 creates a huge × random parameter update that undoes Xavier/He initialization. Warmup ramps the lr from 0 to peak_lr over ~500 steps, giving Adam time to accumulate reliable estimates. Bigger networks need longer warmup (more parameters to estimate)."
+        },
+        {
+          topic: "Pre-training",
+          q: "What does <strong>early stopping</strong> protect against, and how is it triggered?",
+          options: [
+            "It detects when the loss becomes NaN and stops to prevent further weight corruption",
+            "It detects overfitting (memorization) by watching validation loss on a held-out set; when val loss fails to improve for `patience` consecutive epochs, training stops and the last-best checkpoint is kept",
+            "It stops training when the optimizer's lr drops below 1e-6, since further updates are negligible",
+            "It stops training when CPU usage drops below a threshold, indicating the system is starved"
+          ],
+          correct: 1,
+          explanation: "Overfitting = the network has enough capacity to memorize training data instead of generalizing. Symptom: training loss keeps dropping but validation loss (measured on data the network never sees during training) plateaus or rises. Early stopping watches val loss; when it fails to improve for `patience` (we use 2) consecutive epochs, training halts and we keep the best-so-far weights. Patience > 1 protects against single-epoch noise; patience = 2 is the sweet spot."
+        },
+        {
+          topic: "Pre-training",
+          q: "Why does <code>generate_chess_corpus.py</code> use <strong>processes</strong> instead of Python threads to run 10 workers?",
+          options: [
+            "Multiple Stockfish subprocesses can't coexist in the same Python interpreter — they share state and corrupt each other",
+            "Python's GIL serializes bytecode execution within a single process, so 10 threads would barely parallelize the per-ply Python work (encode, move_to_index, board manipulation); processes have no GIL between them",
+            "macOS doesn't support threading reliably — only Linux does",
+            "Stockfish's UCI protocol requires that each engine be controlled from a separate OS process"
+          ],
+          correct: 1,
+          explanation: "The Global Interpreter Lock allows only one thread per process to execute Python bytecode at a time. The Stockfish C++ subprocesses themselves are fine (they're separate OS processes), but the per-worker Python work — encoding states, computing move indices, pushing moves, checking is_game_over — would serialize through the GIL. 10 threads in one process would NOT achieve 10× speedup. Separate processes each have their own interpreter and no GIL contention, achieving near-linear speedup up to physical core count."
+        },
+        {
+          topic: "Pre-training",
+          q: "What does <strong>embarrassingly parallel</strong> mean in the context of corpus generation?",
+          options: [
+            "The parallelism is so obvious that it's embarrassing not to use it — even beginners notice",
+            "Workers have no inter-worker communication, no shared state, no synchronization — each one plays games and writes its own shards independently",
+            "Stockfish embarrasses itself by playing weak moves at low time per move",
+            "The Python GIL makes parallelism so awkward that you'd be embarrassed to ship the code without process-based workers"
+          ],
+          correct: 1,
+          explanation: "An 'embarrassingly parallel' problem decomposes into independent subtasks with no need for IPC, locks, or coordination. Corpus gen is the textbook example: each worker is given a target game count and a seed, plays games entirely on its own, writes its own shard files. The speedup scales linearly with worker count up to the physical-core limit. Contrast this with `parallel_selfplay.py` for AZ — workers there share an NN-server thread, so coordination IS needed. Different parallel patterns for different problems."
+        },
+        {
+          topic: "Pre-training",
+          q: "Why does <code>pretrained.pt</code> need to be in the <strong>same checkpoint format</strong> as Trainer's iter_NNNN.pt files?",
+          options: [
+            "PyTorch refuses to load checkpoints whose keys don't match the model's state_dict",
+            "So that `Trainer.load_from_checkpoint(pretrained.pt)` works without code changes — it reads ckpt['best_net'] and ckpt['iteration'] just like it reads from any normal training checkpoint",
+            "Because the format is published as part of the project's public API",
+            "Because compressing checkpoints requires a specific schema known to the deserializer"
+          ],
+          correct: 1,
+          explanation: "The contract between Phase 2 (pre-training) and Phase 3 (AZ refinement) is the checkpoint format. By saving keys {iteration, config, best_net, candidate_net, optimizer} that match exactly what Trainer.load_from_checkpoint expects, we let `--resume-from pretrained.pt` work via the EXISTING code path. No new loader, no special-case handling. tests/test_supervised.py::test_pretrained_checkpoint_loads_in_trainer_via_resume is the regression guard for this contract."
+        },
+        {
+          topic: "Pre-training",
+          q: "What does <code>iter_batches</code> do, and why is it a generator instead of returning a list?",
+          options: [
+            "It computes per-batch statistics like mean/std; returning a list would be wasteful since you only need one at a time",
+            "It reads shards from disk one at a time and yields (states, moves, z) tensor batches; as a generator, peak memory stays bounded by one shard's contents regardless of corpus size",
+            "It's a generator because PyTorch's DataLoader requires generators; returning a list would fail",
+            "It's a generator because the lr_schedule needs to query the step count, which only generators expose"
+          ],
+          correct: 1,
+          explanation: "iter_batches is the streaming data loader for pre-training. It opens one shard at a time, optionally shuffles within the shard, casts dtypes (int8→float32 for states, int32→int64 for moves), moves tensors to the target device, and yields each batch. The generator pattern keeps peak memory bounded to ~13MB (one shard's worth of float32 tensors), no matter how big the corpus is. A list-returning version would load all 300 shards into RAM (~4GB float32) before yielding the first batch."
+        },
       ];
 
       // ============================================================
