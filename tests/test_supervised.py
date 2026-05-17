@@ -173,6 +173,43 @@ def test_lr_schedule_monotonic_decay_after_warmup():
         assert lrs[i] >= lrs[i + 1] - 1e-9
 
 
+def test_pretrain_step_returns_losses_and_decreases_loss():
+    """One pretrain step on a tiny net + tiny batch should produce a finite loss
+    and reduce the loss when run twice on the same batch (overfitting check)."""
+    from alphazero.network import AlphaZeroNet
+    from alphazero.supervised import pretrain_step
+
+    net = AlphaZeroNet(input_shape=(20, 8, 8), action_size=4672, n_blocks=1, n_channels=8)
+    net.train()
+    optimizer = torch.optim.AdamW(net.parameters(), lr=1e-3, weight_decay=1e-4)
+
+    states = torch.zeros((4, 20, 8, 8), dtype=torch.float32)
+    moves = torch.tensor([0, 1, 2, 3], dtype=torch.int64)
+    zs = torch.tensor([1.0, -1.0, 0.0, 1.0], dtype=torch.float32)
+
+    total_1, policy_1, value_1 = pretrain_step(net, (states, moves, zs), optimizer, lr=1e-3)
+    total_2, policy_2, value_2 = pretrain_step(net, (states, moves, zs), optimizer, lr=1e-3)
+
+    assert all(math.isfinite(x) for x in (total_1, policy_1, value_1, total_2, policy_2, value_2))
+    assert total_2 < total_1
+
+
+def test_compute_val_loss_runs_without_grad(tmp_path):
+    """compute_val_loss should evaluate a model on a corpus without producing gradients."""
+    from alphazero.network import AlphaZeroNet
+    from alphazero.supervised import compute_val_loss
+
+    _write_fake_shard(tmp_path / "shard_w0_s0000.npz", 64, seed=0)
+    shards = [tmp_path / "shard_w0_s0000.npz"]
+
+    net = AlphaZeroNet(input_shape=(20, 8, 8), action_size=4672, n_blocks=1, n_channels=8)
+    net.eval()
+
+    val_loss = compute_val_loss(net, shards, batch_size=16, device=torch.device("cpu"))
+    assert math.isfinite(val_loss)
+    assert val_loss > 0
+
+
 def test_pretrain_config_rejects_unknown_keys(tmp_path):
     """Unknown TOML keys raise ValueError (typo protection)."""
     from alphazero.supervised import load_pretrain_config

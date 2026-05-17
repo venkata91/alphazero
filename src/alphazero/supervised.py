@@ -134,3 +134,60 @@ def lr_schedule(
     progress = (step - warmup_steps) / max(1, total_steps - warmup_steps)
     progress = min(progress, 1.0)
     return end_lr + 0.5 * (peak_lr - end_lr) * (1 + math.cos(math.pi * progress))
+
+
+import torch.nn.functional as F
+
+from .network import AlphaZeroNet
+
+
+def pretrain_step(
+    net: AlphaZeroNet,
+    batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
+    optimizer: torch.optim.Optimizer,
+    lr: float,
+) -> tuple[float, float, float]:
+    """One SGD step on (states, move_indices, outcomes). Returns scalar losses.
+
+    Policy loss = cross-entropy(logits, move_indices) — the target is the
+    one-hot of Stockfish's chosen move (passed as integer index).
+    Value loss = MSE(predicted_value, outcomes) — outcomes are the game
+    result from each position's mover POV.
+    """
+    states, move_indices, outcomes = batch
+    for pg in optimizer.param_groups:
+        pg["lr"] = lr
+
+    optimizer.zero_grad()
+    logits, values = net(states)
+    policy_loss = F.cross_entropy(logits, move_indices)
+    value_loss = F.mse_loss(values, outcomes)
+    total = policy_loss + value_loss
+    total.backward()
+    optimizer.step()
+    return total.item(), policy_loss.item(), value_loss.item()
+
+
+def compute_val_loss(
+    net: AlphaZeroNet,
+    val_shards: list[Path],
+    batch_size: int,
+    device: torch.device,
+) -> float:
+    """Compute average (policy + value) loss over val_shards without gradients."""
+    net.eval()
+    total_loss = 0.0
+    total_samples = 0
+    with torch.inference_mode():
+        for states, move_indices, outcomes in iter_batches(
+            val_shards, batch_size=batch_size, device=device, shuffle=False
+        ):
+            logits, values = net(states)
+            policy_loss = F.cross_entropy(logits, move_indices, reduction="sum")
+            value_loss = F.mse_loss(values, outcomes, reduction="sum")
+            total_loss += (policy_loss + value_loss).item()
+            total_samples += states.shape[0]
+    net.train()
+    if total_samples == 0:
+        return float("nan")
+    return total_loss / total_samples
