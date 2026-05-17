@@ -40,3 +40,60 @@ def random_opening_moves(
         legal = list(board.legal_moves)
         move = rng.choice(legal)
         board.push(move)
+
+
+import chess.engine
+
+from .games.chess_game import Chess
+from .games.chess_move_encoding import move_to_index
+
+
+def play_one_game(
+    engine: chess.engine.SimpleEngine,
+    time_per_move: float,
+    rng: random.Random,
+    *,
+    opening_plies: int = 4,
+) -> list[Position]:
+    """Play one Stockfish-vs-Stockfish game and return Position tuples.
+
+    Flow:
+        1. Random opening (4 plies) for diversity
+        2. Stockfish plays both sides until game ends
+        3. For each recorded position, compute z from the final outcome
+           in the position-mover's POV
+    """
+    game = Chess()
+    board = chess.Board()
+    random_opening_moves(board, n_plies=opening_plies, rng=rng)
+
+    history: list[tuple[np.ndarray, int, int]] = []
+
+    while not board.is_game_over(claim_draw=True):
+        result = engine.play(board, chess.engine.Limit(time=time_per_move))
+        move = result.move
+        if move is None:
+            break
+        encoded = game.encode(board).astype(np.int8)
+        mv_idx = move_to_index(board, move)
+        mover_player = 1 if board.turn == chess.WHITE else -1
+        history.append((encoded, mv_idx, mover_player))
+        board.push(move)
+
+    outcome = board.outcome(claim_draw=True)
+    if outcome is None or outcome.winner is None:
+        white_pov_z = 0
+    elif outcome.winner == chess.WHITE:
+        white_pov_z = 1
+    else:
+        white_pov_z = -1
+
+    positions = []
+    for encoded, mv_idx, mover_player in history:
+        z_from_mover_pov = white_pov_z * mover_player
+        positions.append(Position(
+            encoded_state=encoded,
+            move_index=mv_idx,
+            z=int(z_from_mover_pov),
+        ))
+    return positions
