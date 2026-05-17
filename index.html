@@ -6,7 +6,7 @@
     <title>AlphaZero from Scratch</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Patrick+Hand&amp;display=swap" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&amp;family=Inter:wght@400;500;600;700&amp;display=swap" />
     <style>
       :root {
         color-scheme: light;
@@ -26,23 +26,26 @@
         --orange-soft: rgba(238, 138, 48, 0.22);
         --orange-bg: rgba(238, 138, 48, 0.08);
         --green: #3aa860;
-        --green-bg: rgba(58, 168, 96, 0.10);
+        --green-deep: #2f8c4e;
+        --green-bg: rgba(58, 168, 96, 0.12);
         --green-soft: rgba(58, 168, 96, 0.25);
+        --gray-bg: rgba(107, 114, 144, 0.10);
+        --gray-deep: #5a627d;
         --line: #2a3a8a;
         --line-faint: rgba(42, 58, 138, 0.20);
         --shadow: 4px 4px 0 rgba(31, 37, 71, 0.07);
         --shadow-strong: 6px 6px 0 rgba(31, 37, 71, 0.10);
-        --hand: 'Patrick Hand', 'Kalam', 'Comic Neue', system-ui, sans-serif;
+        --body: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         --cursive: 'Caveat', 'Patrick Hand', cursive;
       }
 
       * { box-sizing: border-box; }
-      html { scroll-behavior: smooth; }
+      html { scroll-behavior: smooth; scroll-padding-top: 84px; }
       body {
         margin: 0;
-        font-family: var(--hand);
-        font-size: 18px;
-        line-height: 1.55;
+        font-family: var(--body);
+        font-size: 16px;
+        line-height: 1.65;
         color: var(--ink);
         background:
           radial-gradient(circle at 8% 8%, rgba(238, 138, 48, 0.10), transparent 30%),
@@ -65,7 +68,7 @@
       a {
         color: var(--blue);
         text-decoration: none;
-        border-bottom: 2px dotted var(--line-faint);
+        border-bottom: 1.5px dotted var(--line-faint);
         padding-bottom: 1px;
       }
       a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
@@ -73,7 +76,7 @@
       .shell {
         width: min(1100px, calc(100% - 32px));
         margin: 0 auto;
-        padding: 40px 0 68px;
+        padding: 32px 0 68px;
       }
 
       /* ---- hero ---- */
@@ -103,7 +106,7 @@
         font-family: var(--cursive);
         font-weight: 700;
         color: var(--orange);
-        font-size: 1.35rem;
+        font-size: 1.5rem;
       }
       .hero h1 {
         margin: 0;
@@ -115,35 +118,158 @@
         letter-spacing: 1px;
       }
       .lede {
-        max-width: 70ch;
+        max-width: 62ch;
         color: var(--ink-soft);
-        font-size: 1.1rem;
-        line-height: 1.6;
-        margin: 10px 0 0;
+        font-family: var(--body);
+        font-size: 1.05rem;
+        line-height: 1.65;
+        margin: 12px 0 18px;
       }
+      .hero-cta {
+        display: inline-block;
+        padding: 10px 22px;
+        background: var(--blue);
+        color: #ffffff;
+        font-family: var(--body);
+        font-weight: 600;
+        font-size: 0.95rem;
+        border-radius: 999px;
+        border-bottom: none;
+        box-shadow: var(--shadow);
+        transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+      }
+      .hero-cta:hover {
+        background: var(--blue-deep);
+        color: #ffffff;
+        box-shadow: var(--shadow-strong);
+        border-bottom: none;
+      }
+      .hero-cta:active { transform: translate(1px, 1px); box-shadow: var(--shadow); }
 
-      /* ---- top nav strip ---- */
+      /* ---- sticky nav with search ---- */
+      .site-nav-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: rgba(251, 243, 226, 0.95);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        padding: 12px 0;
+        margin: 0 0 28px;
+        border-bottom: 1px solid var(--line-faint);
+      }
       .site-nav {
+        width: min(1100px, calc(100% - 32px));
+        margin: 0 auto;
         display: flex;
+        align-items: center;
+        gap: 18px;
         flex-wrap: wrap;
-        gap: 10px;
-        margin-bottom: 28px;
       }
-      .site-nav a {
-        padding: 6px 16px;
+      .site-nav .nav-links {
+        display: flex;
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+      .site-nav .nav-links a {
+        padding: 6px 14px;
         background: var(--paper);
-        border: 2px solid var(--line-faint);
-        border-radius: 20px;
-        font-family: var(--cursive);
-        font-weight: 700;
-        font-size: 1rem;
+        border: 1.5px solid var(--line-faint);
+        border-radius: 18px;
+        font-family: var(--body);
+        font-weight: 600;
+        font-size: 0.92rem;
         color: var(--blue);
-        border-bottom: 2px solid var(--line-faint);
       }
-      .site-nav a:hover {
+      .site-nav .nav-links a:hover {
         background: var(--blue-bg);
         border-color: var(--blue-soft);
         color: var(--blue-deep);
+      }
+      .site-search {
+        flex: 1 1 280px;
+        max-width: 420px;
+        margin-left: auto;
+        position: relative;
+      }
+      .site-search input {
+        width: 100%;
+        padding: 8px 36px 8px 14px;
+        background: var(--paper);
+        border: 1.5px solid var(--line-faint);
+        border-radius: 18px;
+        font-family: var(--body);
+        font-size: 0.92rem;
+        color: var(--ink);
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .site-search input::placeholder { color: var(--ink-faint); }
+      .site-search input:focus {
+        border-color: var(--blue);
+        box-shadow: 0 0 0 3px var(--blue-bg);
+      }
+      .site-search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--ink-faint);
+        pointer-events: none;
+        font-size: 0.95rem;
+      }
+      .site-search-results {
+        display: none;
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        right: 0;
+        background: var(--paper);
+        border: 1.5px solid var(--line-faint);
+        border-radius: 14px;
+        box-shadow: var(--shadow-strong);
+        max-height: 60vh;
+        overflow-y: auto;
+        z-index: 100;
+      }
+      .search-result {
+        display: block;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--line-faint);
+        border-radius: 0;
+        font-family: var(--body);
+        color: var(--ink);
+        text-decoration: none;
+      }
+      .search-result:last-child { border-bottom: none; }
+      .search-result:hover, .search-result.selected {
+        background: var(--blue-bg);
+        color: var(--ink);
+        border-bottom-color: var(--line-faint);
+      }
+      .search-result-meta {
+        font-size: 0.78rem;
+        color: var(--ink-faint);
+        margin: 0 0 3px;
+      }
+      .search-result-section { color: var(--blue-deep); font-weight: 600; }
+      .search-result-sep { color: var(--ink-faint); }
+      .search-result-excerpt {
+        font-size: 0.88rem;
+        color: var(--ink-soft);
+        line-height: 1.45;
+      }
+      .search-result mark {
+        background: var(--orange-soft);
+        color: var(--ink);
+        padding: 0 1px;
+        border-radius: 2px;
+      }
+      .search-empty {
+        padding: 14px;
+        font-size: 0.9rem;
+        color: var(--ink-faint);
+        text-align: center;
       }
 
       /* ---- sections ---- */
@@ -153,23 +279,25 @@
       .section-label {
         font-family: var(--cursive);
         font-weight: 700;
-        font-size: 1.9rem;
+        font-size: 2.1rem;
         color: var(--blue);
         margin: 0 0 6px;
         letter-spacing: 0.4px;
       }
       .section-sub {
+        font-family: var(--body);
         color: var(--ink-faint);
         font-size: 0.95rem;
-        margin: 0 0 14px;
+        margin: 0 0 18px;
       }
 
-      /* ---- card grid ---- */
+      /* ---- card grid (Learn section) ---- */
       .card-grid {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
         gap: 16px;
       }
+      .card-grid.cards-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
       .card {
         display: block;
         background: var(--paper-tint);
@@ -191,73 +319,135 @@
       .card-type {
         font-family: var(--cursive);
         font-weight: 700;
-        font-size: 1rem;
+        font-size: 1.1rem;
         color: var(--orange);
         margin: 0 0 4px;
-        text-transform: uppercase;
-        letter-spacing: 0.8px;
+        letter-spacing: 0.4px;
       }
       .card h3 {
         font-family: var(--cursive);
         font-weight: 700;
-        font-size: 1.45rem;
+        font-size: 1.55rem;
         color: var(--blue);
         margin: 0 0 8px;
         line-height: 1.15;
       }
       .card p {
         margin: 0;
-        font-size: 0.96rem;
+        font-family: var(--body);
+        font-size: 0.95rem;
         color: var(--ink-soft);
-        line-height: 1.5;
+        line-height: 1.55;
       }
       .card-arrow {
         display: block;
         margin-top: 12px;
         font-family: var(--cursive);
         font-weight: 700;
-        font-size: 1rem;
+        font-size: 1.1rem;
         color: var(--blue);
       }
       .card:hover .card-arrow { color: var(--orange-deep); }
 
-      /* ---- future list ---- */
-      .future-list {
+      /* ---- featured (full-width primer) card ---- */
+      .card.featured {
+        background: linear-gradient(135deg, var(--paper-tint) 0%, var(--bg-soft) 100%);
+        border-color: var(--orange-soft);
+      }
+      .card.featured:hover { border-color: var(--orange); background: var(--orange-bg); }
+
+      /* ---- build-log entry ---- */
+      .sp-entry {
+        display: block;
         background: var(--paper-tint);
-        border: 2px dashed var(--line-faint);
+        border: 2px solid var(--line-faint);
         border-radius: 22px;
-        padding: 20px 28px;
+        box-shadow: var(--shadow);
+        padding: 22px 26px;
+        margin-bottom: 14px;
+        text-decoration: none;
+        color: var(--ink);
+        border-bottom: 2px solid var(--line-faint);
+        transition: box-shadow 0.15s, border-color 0.15s, background 0.15s;
       }
-      .future-list ul {
-        margin: 0;
-        padding-left: 22px;
-        color: var(--ink-faint);
-        font-size: 1rem;
+      .sp-entry:hover {
+        border-color: var(--blue-soft);
+        background: var(--blue-bg);
+        box-shadow: var(--shadow-strong);
+        color: var(--ink);
       }
-      .future-list li {
-        margin: 6px 0;
-        font-family: var(--hand);
-      }
-      .future-list li strong {
-        color: var(--ink-soft);
+      .sp-entry h3 {
         font-family: var(--cursive);
         font-weight: 700;
-        font-size: 1.1rem;
+        font-size: 1.65rem;
+        color: var(--blue);
+        margin: 4px 0 6px;
+        line-height: 1.15;
       }
+      .sp-entry p {
+        font-family: var(--body);
+        font-size: 0.96rem;
+        color: var(--ink-soft);
+        margin: 0 0 10px;
+        max-width: 75ch;
+        line-height: 1.6;
+      }
+      .sp-links {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 1.15rem;
+      }
+      .sp-links a {
+        color: var(--blue);
+        border-bottom: 2px dotted var(--line-faint);
+      }
+      .sp-links a:hover { color: var(--orange-deep); border-bottom-color: var(--orange); }
+
+      /* ---- status pills ---- */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 3px 11px;
+        font-family: var(--body);
+        font-weight: 600;
+        font-size: 0.72rem;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        border-radius: 999px;
+      }
+      .pill::before {
+        content: "";
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+      }
+      .pill-done    { background: var(--green-bg); color: var(--green-deep); }
+      .pill-done::before    { background: var(--green-deep); }
+      .pill-wip     { background: var(--orange-bg); color: var(--orange-deep); }
+      .pill-wip::before     { background: var(--orange-deep); }
+      .pill-planned { background: var(--gray-bg); color: var(--gray-deep); }
+      .pill-planned::before { background: var(--gray-deep); }
 
       /* ---- footer ---- */
       .site-footer {
         margin-top: 48px;
         text-align: center;
+        font-family: var(--body);
         color: var(--ink-faint);
-        font-size: 0.9rem;
+        font-size: 0.88rem;
       }
       .site-footer a { border-bottom: none; }
 
       @media (max-width: 720px) {
-        .shell { padding: 24px 0 48px; }
+        .shell { padding: 20px 0 48px; }
         .hero { padding: 22px 22px; }
         .card-grid { grid-template-columns: 1fr; }
+        .site-nav { gap: 10px; }
+        .site-search { margin-left: 0; width: 100%; max-width: none; }
       }
       @media (prefers-reduced-motion: reduce) {
         html { scroll-behavior: auto; }
@@ -275,140 +465,108 @@
           Building AlphaZero ground-up in Python &mdash; MCTS, neural network policy/value heads, self-play pipelines,
           and progressively harder games. Every design decision is documented; every sub-project ships working code.
         </p>
+        <a class="hero-cta" href="#learn">&rarr; Start with the visual primer</a>
       </header>
 
-      <!-- Top nav -->
-      <nav class="site-nav" aria-label="Jump to section">
-        <a href="#concepts">Concepts</a>
-        <a href="#sp1">Sub-project 1 &mdash; Tic-Tac-Toe</a>
-        <a href="#sp2">Sub-project 2 &mdash; Connect 4</a>
-        <a href="#sp3">Sub-project 3 &mdash; Chess</a>
-        <a href="#sp3b">Sub-project 3b &mdash; Supervised Pre-training</a>
-        <a href="#future">Future</a>
-      </nav>
+      <!-- Sticky nav with search -->
+      <div class="site-nav-wrap">
+        <nav class="site-nav" aria-label="Site navigation">
+          <div class="nav-links">
+            <a href="#learn">Learn</a>
+            <a href="#buildlog">Build log</a>
+            <a href="https://github.com/venkata91/alphazero" target="_blank" rel="noopener">GitHub</a>
+          </div>
+          <div class="site-search">
+            <input type="search" id="site-search" placeholder="Search docs… (⌘K)" autocomplete="off" spellcheck="false" />
+            <span class="site-search-icon" aria-hidden="true">⌕</span>
+            <div class="site-search-results" id="site-search-results" role="listbox"></div>
+          </div>
+        </nav>
+      </div>
 
-      <!-- Concepts -->
-      <section class="section" id="concepts">
-        <h2 class="section-label">Concepts</h2>
-        <p class="section-sub">Visual primers and detailed reference for the key ideas.</p>
+      <!-- Learn AlphaZero -->
+      <section class="section" id="learn">
+        <h2 class="section-label">Learn AlphaZero</h2>
+        <p class="section-sub">A visual primer, a foundational text reference, and a self-test quiz.</p>
         <div class="card-grid">
-          <a class="card" href="./concepts.html">
-            <p class="card-type">Primer (visual)</p>
+          <a class="card featured" href="./concepts.html">
+            <p class="card-type">Primer &middot; visual</p>
             <h3>Five concepts at the heart of it</h3>
-            <p>Animated visual notes on MCTS, ResNet skip connections, PUCT, replay buffer, arena. Best for first read or quick refreshers.</p>
-            <span class="card-arrow">Read primer &#8594;</span>
+            <p>Animated visual notes on MCTS, ResNet skip connections, PUCT, replay buffer, arena. Best for the first read or a quick refresher.</p>
+            <span class="card-arrow">Read primer &rarr;</span>
           </a>
           <a class="card" href="./docs/guides/2026-05-16-foundational-concepts.html">
-            <p class="card-type">Reference (text)</p>
+            <p class="card-type">Reference &middot; text</p>
             <h3>Foundational concepts</h3>
-            <p>Detailed text reference for every term: ply, logits, BatchNorm, ResNet forward/backward, MCTS phases, Dirichlet noise, temperature, π and z, symmetries, and a glossary. Plus a code-tracing path.</p>
-            <span class="card-arrow">Read reference &#8594;</span>
+            <p>Detailed text reference for every term: ply, logits, BatchNorm, ResNet forward/backward, MCTS phases, Dirichlet noise, temperature, &pi; and z, symmetries, glossary. Includes a code-tracing path.</p>
+            <span class="card-arrow">Read reference &rarr;</span>
           </a>
           <a class="card" href="./docs/guides/2026-05-16-alphazero-quiz.html">
-            <p class="card-type">Quiz (interactive)</p>
+            <p class="card-type">Quiz &middot; interactive</p>
             <h3>Self-assessment quiz</h3>
-            <p>38 multiple-choice questions across basics, MCTS, self-play, training, architecture, engineering, and pre-training. Click an answer to see why it's right or wrong. Topic breakdown + retry at the end.</p>
-            <span class="card-arrow">Take quiz &#8594;</span>
-          </a>
-          <a class="card" href="./docs/guides/2026-05-17-supervised-pretraining-deepdive.html">
-            <p class="card-type">Deep dive (text + diagram)</p>
-            <h3>Supervised pre-training deep dive</h3>
-            <p>The SP3b-specific concepts the foundational guide doesn't cover: behavior cloning, teacher ceiling, the Stockfish corpus pipeline, iter_batches streaming, lr warmup + cosine decay, overfitting + early stopping, processes vs threads, checkpoint contract, sizing. Includes an animated pipeline diagram + glossary.</p>
-            <span class="card-arrow">Read deep dive &#8594;</span>
+            <p>38 multiple-choice questions across basics, MCTS, self-play, training, architecture, engineering, and pre-training. Click an answer for the explanation; topic breakdown + retry at the end.</p>
+            <span class="card-arrow">Take quiz &rarr;</span>
           </a>
         </div>
       </section>
 
-      <!-- Sub-project 1 -->
-      <section class="section" id="sp1">
-        <h2 class="section-label">Sub-project 1 &mdash; Framework + Tic-Tac-Toe</h2>
-        <p class="section-sub">Generic AlphaZero framework (game protocol, MCTS, training loop) with Tic-Tac-Toe as the first target.</p>
-        <div class="card-grid">
-          <a class="card" href="./docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html">
-            <p class="card-type">Spec</p>
-            <h3>AlphaZero Framework + Tic-Tac-Toe Design</h3>
-            <p>Architecture decisions, game protocol, MCTS implementation, neural network structure, and training pipeline for the framework and first game.</p>
-            <span class="card-arrow">Read spec &#8594;</span>
-          </a>
-          <a class="card" href="./docs/superpowers/plans/2026-05-15-alphazero-framework-tictactoe.html">
-            <p class="card-type">Plan</p>
-            <h3>Implementation Plan &mdash; Framework + Tic-Tac-Toe</h3>
-            <p>Phased task breakdown, file structure, milestone checkpoints, and verification steps for building the framework and Tic-Tac-Toe implementation.</p>
-            <span class="card-arrow">Read plan &#8594;</span>
-          </a>
-        </div>
-      </section>
+      <!-- Build log -->
+      <section class="section" id="buildlog">
+        <h2 class="section-label">Build log</h2>
+        <p class="section-sub">Sub-projects in chronological order. Each ships working code with a spec and an implementation plan.</p>
 
-      <!-- Sub-project 2 -->
-      <section class="section" id="sp2">
-        <h2 class="section-label">Sub-project 2 &mdash; Connect 4</h2>
-        <p class="section-sub">Scaling the framework to a larger board game with gravity, column-based moves, and symmetry encoding.</p>
-        <div class="card-grid">
-          <a class="card" href="./docs/superpowers/specs/2026-05-15-connect4-design.html">
-            <p class="card-type">Spec</p>
-            <h3>Connect 4 Design</h3>
-            <p>Game state representation, gravity mechanics, terminal detection, symmetry-based canonical states, and integration with the existing training framework.</p>
-            <span class="card-arrow">Read spec &#8594;</span>
-          </a>
-          <a class="card" href="./docs/superpowers/plans/2026-05-15-connect4.html">
-            <p class="card-type">Plan</p>
-            <h3>Implementation Plan &mdash; Connect 4</h3>
-            <p>Step-by-step tasks for implementing Connect 4 on top of the framework, including board encoding, legal-move masks, and self-play verification.</p>
-            <span class="card-arrow">Read plan &#8594;</span>
-          </a>
-        </div>
-      </section>
+        <article class="sp-entry">
+          <span class="pill pill-done">Done</span>
+          <h3>Sub-project 1 &mdash; Framework + Tic-Tac-Toe</h3>
+          <p>Generic AlphaZero framework (Game protocol, MCTS, training loop) with Tic-Tac-Toe as the first target. Reached 0 losses vs a perfect minimax solver by iteration 10.</p>
+          <div class="sp-links">
+            <a href="./docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html">Spec &rarr;</a>
+            <a href="./docs/superpowers/plans/2026-05-15-alphazero-framework-tictactoe.html">Plan &rarr;</a>
+          </div>
+        </article>
 
-      <!-- Sub-project 3 -->
-      <section class="section" id="sp3">
-        <h2 class="section-label">Sub-project 3 &mdash; Chess</h2>
-        <p class="section-sub">Full 8&times;8 chess: AlphaZero 8&times;8&times;73 = 4672 move encoding, 20-plane input, Stockfish-as-eval-baseline, and parallel self-play with NN-server batching inference across worker processes.</p>
-        <div class="card-grid">
-          <a class="card" href="./docs/superpowers/specs/2026-05-16-chess-design.html">
-            <p class="card-type">Spec</p>
-            <h3>Chess Design</h3>
-            <p>Game wrapper around python-chess, 4672-action encoding (queen-like + knight + underpromotion), StockfishOpponent via UCI, parallel self-play architecture, and scaling path to Sub-project 4.</p>
-            <span class="card-arrow">Read spec &#8594;</span>
-          </a>
-          <a class="card" href="./docs/superpowers/plans/2026-05-16-chess.html">
-            <p class="card-type">Plan</p>
-            <h3>Implementation Plan &mdash; Chess</h3>
-            <p>18 tasks across move encoding, Chess(Game) implementation, Stockfish opponent, parallel self-play module (NN-server + worker processes + orchestrator), trainer dispatch, CLI, and E2E kill criterion.</p>
-            <span class="card-arrow">Read plan &#8594;</span>
-          </a>
-        </div>
-      </section>
+        <article class="sp-entry">
+          <span class="pill pill-done">Done</span>
+          <h3>Sub-project 2 &mdash; Connect 4</h3>
+          <p>Scaled the framework to a 6&times;7 board with gravity, column-based moves, and horizontal symmetry. Used &alpha;-&beta; minimax-depth-8 as the eval baseline. The framework code (MCTS, network, trainer) was reused unchanged &mdash; only the <code>Game</code> subclass changed.</p>
+          <div class="sp-links">
+            <a href="./docs/superpowers/specs/2026-05-15-connect4-design.html">Spec &rarr;</a>
+            <a href="./docs/superpowers/plans/2026-05-15-connect4.html">Plan &rarr;</a>
+          </div>
+        </article>
 
-      <!-- Sub-project 3b -->
-      <section class="section" id="sp3b">
-        <h2 class="section-label">Sub-project 3b &mdash; Supervised Pre-training + AZ Refinement</h2>
-        <p class="section-sub">Cold-start AlphaZero on chess is wall-clock infeasible on consumer hardware (~13 days for 80 iterations on M4 Pro). Bootstrap the network from Stockfish-vs-Stockfish games, then refine with a short AlphaZero loop. ~15 hours total.</p>
-        <div class="card-grid">
-          <a class="card" href="./docs/superpowers/specs/2026-05-16-supervised-pretraining-design.html">
-            <p class="card-type">Spec</p>
-            <h3>Supervised Pre-training Design</h3>
-            <p>Three-phase pipeline: parallel Stockfish-vs-Stockfish corpus generation (50k games), supervised pre-training with early stopping + lr warmup/cosine decay, AZ refinement from the pretrained checkpoint via --resume-from.</p>
-            <span class="card-arrow">Read spec &#8594;</span>
-          </a>
-          <a class="card" href="./docs/superpowers/plans/2026-05-16-supervised-pretraining.html">
-            <p class="card-type">Plan</p>
-            <h3>Implementation Plan &mdash; Pre-training</h3>
-            <p>17 tasks: corpus generation primitives + orchestrator + CLI, PretrainConfig, corpus loader, lr schedule, pretrain step/epoch, early stopping loop, refinement config, integration tests, E2E slow test.</p>
-            <span class="card-arrow">Read plan &#8594;</span>
-          </a>
-        </div>
-      </section>
+        <article class="sp-entry">
+          <span class="pill pill-done">Done</span>
+          <h3>Sub-project 3 &mdash; Chess</h3>
+          <p>Full 8&times;8 chess: AlphaZero's 8&times;8&times;73 = 4672 move encoding (queen-like + knight + underpromotion), 20-plane input, <code>StockfishOpponent</code> via UCI as the eval baseline, and parallel self-play with a central NN-server batching inference across worker processes.</p>
+          <div class="sp-links">
+            <a href="./docs/superpowers/specs/2026-05-16-chess-design.html">Spec &rarr;</a>
+            <a href="./docs/superpowers/plans/2026-05-16-chess.html">Plan &rarr;</a>
+          </div>
+        </article>
 
-      <!-- Future -->
-      <section class="section" id="future">
-        <h2 class="section-label">Future Sub-projects</h2>
-        <p class="section-sub">Planned &mdash; not yet started. Specs and plans will appear here when ready.</p>
-        <div class="future-list">
-          <ul>
-            <li><strong>Sub-project 4 &mdash; Productionize</strong> &nbsp; UCI engine wrapper for lichess-bot / Arena, scaling to 2000+ ELO, distributed self-play across cloud workers, experiment tracking.</li>
-            <li><strong>Sub-project 5 &mdash; Hybrid Search</strong> &nbsp; Combining learned heuristics with classical search (alpha-beta, endgame tablebases). Distillation from larger teacher networks.</li>
-          </ul>
-        </div>
+        <article class="sp-entry">
+          <span class="pill pill-done">Done</span>
+          <h3>Sub-project 3b &mdash; Supervised Pre-training + AZ Refinement</h3>
+          <p>Cold-start AlphaZero on chess is wall-clock infeasible on consumer hardware (~13 days on M4 Pro). Bootstrap the network from 50k Stockfish-vs-Stockfish games via supervised pre-training, then refine with a short AlphaZero loop. ~15 hours total. New code: corpus generator, supervised trainer, <code>pretrain</code> CLI subcommand &mdash; framework primitives reused unchanged.</p>
+          <div class="sp-links">
+            <a href="./docs/superpowers/specs/2026-05-16-supervised-pretraining-design.html">Spec &rarr;</a>
+            <a href="./docs/superpowers/plans/2026-05-16-supervised-pretraining.html">Plan &rarr;</a>
+            <a href="./docs/guides/2026-05-17-supervised-pretraining-deepdive.html">Deep dive &rarr;</a>
+          </div>
+        </article>
+
+        <article class="sp-entry">
+          <span class="pill pill-planned">Planned</span>
+          <h3>Sub-project 4 &mdash; Productionize</h3>
+          <p>UCI engine wrapper for lichess-bot and Arena, scaling to 2000+ ELO, distributed self-play across cloud workers, and experiment tracking.</p>
+        </article>
+
+        <article class="sp-entry">
+          <span class="pill pill-planned">Planned</span>
+          <h3>Sub-project 5 &mdash; Hybrid Search</h3>
+          <p>Combining learned heuristics with classical search (alpha-beta, endgame tablebases). Distillation from larger teacher networks.</p>
+        </article>
       </section>
 
       <!-- Footer -->
@@ -418,5 +576,6 @@
       </footer>
 
     </main>
+    <script src="./search.js" defer></script>
   </body>
 </html>
