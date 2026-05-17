@@ -1,0 +1,47 @@
+# Chess AZ refinement config — Sub-project 3b Phase 3.
+# Run with:
+#   python -m alphazero train \
+#     --game chess \
+#     --config configs/chess-refine.toml \
+#     --resume-from pretrained.pt
+
+# Network — must match configs/chess-pretrain.toml (the pretrained checkpoint shape)
+n_blocks = 15
+n_channels = 192
+
+# MCTS — reduced from chess.toml since pretrained priors compensate
+num_simulations = 50
+c_puct = 2.5
+dirichlet_alpha = 0.3
+dirichlet_weight = 0.25
+
+# Self-play
+games_per_iteration = 100
+temperature_threshold = 30
+
+# Training
+training_steps_per_iteration = 2000
+batch_size = 256
+learning_rate = 1e-3
+weight_decay = 1e-4
+
+# Replay buffer — smaller since the pretrained net doesn't need a big ramp
+replay_buffer_capacity = 200_000
+min_buffer_size = 10_000
+
+# Eval (vs Stockfish ELO=1500)
+eval_interval = 2
+eval_games = 100
+
+# Schedule
+num_iterations = 10
+
+# Parallel self-play
+num_workers = 10
+inference_batch_size = 64
+
+# Misc
+seed = 42
+device = "auto"
+checkpoint_dir = "checkpoints_refine"
+log_dir = "runs_refine"
