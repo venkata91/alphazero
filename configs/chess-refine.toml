@@ -9,8 +9,8 @@
 n_blocks = 15
 n_channels = 192
 
-# MCTS — reduced from chess.toml since pretrained priors compensate
-num_simulations = 50
+# MCTS — bumped to 200 (50 was too low; policy targets were ~priors, training reinforced existing behavior)
+num_simulations = 200
 c_puct = 2.5
 dirichlet_alpha = 0.3
 dirichlet_weight = 0.25
@@ -22,7 +22,7 @@ temperature_threshold = 30
 # Training
 training_steps_per_iteration = 2000
 batch_size = 256
-learning_rate = 1e-3
+learning_rate = 1e-4
 weight_decay = 1e-4
 
 # Replay buffer — smaller since the pretrained net doesn't need a big ramp
@@ -31,7 +31,7 @@ min_buffer_size = 10_000
 
 # Eval (vs Stockfish ELO=1500)
 eval_interval = 2
-eval_games = 100
+eval_games = 25
 
 # Schedule
 num_iterations = 10
