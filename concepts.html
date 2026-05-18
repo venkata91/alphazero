@@ -778,6 +778,11 @@
         border: 2px solid var(--line-faint);
         align-items: start;
       }
+      /* CSS Grid items default to min-width: auto, which prevents shrinking
+         below their largest unbreakable child. Pre-formatted .formula blocks
+         (white-space: pre, ~75-char monospace lines) would force the prose
+         column wider than 1fr — pushing the row outside .epoch-stage. */
+      .epoch-stage > * { min-width: 0; }
       .epoch-stage .viz {
         height: 220px;
         padding: 8px;
