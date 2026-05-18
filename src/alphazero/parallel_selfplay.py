@@ -160,7 +160,7 @@ def worker_play_one_game(
         request_q.put(InferenceRequest(worker_id=worker_id, request_id=rid, encoded=encoded))
         # Wait for the response with our exact request_id (the server returns
         # ID-tagged responses; the queue is per-worker so we just pull next)
-        response: InferenceResponse = response_q.get(timeout=60.0)
+        response: InferenceResponse = response_q.get(timeout=300.0)
         assert response.request_id == rid, (
             f"Worker {worker_id} expected request_id {rid}, got {response.request_id}"
         )
@@ -391,19 +391,39 @@ def _worker_loop(
         except Exception:
             pass
 
-        examples = worker_play_one_game(
-            worker_id=worker_id,
-            game_name=game_name,
-            num_simulations=num_simulations,
-            temperature_threshold=temperature_threshold,
-            c_puct=c_puct,
-            dirichlet_alpha=dirichlet_alpha,
-            dirichlet_weight=dirichlet_weight,
-            request_q=request_q,
-            response_q=response_q,
-            augment=True,
-            request_id_offset=request_id_offset,
-        )
+        try:
+            examples = worker_play_one_game(
+                worker_id=worker_id,
+                game_name=game_name,
+                num_simulations=num_simulations,
+                temperature_threshold=temperature_threshold,
+                c_puct=c_puct,
+                dirichlet_alpha=dirichlet_alpha,
+                dirichlet_weight=dirichlet_weight,
+                request_q=request_q,
+                response_q=response_q,
+                augment=True,
+                request_id_offset=request_id_offset,
+            )
+        except (queue.Empty, AssertionError) as e:
+            # NN inference server didn't respond (response_q timeout) or
+            # request_id desync. Skip this game so the iteration doesn't stall,
+            # but log clearly so the user sees the real cause rather than a
+            # downstream WorkerHangError.
+            sys.stderr.write(
+                f"worker {worker_id}: game failed ({type(e).__name__}: {e}); "
+                f"skipping. Likely NN inference timeout — check parent-side "
+                f"MPS/GPU saturation.\n"
+            )
+            sys.stderr.flush()
+            # Drain any late-arriving responses for the failed request_ids
+            # so the next game doesn't immediately assertion-fail on stale data.
+            while True:
+                try:
+                    response_q.get_nowait()
+                except queue.Empty:
+                    break
+            examples = []
         request_id_offset += 100_000   # bump for next game from this worker
 
         # Heartbeat: game done, about to publish.

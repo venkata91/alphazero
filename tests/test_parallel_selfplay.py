@@ -285,3 +285,75 @@ def test_end_to_end_hang_detection_with_real_spawned_worker():
         if p.is_alive():
             p.terminate()
             p.join(timeout=2.0)
+
+
+def test_worker_loop_skips_failed_game_on_eval_fn_timeout(monkeypatch, capsys):
+    """Regression: when worker_play_one_game raises queue.Empty (e.g. NN
+    inference server slow / MPS hiccup), the worker must skip that game
+    and continue rather than die — otherwise a transient parent-side
+    slowness kills the iteration via a misleading downstream
+    WorkerHangError.
+
+    Asserts: the loop logs to stderr, posts an empty result for the
+    failed game, processes subsequent tokens normally, then exits on
+    sentinel.
+    """
+    import queue as stdqueue
+    import threading
+    from alphazero.parallel_selfplay import _worker_loop
+
+    # In-process queues (stdlib Queue) — mp.Queue has feeder-thread latency
+    # that drops puts in same-process synchronous tests.
+    work_q = stdqueue.Queue()
+    request_q = stdqueue.Queue()
+    response_q = stdqueue.Queue()
+    result_q = stdqueue.Queue()
+    heartbeat_q = stdqueue.Queue()
+    shutdown_event = threading.Event()
+
+    work_q.put(1)
+    work_q.put(2)
+    work_q.put(None)
+
+    call_count = {"n": 0}
+
+    def fake_worker_play_one_game(**kwargs):
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise stdqueue.Empty("simulated NN inference timeout")
+        return [(np.zeros((3, 3, 3), dtype=np.float32),
+                 np.zeros(9, dtype=np.float32), 0.0)]
+
+    monkeypatch.setattr(
+        "alphazero.parallel_selfplay.worker_play_one_game",
+        fake_worker_play_one_game,
+    )
+
+    _worker_loop(
+        worker_id=0,
+        game_name="tictactoe",
+        num_simulations=5,
+        temperature_threshold=6,
+        c_puct=1.5,
+        dirichlet_alpha=1.0,
+        dirichlet_weight=0.25,
+        work_q=work_q,
+        request_q=request_q,
+        response_q=response_q,
+        result_q=result_q,
+        heartbeat_q=heartbeat_q,
+        shutdown_event=shutdown_event,
+    )
+
+    posted = []
+    while not result_q.empty():
+        posted.append(result_q.get_nowait())
+
+    assert call_count["n"] == 2, "Worker should attempt both games before sentinel"
+    assert len(posted) == 2, f"Worker should post one result per game; got {posted}"
+    assert posted[0] == [], "First (failed) game posts empty examples"
+    assert len(posted[1]) == 1, "Second (successful) game posts one example tuple"
+
+    captured = capsys.readouterr()
+    assert "worker 0: game failed" in captured.err
+    assert "NN inference timeout" in captured.err
