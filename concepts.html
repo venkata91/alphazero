@@ -750,6 +750,160 @@
         margin-top: 12px;
       }
       @media (max-width: 760px) { .twocol { grid-template-columns: 1fr; } }
+
+      /* === Sizing the network: channels vs blocks === */
+      .sizing-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 14px;
+      }
+      @media (max-width: 760px) { .sizing-row { grid-template-columns: 1fr; } }
+
+      .sizing-card {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+      }
+      .sizing-card h4 {
+        margin: 0 0 6px;
+        font-family: var(--cursive);
+        font-size: 1.45rem;
+        color: var(--blue-deep);
+        font-weight: 700;
+      }
+      .sizing-card .tag {
+        display: inline-block;
+        font-family: var(--cursive);
+        font-size: 1rem;
+        color: var(--orange);
+        margin-bottom: 6px;
+      }
+      .sizing-card .sizing-viz {
+        background: var(--bg-soft);
+        border: 1.5px dashed var(--line-faint);
+        border-radius: 10px;
+        padding: 8px;
+        margin: 8px 0;
+      }
+      .sizing-card .sizing-viz svg { width: 100%; height: 130px; display: block; }
+      .sizing-card p { margin: 4px 0; font-size: 0.98rem; }
+
+      /* Board → channel-strip explode animation */
+      .ch-board-cell { fill: var(--blue-bg); stroke: var(--blue); stroke-width: 1.2; }
+      .ch-board-cell.is-pick {
+        fill: var(--orange-bg);
+        stroke: var(--orange-deep);
+        stroke-width: 2;
+        animation: ch-pick 4s ease-in-out infinite;
+      }
+      @keyframes ch-pick {
+        0%, 100% { fill: var(--blue-bg);   stroke: var(--blue); }
+        30%, 70% { fill: var(--orange-bg); stroke: var(--orange-deep); }
+      }
+      .ch-strip-cell {
+        fill: var(--orange-bg);
+        stroke: var(--orange);
+        stroke-width: 0.6;
+        opacity: 0;
+        animation: ch-strip-pop 4s ease-in-out infinite;
+      }
+      @keyframes ch-strip-pop {
+        0%, 25%   { opacity: 0; transform: translateY(2px); }
+        45%, 80%  { opacity: 1; transform: translateY(0); }
+        95%, 100% { opacity: 0; }
+      }
+      .ch-link {
+        stroke: var(--orange);
+        stroke-width: 1.4;
+        stroke-dasharray: 3 3;
+        fill: none;
+        opacity: 0;
+        animation: ch-link-show 4s ease-in-out infinite;
+      }
+      @keyframes ch-link-show {
+        0%, 25%   { opacity: 0; }
+        45%, 80%  { opacity: 0.85; }
+        95%, 100% { opacity: 0; }
+      }
+
+      /* Receptive field growing */
+      .rf-cell { fill: var(--paper); stroke: var(--blue); stroke-width: 0.8; }
+      .rf-center { fill: var(--blue); }
+      .rf-ring-1 { fill: var(--blue-bg); stroke: var(--blue); stroke-width: 1; opacity: 0; animation: rf-show 6s ease-in-out infinite; }
+      .rf-ring-2 { fill: var(--orange-bg); stroke: var(--orange); stroke-width: 1; opacity: 0; animation: rf-show 6s ease-in-out infinite; animation-delay: 0.4s; }
+      .rf-ring-3 { fill: var(--green-bg); stroke: var(--green); stroke-width: 1; opacity: 0; animation: rf-show 6s ease-in-out infinite; animation-delay: 0.8s; }
+      .rf-ring-4 { fill: var(--orange-bg); stroke: var(--orange-deep); stroke-width: 1; opacity: 0; animation: rf-show 6s ease-in-out infinite; animation-delay: 1.2s; }
+      @keyframes rf-show {
+        0%, 10%   { opacity: 0; }
+        25%, 90%  { opacity: 0.85; }
+        100%      { opacity: 0; }
+      }
+      .rf-label { font-family: var(--cursive); font-size: 11px; fill: var(--ink-soft); }
+
+      /* Sizing table */
+      .sizing-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+        margin: 12px 0;
+        font-size: 0.96rem;
+      }
+      .sizing-table th, .sizing-table td {
+        padding: 9px 12px;
+        text-align: left;
+        border-bottom: 1.5px dashed var(--line-faint);
+      }
+      .sizing-table th {
+        font-family: var(--cursive);
+        font-weight: 700;
+        color: var(--orange);
+        font-size: 1.1rem;
+        background: var(--orange-bg);
+        border-bottom: 2px solid var(--orange-soft);
+      }
+      .sizing-table td { color: var(--ink-soft); }
+      .sizing-table td strong { color: var(--blue-deep); }
+      .sizing-table tr:last-child td { border-bottom: none; }
+      .sizing-table code {
+        padding: 1px 6px;
+        font-size: 0.88em;
+      }
+
+      .sizing-recipe {
+        margin: 14px 0 0;
+        padding: 14px 18px 14px 22px;
+        list-style: none;
+        counter-reset: recipe;
+        background: var(--blue-bg);
+        border: 2px dashed var(--blue-soft);
+        border-radius: 14px;
+      }
+      .sizing-recipe li {
+        position: relative;
+        padding: 4px 0 4px 30px;
+        color: var(--ink-soft);
+        font-size: 1rem;
+        counter-increment: recipe;
+      }
+      .sizing-recipe li::before {
+        content: counter(recipe);
+        position: absolute;
+        left: 0;
+        top: 4px;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: var(--blue);
+        color: var(--paper);
+        font-family: var(--cursive);
+        font-weight: 700;
+        text-align: center;
+        line-height: 22px;
+        font-size: 0.95rem;
+      }
+      .sizing-recipe li strong { color: var(--blue-deep); }
     </style>
   </head>
   <body>
@@ -1654,6 +1808,298 @@ v̂<sub>t</sub> = v<sub>t</sub> / (1 − β<sub>2</sub><sup>t</sup>)
             <p class="act-where">Final layer of the value head only. Matches the game outcome scale z ∈ {−1, 0, +1}.</p>
           </div>
         </div>
+      </section>
+
+      <!-- ============================ Sizing the network ============================ -->
+      <section class="animation-panel epoch-panel" id="sizing">
+        <p class="kicker">Sizing the net</p>
+        <h2>Channels vs blocks &mdash; what each one buys you.</h2>
+        <p>"15 blocks &times; 192 channels" is the chess net we train. What do those two numbers actually mean, and how would you change them?</p>
+
+        <!-- 1. What is a channel? -->
+        <h3 class="sub-heading">1 &middot; What is a channel?</h3>
+        <div class="sizing-card">
+          <span class="tag">A 2D feature map &mdash; one number per square, stacked C deep.</span>
+          <div class="sizing-viz">
+            <svg viewBox="0 0 320 140" preserveAspectRatio="xMidYMid meet">
+              <!-- 8x8 board on the left -->
+              <g transform="translate(8,6)">
+                <text x="64" y="-2" text-anchor="middle" class="v-text">8&times;8 board (one channel)</text>
+                <!-- 64 cells -->
+                <g id="board-cells">
+                  <!-- row 0 -->
+                  <rect x="0"   y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="6"  width="16" height="16" class="ch-board-cell"/>
+                  <!-- row 1 -->
+                  <rect x="0"   y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="22" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="22" width="16" height="16" class="ch-board-cell"/>
+                  <!-- row 2 (with highlighted cell) -->
+                  <rect x="0"   y="38" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="38" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="38" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="38" width="16" height="16" class="ch-board-cell is-pick"/>
+                  <rect x="64"  y="38" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="38" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="38" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="38" width="16" height="16" class="ch-board-cell"/>
+                  <!-- rows 3-7 -->
+                  <rect x="0"   y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="54" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="0"   y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="70" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="0"   y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="86" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="0"   y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="102" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="0"   y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="16"  y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="32"  y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="48"  y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="64"  y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="80"  y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="96"  y="118" width="16" height="16" class="ch-board-cell"/>
+                  <rect x="112" y="118" width="16" height="16" class="ch-board-cell"/>
+                </g>
+              </g>
+              <!-- connector from highlighted cell to strip -->
+              <path d="M 72,52 Q 130,52 170,30" class="ch-link"/>
+              <path d="M 72,52 Q 130,80 170,116" class="ch-link"/>
+              <!-- Vertical strip of 192 cells on the right -->
+              <g transform="translate(170,20)">
+                <text x="64" y="-6" text-anchor="middle" class="v-text">vector at that square (192 channels)</text>
+                <!-- background frame -->
+                <rect x="0" y="0" width="128" height="100" fill="var(--paper)" stroke="var(--line-faint)" stroke-width="1.4" rx="4"/>
+                <!-- 192 cells laid as 24 cols x 8 rows; 5.33px x 12.5px each -->
+                <g>
+                  <!-- generated via repetition; each row has 24 cells -->
+                  <!-- row 0 -->
+                  <g style="animation-delay: 0s">
+                    <rect x="2"   y="2"  width="4.5" height="11" class="ch-strip-cell"/>
+                    <rect x="7"   y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.05s"/>
+                    <rect x="12"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.1s"/>
+                    <rect x="17"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.15s"/>
+                    <rect x="22"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.2s"/>
+                    <rect x="27"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.25s"/>
+                    <rect x="32"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.3s"/>
+                    <rect x="37"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.35s"/>
+                    <rect x="42"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.4s"/>
+                    <rect x="47"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.45s"/>
+                    <rect x="52"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.5s"/>
+                    <rect x="57"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.55s"/>
+                    <rect x="62"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.6s"/>
+                    <rect x="67"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.65s"/>
+                    <rect x="72"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.7s"/>
+                    <rect x="77"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.75s"/>
+                    <rect x="82"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.8s"/>
+                    <rect x="87"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.85s"/>
+                    <rect x="92"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.9s"/>
+                    <rect x="97"  y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:0.95s"/>
+                    <rect x="102" y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:1.0s"/>
+                    <rect x="107" y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:1.05s"/>
+                    <rect x="112" y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:1.1s"/>
+                    <rect x="117" y="2"  width="4.5" height="11" class="ch-strip-cell" style="animation-delay:1.15s"/>
+                  </g>
+                </g>
+                <!-- Use a simpler representation: fill remaining 7 rows with grouped rects -->
+                <g>
+                  <!-- row 1 -->
+                  <rect x="2"  y="14" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:0.3s"/>
+                  <rect x="2"  y="26" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:0.5s"/>
+                  <rect x="2"  y="38" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:0.7s"/>
+                  <rect x="2"  y="50" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:0.9s"/>
+                  <rect x="2"  y="62" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:1.1s"/>
+                  <rect x="2"  y="74" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:1.3s"/>
+                  <rect x="2"  y="86" width="120" height="11" fill="var(--orange-bg)" stroke="var(--orange-soft)" stroke-width="0.6" class="ch-strip-cell" style="animation-delay:1.5s"/>
+                </g>
+                <text x="64" y="116" text-anchor="middle" class="v-text-strong" style="font-size:11px;">[c&#8320;, c&#8321;, c&#8322;, &hellip;, c&#8321;&#8329;&#8321;]</text>
+              </g>
+            </svg>
+          </div>
+          <p>Every square of the 8&times;8 board carries a vector of <strong>C</strong> numbers; those C numbers are the C channels at that location. Channels are <em>not</em> spatial &mdash; they're the feature dimension layered on top of position.</p>
+          <p style="margin-top:6px;">
+            <strong style="color:var(--blue-deep)">Input (encoded chess position):</strong> <code>20</code> channels = 12 piece planes (6 white + 6 black) + 4 castling + 1 side-to-move + 1 en-passant + 2 move clocks. &nbsp;
+            <strong style="color:var(--orange-deep)">After input conv:</strong> projected up to <code>192</code> channels &mdash; the network's working "width."
+          </p>
+        </div>
+
+        <!-- 2. Channels vs blocks -->
+        <h3 class="sub-heading">2 &middot; Channels vs blocks</h3>
+        <div class="sizing-row">
+          <div class="sizing-card">
+            <span class="tag">Width</span>
+            <h4>Channels &mdash; vocabulary per square</h4>
+            <div class="sizing-viz">
+              <svg viewBox="0 0 280 130" preserveAspectRatio="xMidYMid meet">
+                <text x="140" y="14" text-anchor="middle" class="v-text">more channels &rarr; richer per-location features</text>
+                <!-- 3 stacks: 32, 96, 192 channels -->
+                <g transform="translate(30,28)">
+                  <rect x="0" y="60" width="40" height="40" fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="1.5"/>
+                  <text x="20" y="118" text-anchor="middle" class="v-text-strong" style="font-size:11px;">32</text>
+                </g>
+                <g transform="translate(110,28)">
+                  <rect x="0" y="30" width="40" height="70" fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="1.5"/>
+                  <text x="20" y="118" text-anchor="middle" class="v-text-strong" style="font-size:11px;">96</text>
+                </g>
+                <g transform="translate(190,28)">
+                  <rect x="0" y="2" width="40" height="98" fill="var(--orange-bg)" stroke="var(--orange-deep)" stroke-width="2"/>
+                  <text x="20" y="118" text-anchor="middle" class="v-text-red" style="font-size:11px;">192 (ours)</text>
+                </g>
+                <line x1="20" y1="105" x2="230" y2="105" class="v-axis"/>
+              </svg>
+            </div>
+            <p><strong>Per-square expressiveness.</strong> At one square, the net can encode "is this an attacked rook on a half-open file under pin pressure" only if there's enough channels to dedicate dimensions to those concepts.</p>
+            <p>Cost: compute &amp; params scale as <code>channels&sup2;</code> (the 3&times;3 conv has C inputs and C outputs).</p>
+          </div>
+
+          <div class="sizing-card">
+            <span class="tag">Depth</span>
+            <h4>Blocks &mdash; editing passes &amp; reach</h4>
+            <div class="sizing-viz">
+              <svg viewBox="0 0 280 130" preserveAspectRatio="xMidYMid meet">
+                <text x="140" y="14" text-anchor="middle" class="v-text">each 3&times;3 conv adds &plusmn;1 of reach &mdash; stack to cover the board</text>
+                <!-- 8x8 grid showing receptive field rings -->
+                <g transform="translate(70,22)">
+                  <!-- 8x8 base grid -->
+                  <g>
+                    <rect x="0"   y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="12"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="24"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="36"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="48"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="60"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="72"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="0"   width="12" height="12" class="rf-cell"/>
+                    <rect x="0"   y="12"  width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="12"  width="12" height="12" class="rf-cell"/>
+                    <rect x="0"   y="24"  width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="24"  width="12" height="12" class="rf-cell"/>
+                    <rect x="0"   y="36"  width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="36"  width="12" height="12" class="rf-cell"/>
+                    <rect x="0"   y="48"  width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="48"  width="12" height="12" class="rf-cell"/>
+                    <rect x="0"   y="60"  width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="60"  width="12" height="12" class="rf-cell"/>
+                    <rect x="0"   y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="12"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="24"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="36"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="48"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="60"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="72"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <rect x="84"  y="72"  width="12" height="12" class="rf-cell"/>
+                    <!-- fill interior cells with paper -->
+                    <rect x="12" y="12" width="72" height="60" fill="var(--paper)" stroke="var(--blue)" stroke-width="0.8"/>
+                  </g>
+                  <!-- Receptive field rings centered at (42,42) which is cell (3,3) center -->
+                  <!-- ring 4: blocks ~7 (full board, 15x15 RF) -->
+                  <rect x="-2"   y="-2"  width="100" height="88" class="rf-ring-4"/>
+                  <!-- ring 3: ~4 blocks (~9x9) -->
+                  <rect x="6"    y="6"   width="84"  height="72" class="rf-ring-3"/>
+                  <!-- ring 2: ~2 blocks (~5x5) -->
+                  <rect x="18"   y="18"  width="60"  height="48" class="rf-ring-2"/>
+                  <!-- ring 1: 1 block (3x3) -->
+                  <rect x="30"   y="30"  width="36"  height="24" class="rf-ring-1"/>
+                  <!-- center cell -->
+                  <rect x="42"   y="36"  width="12"  height="12" class="rf-center"/>
+                </g>
+                <!-- depth legend -->
+                <g transform="translate(8,30)">
+                  <rect x="0" y="0"  width="10" height="10" class="rf-ring-1"/><text x="14" y="9" class="rf-label">b=1</text>
+                  <rect x="0" y="16" width="10" height="10" class="rf-ring-2"/><text x="14" y="25" class="rf-label">b=2</text>
+                  <rect x="0" y="32" width="10" height="10" class="rf-ring-3"/><text x="14" y="41" class="rf-label">b=4</text>
+                  <rect x="0" y="48" width="10" height="10" class="rf-ring-4"/><text x="14" y="57" class="rf-label">b=7+</text>
+                </g>
+              </svg>
+            </div>
+            <p><strong>Reach + abstraction.</strong> A single 3&times;3 conv only sees neighbors. You need <strong>&geq; 7 blocks</strong> for one square to "see" the whole 8&times;8 board, plus extra blocks to <em>combine</em> what it sees.</p>
+            <p>Cost: compute &amp; params scale <em>linearly</em> with blocks.</p>
+          </div>
+        </div>
+
+        <!-- 3. How to size them -->
+        <h3 class="sub-heading">3 &middot; How to size them</h3>
+        <p>Three constraints push back on you. Pick the smallest net that satisfies all three.</p>
+        <table class="sizing-table">
+          <thead>
+            <tr><th>Constraint</th><th>Formula</th><th>For our 15 &times; 192</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Compute per forward</strong></td>
+              <td><code>O(blocks &middot; channels&sup2;)</code></td>
+              <td>~50 ms on Mac MPS</td>
+            </tr>
+            <tr>
+              <td><strong>Receptive field &geq; board</strong></td>
+              <td>need <code>&geq; 7&ndash;8</code> blocks for 8&times;8</td>
+              <td>15 blocks &rarr; fully seen ~7&times;</td>
+            </tr>
+            <tr>
+              <td><strong>Params vs data</strong></td>
+              <td><code>corpus / params &gt; ~5</code></td>
+              <td>3M / 10.6M = <strong>0.3</strong> &rarr; data-limited</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          <strong style="color:var(--blue-deep)">Param count rule of thumb:</strong>
+          <span class="math-inline">params &asymp; 18 &middot; blocks &middot; channels&sup2;</span>.
+          For 15 &times; 192: <code>18 &times; 15 &times; 192&sup2; &asymp; 9.96M</code> &mdash; matches the 10.6M we measure.
+        </p>
+
+        <table class="sizing-table">
+          <thead>
+            <tr><th>Variant</th><th>Blocks &times; Channels</th><th>Params</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>AZ paper (chess / shogi)</td><td>20 &times; 256</td><td>~23M</td></tr>
+            <tr><td>Mini-AZ (TTT / Connect4)</td><td>4&ndash;8 &times; 64&ndash;96</td><td>0.5&ndash;1M</td></tr>
+            <tr><td><strong>Ours (chess on Mac)</strong></td><td><strong>15 &times; 192</strong></td><td><strong>10.6M</strong></td></tr>
+          </tbody>
+        </table>
+
+        <ol class="sizing-recipe">
+          <li><strong>Pick channels first</strong> &mdash; sets feature richness. 128 / 192 / 256 are the common sizes.</li>
+          <li><strong>Pick blocks</strong> so receptive field &geq; board size, plus 2&ndash;4 extra for abstraction passes.</li>
+          <li><strong>Sanity-check params vs data</strong> &mdash; corpus should comfortably exceed param count.</li>
+          <li><strong>Sanity-check forward time</strong> &mdash; if too slow, <em>cut channels before cutting blocks</em>: compute scales as channels&sup2; but only linearly with blocks.</li>
+        </ol>
       </section>
 
       <!-- ============================ Glossary ============================ -->
