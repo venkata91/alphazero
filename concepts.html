@@ -326,25 +326,6 @@
         100%     { opacity: 0; transform: translate(0,40px); }
       }
 
-      /* Arena board */
-      .arena-net {
-        fill: var(--blue-bg);
-        stroke: var(--blue);
-        stroke-width: 2;
-      }
-      .arena-net-new {
-        fill: var(--orange-bg);
-        stroke: var(--orange);
-        stroke-width: 2;
-      }
-      .arena-score {
-        animation: arena-flash 2.8s ease-in-out infinite;
-      }
-      @keyframes arena-flash {
-        0%, 100% { opacity: 0.4; }
-        50%      { opacity: 1; }
-      }
-
       /* ResNet block */
       .resnet-box {
         fill: var(--blue-bg);
@@ -548,6 +529,227 @@
       }
       .page-nav a:hover { color: var(--orange-deep); }
       .page-nav .crumb { color: var(--ink-faint); }
+
+      /* === Epoch walk-through section === */
+      .epoch-panel { margin: 20px 0; }
+      .epoch-stage {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 22px;
+        padding: 20px 22px;
+        margin: 14px 0;
+        border-radius: 20px;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+        align-items: start;
+      }
+      .epoch-stage .viz {
+        height: 220px;
+        padding: 8px;
+        border-radius: 16px;
+        background: var(--bg-soft);
+        border: 2px solid var(--line-faint);
+        overflow: hidden;
+        position: relative;
+      }
+      .epoch-stage h3 { margin-top: 0; }
+      .epoch-stage .stage-num {
+        font-family: var(--cursive);
+        font-size: 1.1rem;
+        color: var(--orange);
+        font-weight: 700;
+        letter-spacing: 0.5px;
+      }
+      @media (max-width: 920px) {
+        .epoch-stage { grid-template-columns: 1fr; }
+        .epoch-stage .viz { height: 200px; }
+      }
+
+      /* MCTS three-phase walk-through */
+      .phase-edge {
+        stroke: var(--line-faint);
+        stroke-width: 1.6;
+        fill: none;
+        stroke-linecap: round;
+      }
+      .phase-select {
+        stroke: var(--blue);
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+        opacity: 0;
+        animation: phase-select 7s ease-in-out infinite;
+      }
+      @keyframes phase-select {
+        0%, 4%   { opacity: 0; }
+        8%       { opacity: 1; }
+        32%      { opacity: 1; }
+        38%, 100%{ opacity: 0; }
+      }
+      .phase-expand-leaf {
+        opacity: 0;
+        animation: phase-expand 7s ease-in-out infinite;
+      }
+      @keyframes phase-expand {
+        0%, 38%   { opacity: 0; transform: scale(0.4); }
+        46%, 66%  { opacity: 1; transform: scale(1); }
+        72%, 100% { opacity: 0; transform: scale(1); }
+      }
+      .phase-backup {
+        stroke: var(--orange);
+        stroke-width: 3;
+        fill: none;
+        stroke-linecap: round;
+        opacity: 0;
+        animation: phase-backup 7s ease-in-out infinite;
+      }
+      @keyframes phase-backup {
+        0%, 70%   { opacity: 0; }
+        76%       { opacity: 1; }
+        94%       { opacity: 1; }
+        100%      { opacity: 0; }
+      }
+      .phase-label {
+        font-family: var(--cursive);
+        font-weight: 700;
+        font-size: 14px;
+        opacity: 0;
+      }
+      .phase-label.l-select { fill: var(--blue);   animation: phase-label-s 7s ease-in-out infinite; }
+      .phase-label.l-expand { fill: var(--green);  animation: phase-label-e 7s ease-in-out infinite; }
+      .phase-label.l-backup { fill: var(--orange); animation: phase-label-b 7s ease-in-out infinite; }
+      @keyframes phase-label-s { 0%, 4% {opacity:0;} 8%, 32% {opacity:1;} 38%, 100% {opacity:0;} }
+      @keyframes phase-label-e { 0%, 38% {opacity:0;} 46%, 66% {opacity:1;} 72%, 100% {opacity:0;} }
+      @keyframes phase-label-b { 0%, 70% {opacity:0;} 76%, 94% {opacity:1;} 100% {opacity:0;} }
+
+      /* Math formula box (display) */
+      .math {
+        display: block;
+        margin: 10px 0;
+        padding: 12px 16px;
+        border-radius: 12px;
+        background: var(--orange-bg);
+        border: 1.5px dashed var(--orange);
+        color: var(--ink);
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.98rem;
+        line-height: 1.6;
+        white-space: pre;
+        overflow-x: auto;
+      }
+      .math-inline {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 6px;
+        background: var(--orange-bg);
+        border: 1px dashed var(--orange-soft);
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        color: var(--ink);
+      }
+
+      /* Temperature visualization */
+      .temp-bar { fill: var(--blue); }
+      .temp-bar-hot { fill: var(--blue-soft); }
+      .temp-arrow {
+        stroke: var(--orange);
+        stroke-width: 2.2;
+        fill: none;
+        stroke-dasharray: 5 4;
+        animation: viz-flow 1.6s linear infinite;
+      }
+
+      /* Forward + backward pass animation */
+      .fwd-box {
+        fill: var(--blue-bg);
+        stroke: var(--blue);
+        stroke-width: 2;
+      }
+      .head-box {
+        fill: var(--orange-bg);
+        stroke: var(--orange);
+        stroke-width: 2;
+      }
+      .fwd-arrow {
+        stroke: var(--blue);
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-dasharray: 4 4;
+        animation: viz-flow 1.2s linear infinite;
+      }
+      .bwd-arrow {
+        stroke: var(--orange);
+        stroke-width: 2;
+        fill: none;
+        stroke-linecap: round;
+        stroke-dasharray: 5 5;
+        animation: viz-flow-back 1.4s linear infinite;
+      }
+      .loss-node {
+        fill: var(--orange-bg);
+        stroke: var(--orange-deep);
+        stroke-width: 2.5;
+        animation: viz-box-pulse 2.2s ease-in-out infinite;
+      }
+
+      /* Activation reference card */
+      .act-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 14px;
+        margin-top: 12px;
+      }
+      .act-card {
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: var(--paper-tint);
+        border: 2px solid var(--line-faint);
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .act-card h4 {
+        margin: 0;
+        font-family: var(--cursive);
+        font-size: 1.4rem;
+        color: var(--blue-deep);
+        font-weight: 700;
+      }
+      .act-card .act-viz {
+        background: var(--bg-soft);
+        border: 1.5px dashed var(--line-faint);
+        border-radius: 10px;
+        padding: 6px;
+      }
+      .act-card .act-viz svg { width: 100%; height: 70px; display: block; }
+      .act-card .act-where {
+        font-family: var(--hand);
+        font-size: 0.92rem;
+        color: var(--ink-soft);
+        line-height: 1.4;
+      }
+      .act-card .act-formula {
+        font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        font-size: 0.82rem;
+        color: var(--blue-deep);
+        background: var(--blue-bg);
+        border-radius: 6px;
+        padding: 2px 6px;
+        align-self: flex-start;
+      }
+      .act-curve { fill: none; stroke: var(--orange-deep); stroke-width: 2.2; }
+      .act-axis  { stroke: var(--line-faint); stroke-width: 1; }
+      @media (max-width: 920px) { .act-grid { grid-template-columns: 1fr 1fr; } }
+      @media (max-width: 520px) { .act-grid { grid-template-columns: 1fr; } }
+
+      /* Two-column side-by-side micro layout */
+      .twocol {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-top: 12px;
+      }
+      @media (max-width: 760px) { .twocol { grid-template-columns: 1fr; } }
     </style>
   </head>
   <body>
@@ -558,7 +760,7 @@
       </nav>
       <header class="hero">
         <p class="kicker">AlphaZero &middot; Visual notes</p>
-        <h1>Five concepts at the heart of it.</h1>
+        <h1>Four concepts at the heart of it.</h1>
         <p class="lede">
           Quick visual primers on the moving parts that show up over and over in an AlphaZero implementation.
           Keep this open while reading the design doc. Click around, watch the loops; the animations are the explanation.
@@ -566,7 +768,7 @@
       </header>
 
       <section class="lesson">
-        <p class="sub-heading">The five concepts</p>
+        <p class="sub-heading">The four concepts</p>
         <div class="concept-grid">
 
           <!-- ============================ MCTS ============================ -->
@@ -704,64 +906,6 @@
             </div>
           </article>
 
-          <!-- ============================ Arena ============================ -->
-          <article class="concept">
-            <div class="viz" aria-hidden="true">
-              <svg viewBox="0 0 320 200" class="viz-svg" preserveAspectRatio="xMidYMid meet">
-                <!-- Old network (blue, left) -->
-                <rect x="20" y="50" width="80" height="80" rx="12" class="arena-net"/>
-                <text x="60" y="78" text-anchor="middle" class="v-text-strong" style="font-size:14px;">old NN</text>
-                <text x="60" y="100" text-anchor="middle" class="v-text">(current best)</text>
-
-                <!-- VS divider -->
-                <text x="160" y="92" text-anchor="middle" class="v-text-strong" style="font-size:24px; fill: var(--orange-deep);">vs</text>
-                <line x1="160" y1="50" x2="160" y2="130" class="v-axis"/>
-
-                <!-- New network (orange, right) -->
-                <rect x="220" y="50" width="80" height="80" rx="12" class="arena-net-new"/>
-                <text x="260" y="78" text-anchor="middle" class="v-text-strong" style="font-size:14px;">new NN</text>
-                <text x="260" y="100" text-anchor="middle" class="v-text">(just trained)</text>
-
-                <!-- Scoreboard -->
-                <text x="160" y="150" text-anchor="middle" class="v-text-strong" style="font-size:13px;">40 games (split colors)</text>
-                <g transform="translate(95, 160)">
-                  <circle cx="0"   cy="10" r="5" class="v-node-output arena-score"/>
-                  <circle cx="14"  cy="10" r="5" class="v-node arena-score" style="animation-delay:0.2s"/>
-                  <circle cx="28"  cy="10" r="5" class="v-node-output arena-score" style="animation-delay:0.4s"/>
-                  <circle cx="42"  cy="10" r="5" class="v-node-output arena-score" style="animation-delay:0.6s"/>
-                  <circle cx="56"  cy="10" r="5" class="v-node arena-score" style="animation-delay:0.8s"/>
-                  <circle cx="70"  cy="10" r="5" class="v-node-output arena-score" style="animation-delay:1.0s"/>
-                  <circle cx="84"  cy="10" r="5" class="v-node-output arena-score" style="animation-delay:1.2s"/>
-                  <circle cx="98"  cy="10" r="5" class="v-node-output arena-score" style="animation-delay:1.4s"/>
-                  <circle cx="112" cy="10" r="5" class="v-node arena-score" style="animation-delay:1.6s"/>
-                  <circle cx="126" cy="10" r="5" class="v-node-output arena-score" style="animation-delay:1.8s"/>
-                </g>
-                <text x="160" y="190" text-anchor="middle" class="v-text v-text-red">(historical: accept if new wins ≥ 55%)</text>
-
-                <!-- Decoration: title -->
-                <text x="160" y="22" text-anchor="middle" class="v-text-strong" style="font-size:14px;">Head-to-head match</text>
-              </svg>
-            </div>
-            <div class="body">
-              <h3>3 &middot; Arena gating (and why we don't use it)</h3>
-              <p>
-                After a training iteration, we have a <em>candidate</em> network. The original <strong>AlphaGo Zero</strong> paper (2017) gated network promotion behind a head-to-head match: <em>candidate vs current best</em>, say 40 games (split colors), accept if candidate wins ≥ 55%, otherwise discard the trained weights. The idea was a safety net against noisy training steps that might make the NN worse.
-              </p>
-              <p>
-                The successor <strong>AlphaZero</strong> paper (2017) <em>dropped this step</em> and unconditionally promoted every candidate. We tried arena gating first; on Tic-Tac-Toe it caused complete training stagnation:
-              </p>
-              <ul>
-                <li>Once <code class="code-inline">best_net</code> got reasonably strong (~iter 5), MCTS smoothed over small NN differences → most candidate-vs-best matches drew.</li>
-                <li>With draws weighted 0.5, <code class="code-inline">win_rate</code> hovered near 0.50 — never reaching 0.55.</li>
-                <li>Every iteration: candidate trained → arena rejected → candidate reverted to best's weights → identical self-play data → same loop forever.</li>
-                <li>After 46 iterations, <code class="code-inline">best_net</code> was byte-identical to iter 5. It had learned a <em>defeatist O policy</em> (prior on center after X-corner was 0.095, below uniform 1/9) and lost 100% of O-side games against a perfect solver.</li>
-              </ul>
-              <div class="callout">
-                <strong>What we do now:</strong> match the AlphaZero paper — <code class="code-inline">Trainer._promote_candidate_to_best</code> is called unconditionally after every iteration. No gate. After the fix, the same framework reached zero losses against the perfect TTT solver by iteration 10. The <code class="code-inline">_arena_win_rate</code> helper was removed; the head-to-head match runner (<code class="code-inline">arena.play_match</code>) is still used for the actual evaluation against external opponents (perfect TTT solver, Connect 4 minimax-depth-8).
-              </div>
-            </div>
-          </article>
-
           <!-- ============================ ResNet ============================ -->
           <article class="concept">
             <div class="viz" aria-hidden="true">
@@ -801,7 +945,7 @@
               </svg>
             </div>
             <div class="body">
-              <h3>4 &middot; ResNet (Residual Network)</h3>
+              <h3>3 &middot; ResNet (Residual Network)</h3>
               <p>
                 A neural network built by stacking <strong>residual blocks</strong>. Each block computes:
               </p>
@@ -862,7 +1006,7 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
               </svg>
             </div>
             <div class="body">
-              <h3>5 &middot; PUCT (selection rule inside MCTS)</h3>
+              <h3>4 &middot; PUCT (selection rule inside MCTS)</h3>
               <p>
                 Not a reward function. PUCT — "Polynomial Upper Confidence applied to Trees" — is the rule that decides, at each step of an MCTS simulation, which child of the current node to descend into. For each candidate move <em>a</em> from node <em>s</em>:
               </p>
@@ -918,7 +1062,7 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
           <div class="loop-node" data-loop-node>
             <span>4 &middot; Promote</span>
             <strong>best_net ← candidate_net</strong>
-            <p>Always promote (AlphaZero paper). Loop back to step 1 with the new best. (AlphaGo Zero had an arena gate here; see concept 3.)</p>
+            <p>Unconditional promotion every iteration (AlphaZero paper). Loop back to step 1 with the new best.</p>
           </div>
         </div>
         <div class="callout" style="margin-top: 18px;">
@@ -1031,12 +1175,12 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             <polygon points="240,262 235,254 245,254" fill="var(--blue)"/>
             <text x="150" y="232" class="v-text v-text-cyan" style="font-size:10px;">uses MCTS</text>
 
-            <!-- Arena → MCTS (uses) -->
+            <!-- Eval-vs-opponents (Stockfish / perfect solver) → MCTS (uses, τ=0) -->
             <path d="M 759,172 L 759,240 L 385,240 L 385,262"
                   fill="none" stroke="var(--orange)" stroke-width="1.8"
                   stroke-dasharray="4 4" stroke-linecap="round" opacity="0.8"/>
             <polygon points="385,262 380,254 390,254" fill="var(--orange)"/>
-            <text x="600" y="232" class="v-text v-text-red" style="font-size:10px;">uses MCTS (τ=0)</text>
+            <text x="600" y="232" class="v-text v-text-red" style="font-size:10px;">eval vs external opponent (τ=0)</text>
 
             <!-- ===== AlphaZeroNet box (deep blue) ===== -->
             <rect x="240" y="410" width="420" height="115" rx="16"
@@ -1082,6 +1226,436 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
         </div>
       </section>
 
+      <!-- ============================ One epoch end-to-end ============================ -->
+      <section class="animation-panel epoch-panel" id="epoch">
+        <p class="kicker">Walk-through &middot; one epoch of AZ training</p>
+        <h2>One iteration, step by step, with the math.</h2>
+        <p>
+          In AlphaZero, <strong>one iteration = one epoch</strong>: a self-play pass, a training pass over the replay buffer,
+          and an unconditional promotion. Below: each phase, animated, with the formula that drives it.
+        </p>
+
+        <!-- ========== Stage A: MCTS (Select → Expand+Eval → Backup) ========== -->
+        <div class="epoch-stage">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 360 220" class="viz-svg" preserveAspectRatio="xMidYMid meet">
+              <!-- Static tree skeleton (root + 3 children + 2 grandchildren) -->
+              <circle cx="180" cy="32" r="13" class="v-node"/>
+              <text x="180" y="36" text-anchor="middle" class="v-text-strong" style="fill:#fff">s</text>
+
+              <line x1="180" y1="45" x2="90"  y2="100" class="phase-edge"/>
+              <line x1="180" y1="45" x2="180" y2="100" class="phase-edge"/>
+              <line x1="180" y1="45" x2="270" y2="100" class="phase-edge"/>
+              <circle cx="90"  cy="108" r="11" class="v-node"/>
+              <circle cx="180" cy="108" r="11" class="v-node"/>
+              <circle cx="270" cy="108" r="11" class="v-node"/>
+              <text x="90"  y="111" text-anchor="middle" class="v-text-strong" style="fill:#fff;font-size:10px">a₁</text>
+              <text x="180" y="111" text-anchor="middle" class="v-text-strong" style="fill:#fff;font-size:10px">a₂</text>
+              <text x="270" y="111" text-anchor="middle" class="v-text-strong" style="fill:#fff;font-size:10px">a₃</text>
+
+              <line x1="270" y1="119" x2="240" y2="170" class="phase-edge"/>
+              <line x1="270" y1="119" x2="305" y2="170" class="phase-edge"/>
+              <circle cx="240" cy="175" r="9" class="v-node"/>
+              <circle cx="305" cy="175" r="9" class="v-node"/>
+
+              <!-- SELECT: highlight path root → a3 → 305,175 -->
+              <line x1="180" y1="45"  x2="270" y2="100" class="phase-select"/>
+              <line x1="270" y1="119" x2="305" y2="170" class="phase-select" style="animation-delay:0.15s"/>
+
+              <!-- EXPAND: new leaves pop in under 305,175 (the leaf) -->
+              <g class="phase-expand-leaf" style="transform-origin: 305px 200px;">
+                <circle cx="288" cy="200" r="5" fill="var(--green)"/>
+                <circle cx="305" cy="205" r="5" fill="var(--green)"/>
+                <circle cx="322" cy="200" r="5" fill="var(--green)"/>
+                <text x="305" y="218" text-anchor="middle" class="v-text" style="font-size:9px">priors P, value v</text>
+              </g>
+
+              <!-- BACKUP: arrows back up -->
+              <line x1="305" y1="170" x2="270" y2="119" class="phase-backup"/>
+              <line x1="270" y1="100" x2="180" y2="45"  class="phase-backup" style="animation-delay:0.2s"/>
+
+              <!-- Phase labels (top-left, cycling) -->
+              <text x="12" y="18" class="phase-label l-select">① Select (PUCT)</text>
+              <text x="12" y="18" class="phase-label l-expand">② Expand &amp; Evaluate (NN)</text>
+              <text x="12" y="18" class="phase-label l-backup">③ Backup (v ↑, sign flips)</text>
+
+              <!-- N/W/Q hint -->
+              <text x="245" y="22" class="v-text" style="font-size:10px">N(s,a) += 1</text>
+              <text x="245" y="34" class="v-text" style="font-size:10px">W(s,a) += v</text>
+              <text x="245" y="46" class="v-text" style="font-size:10px">Q = W / N</text>
+            </svg>
+          </div>
+          <div class="body">
+            <p class="stage-num">stage A &middot; inside one MCTS simulation</p>
+            <h3>MCTS: select &rarr; expand+evaluate &rarr; backup</h3>
+            <p>
+              For each move, we run <em>N</em> simulations from the current state. Each simulation does three things:
+            </p>
+            <p>
+              <strong style="color:var(--blue-deep)">① Select</strong> &mdash; walk down the existing tree by picking, at each node, the child that maximizes PUCT:
+            </p>
+            <span class="math">a* = argmax<sub>a</sub> [ Q(s, a)  +  c<sub>puct</sub> · P(s, a) · √(Σ<sub>b</sub> N(s, b)) / (1 + N(s, a)) ]</span>
+            <p>
+              <strong style="color:var(--green)">② Expand &amp; evaluate</strong> &mdash; on a fresh leaf, encode the state and run one forward pass of the NN to get priors <span class="math-inline">P</span> and a leaf value <span class="math-inline">v ∈ [−1, +1]</span>. Children are created for every legal action.
+            </p>
+            <p>
+              <strong style="color:var(--orange-deep)">③ Backup</strong> &mdash; walk the path in reverse. At every node on the path:
+            </p>
+            <span class="math">N(s, a) ← N(s, a) + 1
+W(s, a) ← W(s, a) + v_leaf       (v flips sign at each ply: zero-sum)
+Q(s, a) ← W(s, a) / N(s, a)</span>
+          </div>
+        </div>
+
+        <!-- ========== Stage B: Network forward pass (encoded state → policy+value) ========== -->
+        <div class="epoch-stage">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 360 220" class="viz-svg" preserveAspectRatio="xMidYMid meet">
+              <!-- Input tensor -->
+              <rect x="10"  y="92" width="42" height="36" rx="6" class="fwd-box"/>
+              <text x="31" y="115" text-anchor="middle" class="v-text-strong" style="font-size:10px">s</text>
+              <text x="31" y="140" text-anchor="middle" class="v-text" style="font-size:9px">encoded</text>
+
+              <!-- Conv → BN → ReLU (input projection) -->
+              <line x1="52" y1="110" x2="68" y2="110" class="fwd-arrow"/>
+              <rect x="68" y="92" width="60" height="36" rx="6" class="fwd-box"/>
+              <text x="98" y="108" text-anchor="middle" class="v-text-strong" style="font-size:10px">Conv 3×3</text>
+              <text x="98" y="122" text-anchor="middle" class="v-text" style="font-size:9px">BN · ReLU</text>
+
+              <!-- Residual body -->
+              <line x1="128" y1="110" x2="144" y2="110" class="fwd-arrow" style="animation-delay:.2s"/>
+              <rect x="144" y="86" width="72" height="48" rx="8" class="fwd-box"/>
+              <text x="180" y="106" text-anchor="middle" class="v-text-strong" style="font-size:10px">N × Residual</text>
+              <text x="180" y="120" text-anchor="middle" class="v-text" style="font-size:9px">y = ReLU(x+F(x))</text>
+
+              <!-- Split into two heads -->
+              <line x1="216" y1="100" x2="244" y2="58"  class="fwd-arrow" style="animation-delay:.4s"/>
+              <line x1="216" y1="120" x2="244" y2="162" class="fwd-arrow" style="animation-delay:.4s"/>
+
+              <!-- Policy head -->
+              <rect x="244" y="36" width="100" height="40" rx="8" class="head-box"/>
+              <text x="294" y="55" text-anchor="middle" class="v-text-strong" style="font-size:10px">policy head</text>
+              <text x="294" y="68" text-anchor="middle" class="v-text" style="font-size:9px">1×1 conv → linear</text>
+              <text x="294" y="22" text-anchor="middle" class="v-text-strong v-text-cyan" style="font-size:11px">softmax → p</text>
+
+              <!-- Value head -->
+              <rect x="244" y="142" width="100" height="40" rx="8" class="head-box"/>
+              <text x="294" y="160" text-anchor="middle" class="v-text-strong" style="font-size:10px">value head</text>
+              <text x="294" y="173" text-anchor="middle" class="v-text" style="font-size:9px">1×1 conv → linear → ReLU → linear</text>
+              <text x="294" y="200" text-anchor="middle" class="v-text-strong v-text-red" style="font-size:11px">tanh → v ∈ [−1, +1]</text>
+            </svg>
+          </div>
+          <div class="body">
+            <p class="stage-num">stage B &middot; the network's forward pass</p>
+            <h3>Encoded state &rarr; ResNet body &rarr; two heads</h3>
+            <p>
+              The leaf in stage A goes through one forward pass. Body: <code class="code-inline">Conv → BN → ReLU</code> input projection, then <em>N</em> residual blocks of <code class="code-inline">Conv → BN → ReLU → Conv → BN</code> with a <code class="code-inline">+ x</code> skip and a final ReLU.
+            </p>
+            <p>The body's features split into two heads:</p>
+            <span class="math">policy:  logits z ∈ ℝᴬ   →   softmax:   p<sub>a</sub> = exp(z<sub>a</sub>) / Σ<sub>b</sub> exp(z<sub>b</sub>)
+value :  scalar z ∈ ℝ    →   tanh   :   v   = tanh(z)        ∈ [−1, +1]</span>
+            <p>
+              The policy head emits raw logits; <code class="code-inline">log_softmax</code> is applied inside the loss (numerically stable). The value head squashes to <span class="math-inline">[−1, +1]</span> via <code class="code-inline">tanh</code> so it lives on the same scale as the game outcome <span class="math-inline">z ∈ {−1, 0, +1}</span>.
+            </p>
+          </div>
+        </div>
+
+        <!-- ========== Stage C: Visits → π via temperature ========== -->
+        <div class="epoch-stage">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 360 220" class="viz-svg" preserveAspectRatio="xMidYMid meet">
+              <text x="180" y="18" text-anchor="middle" class="v-text-strong" style="font-size:13px;">visits N(s,a)   →   policy target π<sub>a</sub></text>
+
+              <!-- Raw visits -->
+              <text x="50" y="42" class="v-text" style="font-size:10px">raw visit counts</text>
+              <g transform="translate(20, 50)">
+                <rect x="0"  y="20" width="18" height="50" class="temp-bar-hot"/>
+                <rect x="22" y="40" width="18" height="30" class="temp-bar-hot"/>
+                <rect x="44" y="10" width="18" height="60" class="temp-bar"/>
+                <rect x="66" y="55" width="18" height="15" class="temp-bar-hot"/>
+                <rect x="88" y="35" width="18" height="35" class="temp-bar-hot"/>
+                <line x1="-2" y1="70" x2="110" y2="70" class="v-axis"/>
+              </g>
+
+              <!-- τ = 1: proportional -->
+              <text x="170" y="42" class="v-text-strong v-text-cyan" style="font-size:11px;">τ = 1  (proportional)</text>
+              <g transform="translate(155, 50)">
+                <rect x="0"  y="22" width="14" height="48" fill="var(--blue)"/>
+                <rect x="18" y="40" width="14" height="30" fill="var(--blue)"/>
+                <rect x="36" y="12" width="14" height="58" fill="var(--blue)"/>
+                <rect x="54" y="55" width="14" height="15" fill="var(--blue)"/>
+                <rect x="72" y="36" width="14" height="34" fill="var(--blue)"/>
+                <line x1="-2" y1="70" x2="90" y2="70" class="v-axis"/>
+              </g>
+
+              <!-- τ → 0: argmax -->
+              <text x="290" y="42" class="v-text-strong v-text-red" style="font-size:11px;">τ → 0  (argmax)</text>
+              <g transform="translate(265, 50)">
+                <rect x="0"  y="68" width="14" height="2" fill="var(--orange)"/>
+                <rect x="18" y="68" width="14" height="2" fill="var(--orange)"/>
+                <rect x="36" y="10" width="14" height="60" fill="var(--orange)"/>
+                <rect x="54" y="68" width="14" height="2" fill="var(--orange)"/>
+                <rect x="72" y="68" width="14" height="2" fill="var(--orange)"/>
+                <line x1="-2" y1="70" x2="90" y2="70" class="v-axis"/>
+              </g>
+
+              <!-- Arrows -->
+              <line x1="130" y1="90" x2="150" y2="90" class="temp-arrow"/>
+              <line x1="245" y1="90" x2="265" y2="90" class="temp-arrow" style="animation-delay:.2s"/>
+
+              <!-- Threshold legend -->
+              <text x="20"  y="170" class="v-text-strong" style="font-size:11px">move &lt; threshold:</text>
+              <text x="20"  y="186" class="v-text" style="font-size:11px">sample ∝ N (explore)</text>
+              <text x="200" y="170" class="v-text-strong" style="font-size:11px">move ≥ threshold:</text>
+              <text x="200" y="186" class="v-text" style="font-size:11px">argmax N (commit)</text>
+
+              <line x1="10" y1="200" x2="350" y2="200" class="v-axis"/>
+              <text x="180" y="216" text-anchor="middle" class="v-text v-text-red" style="font-size:11px">temperature_threshold (config): early plies explore, later plies commit</text>
+            </svg>
+          </div>
+          <div class="body">
+            <p class="stage-num">stage C &middot; from search to training target</p>
+            <h3>Visit distribution &rarr; π<sub>a</sub> via temperature τ</h3>
+            <p>After <em>N</em> simulations at the root, every legal action <span class="math-inline">a</span> has a visit count <span class="math-inline">N(s,a)</span>. We convert it to a policy:</p>
+            <span class="math">π<sub>a</sub> ∝ N(s, a)<sup>1/τ</sup></span>
+            <p>
+              At <span class="math-inline">τ = 1</span> the policy is <em>proportional</em> to visits — keeps stochasticity so games diverge.
+              In the limit <span class="math-inline">τ → 0</span> the policy is <em>argmax</em> — committal play.
+              The switch happens at <code class="code-inline">temperature_threshold</code> (config field): plies with <code class="code-inline">move_idx &lt; threshold</code> sample proportionally; later plies argmax.
+            </p>
+          </div>
+        </div>
+
+        <!-- ========== Stage D: Self-play completion → z per ply ========== -->
+        <div class="epoch-stage">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 360 220" class="viz-svg" preserveAspectRatio="xMidYMid meet">
+              <text x="180" y="18" text-anchor="middle" class="v-text-strong" style="font-size:13px;">terminal value z propagates per ply (mover's POV)</text>
+
+              <!-- Plies along a horizontal track -->
+              <line x1="20" y1="120" x2="340" y2="120" class="v-axis"/>
+              <!-- Move circles alternating X (orange) and O (blue) -->
+              <g>
+                <circle cx="40"  cy="120" r="14" fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2"/>
+                <text x="40" y="125" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--orange-deep)">X</text>
+                <circle cx="90"  cy="120" r="14" fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="2"/>
+                <text x="90" y="125" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--blue-deep)">O</text>
+                <circle cx="140" cy="120" r="14" fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2"/>
+                <text x="140" y="125" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--orange-deep)">X</text>
+                <circle cx="190" cy="120" r="14" fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="2"/>
+                <text x="190" y="125" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--blue-deep)">O</text>
+                <circle cx="240" cy="120" r="14" fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2"/>
+                <text x="240" y="125" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--orange-deep)">X</text>
+                <!-- Terminal flag -->
+                <circle cx="300" cy="120" r="16" fill="var(--green-bg)" stroke="var(--green)" stroke-width="2.5"/>
+                <text x="300" y="125" text-anchor="middle" class="v-text-strong" style="font-size:12px;fill:var(--green)">end</text>
+                <text x="300" y="150" text-anchor="middle" class="v-text" style="font-size:10px">X wins</text>
+              </g>
+
+              <!-- z labels per ply (from that ply's mover's POV) -->
+              <text x="40"  y="88" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--green)">+1</text>
+              <text x="90"  y="88" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--red)">−1</text>
+              <text x="140" y="88" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--green)">+1</text>
+              <text x="190" y="88" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--red)">−1</text>
+              <text x="240" y="88" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:var(--green)">+1</text>
+              <text x="40"  y="72" text-anchor="middle" class="v-text" style="font-size:9px">z<sub>1</sub></text>
+              <text x="90"  y="72" text-anchor="middle" class="v-text" style="font-size:9px">z<sub>2</sub></text>
+              <text x="140" y="72" text-anchor="middle" class="v-text" style="font-size:9px">z<sub>3</sub></text>
+              <text x="190" y="72" text-anchor="middle" class="v-text" style="font-size:9px">z<sub>4</sub></text>
+              <text x="240" y="72" text-anchor="middle" class="v-text" style="font-size:9px">z<sub>5</sub></text>
+
+              <text x="180" y="195" text-anchor="middle" class="v-text v-text-red" style="font-size:11px">z<sub>k</sub> = +1 if mover at ply k won, −1 if lost, 0 if drawn</text>
+            </svg>
+          </div>
+          <div class="body">
+            <p class="stage-num">stage D &middot; closing the game out</p>
+            <h3>Self-play completion: assign z per ply</h3>
+            <p>
+              When the game ends, the terminal value (+1 win, 0 draw, −1 loss) is stamped onto every ply <em>from that ply's mover's point of view</em>. Zero-sum: signs alternate along the ply track. The training tuple for each ply is:
+            </p>
+            <span class="math">(s,  π,  z)
+   s : encoded canonical board at that ply
+   π : MCTS visit policy at that ply  (stage C)
+   z : final outcome from that ply's mover's POV</span>
+            <p>
+              All tuples from the game (with symmetries applied) get pushed into the replay buffer.
+            </p>
+          </div>
+        </div>
+
+        <!-- ========== Stage E: Training step (forward + loss + backward) ========== -->
+        <div class="epoch-stage">
+          <div class="viz" aria-hidden="true">
+            <svg viewBox="0 0 360 220" class="viz-svg" preserveAspectRatio="xMidYMid meet">
+              <!-- Forward path -->
+              <rect x="10"  y="92" width="36" height="36" rx="6" class="fwd-box"/>
+              <text x="28"  y="115" text-anchor="middle" class="v-text-strong" style="font-size:9px">batch s</text>
+              <line x1="46"  y1="110" x2="62" y2="110" class="fwd-arrow"/>
+              <rect x="62"  y="92" width="50" height="36" rx="6" class="fwd-box"/>
+              <text x="87"  y="108" text-anchor="middle" class="v-text-strong" style="font-size:10px">Conv body</text>
+              <text x="87"  y="122" text-anchor="middle" class="v-text" style="font-size:9px">+ ResBlocks</text>
+
+              <line x1="112" y1="100" x2="135" y2="58"  class="fwd-arrow" style="animation-delay:.2s"/>
+              <line x1="112" y1="120" x2="135" y2="162" class="fwd-arrow" style="animation-delay:.2s"/>
+
+              <!-- Heads -->
+              <rect x="135" y="40" width="86" height="34" rx="6" class="head-box"/>
+              <text x="178" y="56" text-anchor="middle" class="v-text-strong" style="font-size:10px">policy</text>
+              <text x="178" y="68" text-anchor="middle" class="v-text" style="font-size:9px">softmax → p</text>
+
+              <rect x="135" y="146" width="86" height="34" rx="6" class="head-box"/>
+              <text x="178" y="162" text-anchor="middle" class="v-text-strong" style="font-size:10px">value</text>
+              <text x="178" y="174" text-anchor="middle" class="v-text" style="font-size:9px">tanh → v</text>
+
+              <!-- Losses -->
+              <line x1="221" y1="57"  x2="248" y2="80"  class="fwd-arrow" style="animation-delay:.4s"/>
+              <line x1="221" y1="163" x2="248" y2="140" class="fwd-arrow" style="animation-delay:.4s"/>
+              <circle cx="262" cy="86"  r="13" class="loss-node"/>
+              <text x="262" y="90" text-anchor="middle" class="v-text-strong" style="font-size:9px;fill:var(--orange-deep)">CE</text>
+              <text x="262" y="68" text-anchor="middle" class="v-text" style="font-size:9px">−π·log p</text>
+              <circle cx="262" cy="134" r="13" class="loss-node"/>
+              <text x="262" y="138" text-anchor="middle" class="v-text-strong" style="font-size:9px;fill:var(--orange-deep)">MSE</text>
+              <text x="262" y="158" text-anchor="middle" class="v-text" style="font-size:9px">(z−v)²</text>
+
+              <!-- Sum into total loss -->
+              <line x1="275" y1="86"  x2="305" y2="106" class="fwd-arrow" style="animation-delay:.6s"/>
+              <line x1="275" y1="134" x2="305" y2="114" class="fwd-arrow" style="animation-delay:.6s"/>
+              <circle cx="320" cy="110" r="15" fill="var(--orange)" stroke="var(--orange-deep)" stroke-width="2"/>
+              <text x="320" y="114" text-anchor="middle" class="v-text-strong" style="font-size:13px;fill:#fff">L</text>
+
+              <!-- Backward arrows (orange flow back to body) -->
+              <path d="M 305,110 Q 220,200 110,138 Q 60,118 46,118" class="bwd-arrow"/>
+              <text x="170" y="208" text-anchor="middle" class="v-text-red" style="font-size:11px">backprop ∂L/∂θ  →  AdamW step</text>
+            </svg>
+          </div>
+          <div class="body">
+            <p class="stage-num">stage E &middot; training step on one minibatch</p>
+            <h3>The AlphaZero loss</h3>
+            <p>
+              Sample a minibatch <span class="math-inline">(s, π, z)</span> from the replay buffer. One forward pass produces <span class="math-inline">(p, v) = f<sub>θ</sub>(s)</span>. The total loss has three pieces:
+            </p>
+            <span class="math">L(θ)  =  (z − v)²  −  π · log p  +  λ · ‖θ‖²
+            └──────┘    └───────────┘    └─────────┘
+            value MSE   policy CE         L2 reg
+                        (over actions)    (AdamW)</span>
+            <p>
+              In the code: <code class="code-inline">policy_loss = −(π · log_softmax(logits)).sum(−1).mean()</code> and
+              <code class="code-inline">value_loss = mse_loss(v, z)</code>. <code class="code-inline">log_softmax</code> is fused for numerical stability. The L2 term comes for free from <code class="code-inline">AdamW(weight_decay=λ)</code> — it's not added to the loss expression.
+            </p>
+          </div>
+        </div>
+
+        <!-- ========== Stage F: AdamW + Promotion (side by side) ========== -->
+        <div class="twocol">
+          <div class="epoch-stage" style="grid-template-columns: 1fr; margin: 0;">
+            <div class="body">
+              <p class="stage-num">stage F &middot; the parameter update</p>
+              <h3>AdamW step</h3>
+              <span class="math">m<sub>t</sub> = β<sub>1</sub> m<sub>t−1</sub> + (1−β<sub>1</sub>) g<sub>t</sub>
+v<sub>t</sub> = β<sub>2</sub> v<sub>t−1</sub> + (1−β<sub>2</sub>) g<sub>t</sub>²
+m̂<sub>t</sub> = m<sub>t</sub> / (1 − β<sub>1</sub><sup>t</sup>)
+v̂<sub>t</sub> = v<sub>t</sub> / (1 − β<sub>2</sub><sup>t</sup>)
+
+θ ← θ − η · ( m̂<sub>t</sub> / (√v̂<sub>t</sub> + ε)  +  λ · θ )</span>
+              <p>
+                Adam = adaptive per-parameter step from first/second gradient moments.
+                AdamW = decoupled weight decay (<span class="math-inline">λ · θ</span> added directly to the update, not via the loss).
+                Hundreds of these steps run per iteration.
+              </p>
+            </div>
+          </div>
+          <div class="epoch-stage" style="grid-template-columns: 1fr; margin: 0;">
+            <div class="body">
+              <p class="stage-num">stage G &middot; closing the epoch</p>
+              <h3>Promote &mdash; unconditional</h3>
+              <span class="math">best_net  ←  candidate_net   (every iteration, no gate)</span>
+              <p>
+                After all training steps, the trained <code class="code-inline">candidate_net</code> becomes the new <code class="code-inline">best_net</code>. The next iteration's self-play uses it. No head-to-head match, no acceptance threshold — matches the AlphaZero (2017) paper. Arena gating caused stagnation on Tic-Tac-Toe; <code class="code-inline">arena.play_match</code> is now only used for eval against external opponents (perfect TTT solver, Stockfish).
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ============================ Activation functions reference ============================ -->
+      <section class="animation-panel epoch-panel" id="activations">
+        <p class="kicker">Reference card</p>
+        <h2>Activation functions, at a glance</h2>
+        <p>The four nonlinearities (and one normalizer) that the AlphaZero net actually uses, and where each one lives.</p>
+        <div class="act-grid">
+          <!-- ReLU -->
+          <div class="act-card">
+            <h4>ReLU</h4>
+            <div class="act-viz">
+              <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+                <line x1="0" y1="40" x2="100" y2="40" class="act-axis"/>
+                <line x1="50" y1="5" x2="50" y2="55" class="act-axis"/>
+                <polyline points="5,40 50,40 95,5" class="act-curve"/>
+              </svg>
+            </div>
+            <span class="act-formula">max(0, x)</span>
+            <p class="act-where">Every conv block (input projection, residual blocks, both head projections, value FC hidden).</p>
+          </div>
+
+          <!-- BatchNorm -->
+          <div class="act-card">
+            <h4>BatchNorm</h4>
+            <div class="act-viz">
+              <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+                <line x1="0" y1="40" x2="100" y2="40" class="act-axis"/>
+                <line x1="50" y1="5" x2="50" y2="55" class="act-axis"/>
+                <!-- noisy input dots (gray) -->
+                <circle cx="12" cy="36" r="2" fill="var(--ink-faint)"/>
+                <circle cx="30" cy="20" r="2" fill="var(--ink-faint)"/>
+                <circle cx="42" cy="48" r="2" fill="var(--ink-faint)"/>
+                <!-- normalized dots (orange, tighter band) -->
+                <circle cx="62" cy="38" r="2" fill="var(--orange)"/>
+                <circle cx="74" cy="42" r="2" fill="var(--orange)"/>
+                <circle cx="86" cy="38" r="2" fill="var(--orange)"/>
+                <text x="20" y="14" font-size="7" fill="var(--ink-faint)">raw</text>
+                <text x="70" y="14" font-size="7" fill="var(--orange-deep)">norm.</text>
+              </svg>
+            </div>
+            <span class="act-formula">γ · (x−μ)/σ + β</span>
+            <p class="act-where">After every conv (input + each residual + each head's 1×1). Stabilizes training; per-channel μ, σ.</p>
+          </div>
+
+          <!-- Softmax -->
+          <div class="act-card">
+            <h4>Softmax</h4>
+            <div class="act-viz">
+              <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+                <line x1="0" y1="50" x2="100" y2="50" class="act-axis"/>
+                <rect x="8"  y="38" width="10" height="12" fill="var(--blue-soft)"/>
+                <rect x="22" y="22" width="10" height="28" fill="var(--blue)"/>
+                <rect x="36" y="42" width="10" height="8"  fill="var(--blue-soft)"/>
+                <rect x="50" y="10" width="10" height="40" fill="var(--blue-deep)"/>
+                <rect x="64" y="34" width="10" height="16" fill="var(--blue-soft)"/>
+                <rect x="78" y="44" width="10" height="6"  fill="var(--blue-soft)"/>
+              </svg>
+            </div>
+            <span class="act-formula">eᶻᵃ / Σ eᶻᵇ</span>
+            <p class="act-where">Policy head, inside the loss (<code>log_softmax</code> for stability). Turns logits into a probability over actions.</p>
+          </div>
+
+          <!-- Tanh -->
+          <div class="act-card">
+            <h4>tanh</h4>
+            <div class="act-viz">
+              <svg viewBox="0 0 100 60" preserveAspectRatio="none">
+                <line x1="0" y1="30" x2="100" y2="30" class="act-axis"/>
+                <line x1="50" y1="2"  x2="50" y2="58" class="act-axis"/>
+                <path d="M 5,55 C 30,55 40,40 50,30 C 60,20 70,5 95,5" class="act-curve"/>
+                <text x="2" y="10" font-size="7" fill="var(--ink-faint)">+1</text>
+                <text x="2" y="58" font-size="7" fill="var(--ink-faint)">−1</text>
+              </svg>
+            </div>
+            <span class="act-formula">tanh(x) ∈ [−1, +1]</span>
+            <p class="act-where">Final layer of the value head only. Matches the game outcome scale z ∈ {−1, 0, +1}.</p>
+          </div>
+        </div>
+      </section>
+
       <!-- ============================ Glossary ============================ -->
       <section class="animation-panel glossary" id="glossary">
         <p class="kicker">Reference</p>
@@ -1114,7 +1688,7 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             </div>
             <div>
               <strong>Iteration</strong>
-              <p>One full cycle: self-play games → buffer → training steps → arena → (loop). NOT the same as a training "epoch."</p>
+              <p>One full cycle: self-play games → buffer → training steps → promote → (loop). One iteration ≡ one "epoch" of AZ training.</p>
             </div>
             <div>
               <strong>Episode / game</strong>
@@ -1228,11 +1802,7 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             </div>
             <div>
               <strong>best_net vs candidate_net</strong>
-              <p>Two copies of the NN. <em>best_net</em> is the frozen network used for self-play and as arena opponent. <em>candidate_net</em> is the one being trained.</p>
-            </div>
-            <div>
-              <strong>Arena gating (not used)</strong>
-              <p>AlphaGo Zero gated candidate→best promotion behind a head-to-head win rate (≥ 0.55). The AlphaZero paper dropped it; we do too. See concept card #3 for why.</p>
+              <p>Two copies of the NN. <em>best_net</em> is the frozen network used for self-play. <em>candidate_net</em> is the one being trained; it is unconditionally promoted to best every iteration.</p>
             </div>
             <div>
               <strong>Training step</strong>
