@@ -220,6 +220,29 @@ def test_legacy_full_checkpoint_mode_still_works(tiny_config, tmp_path, monkeypa
                                      "candidate_net", "optimizer"}
 
 
+def test_atomic_torch_save_preserves_old_file_on_mid_write_crash(tmp_path):
+    """Regression: if torch.save crashes mid-write, the destination file must
+    remain whatever it was before. Without atomic writes, latest.pt — the sole
+    resume target — would be left corrupt after any SIGKILL/OOM during save."""
+    from unittest.mock import patch
+    from alphazero.trainer import _atomic_torch_save
+
+    path = tmp_path / "latest.pt"
+    _atomic_torch_save({"version": 1, "payload": "intact"}, path)
+    original_bytes = path.read_bytes()
+
+    with patch("alphazero.trainer.torch.save", side_effect=RuntimeError("simulated OOM mid-write")):
+        with pytest.raises(RuntimeError, match="simulated OOM"):
+            _atomic_torch_save({"version": 2, "payload": "corrupt"}, path)
+
+    assert path.read_bytes() == original_bytes, (
+        "Destination file was modified by a failed save — atomicity violated"
+    )
+    loaded = torch.load(path, map_location="cpu", weights_only=False)
+    assert loaded["version"] == 1
+    assert loaded["payload"] == "intact"
+
+
 def test_trainer_dispatches_parallel_when_num_workers_gt_1(tiny_config, tmp_path, monkeypatch):
     """When num_workers > 1, Trainer.run uses parallel_selfplay instead of run_one_game."""
     from dataclasses import replace

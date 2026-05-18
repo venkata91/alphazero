@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import copy
+import os
 import time
 from pathlib import Path
-from typing import Callable
+from typing import Any, Callable
 
 import numpy as np
 import torch
@@ -15,6 +16,13 @@ from .games.base import Game
 from .network import AlphaZeroNet
 from .replay_buffer import ReplayBuffer
 from .selfplay import run_one_game
+
+
+def _atomic_torch_save(obj: Any, path: Path) -> None:
+    """Crash-safe torch.save: write to <path>.tmp, then atomic os.replace."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    torch.save(obj, tmp)
+    os.replace(tmp, path)
 
 
 class Trainer:
@@ -233,20 +241,20 @@ class Trainer:
             # Per-iteration checkpoint: lean (best_net only) for cheap retention.
             # Full state for mid-training resume lives in latest.pt and is
             # overwritten each iteration so disk usage stays O(1) in iterations.
-            torch.save(base, path)
+            _atomic_torch_save(base, path)
             full = {
                 **base,
                 "candidate_net": self.candidate_net.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
             }
-            torch.save(full, ckpt_dir / "latest.pt")
+            _atomic_torch_save(full, ckpt_dir / "latest.pt")
         else:
             full = {
                 **base,
                 "candidate_net": self.candidate_net.state_dict(),
                 "optimizer": self.optimizer.state_dict(),
             }
-            torch.save(full, path)
+            _atomic_torch_save(full, path)
         return path
 
     def load_from_checkpoint(self, path: Path | str) -> None:
