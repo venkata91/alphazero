@@ -1,123 +1,30 @@
 ![python](https://img.shields.io/badge/python-%3E%3D%203.11-306998)
 ![pytorch](https://img.shields.io/badge/pytorch-%3E%3D%202.2-ee4c2c)
-![tests](https://img.shields.io/badge/tests-118%20passing-brightgreen)
-![status](https://img.shields.io/badge/sub--project%201-passes%20kill%20criterion-brightgreen)
-![status](https://img.shields.io/badge/sub--project%202-impl%20complete-yellow)
+![tests](https://img.shields.io/badge/tests-207%20passing-brightgreen)
 ![license](https://img.shields.io/badge/license-MIT-green)
 
 # AlphaZero from Scratch
 
-A learning-focused, [documented](https://venkata91.github.io/alphazero/) implementation of AlphaZero based on the DeepMind [paper](https://arxiv.org/abs/1712.01815) (Silver et al., 2017). Designed to be a clean, game-agnostic framework that scales unchanged from Tic-Tac-Toe to chess by changing only one file: the `Game` subclass.
+A clean, game-agnostic implementation of [AlphaZero](https://arxiv.org/abs/1712.01815) (Silver et al., 2017) built up from scratch in Python + PyTorch. The same framework — board representation, ResNet, PUCT-MCTS, self-play, replay buffer, trainer — scales unchanged from Tic-Tac-Toe to chess; adding a new game is one new `Game` subclass.
 
-The project's purpose is **learning** — building up the full AlphaZero pipeline (board representation → neural network → MCTS → self-play → training loop) from scratch, with the strict invariant that **only the `Game` class differs between games**. Everything else (network, MCTS, self-play, replay buffer, trainer) is reusable as-is.
+Built as a learning project. Each sub-project ships with a written design spec and implementation plan; full design trail is at [venkata91.github.io/alphazero](https://venkata91.github.io/alphazero/).
 
-This implementation is primarily for educational purposes — companion to a written design and decision trail at the [project site](https://venkata91.github.io/alphazero/). For a visual primer on the underlying concepts (MCTS, ResNet skip connections, PUCT, replay buffer, arena), see [`concepts.html`](https://venkata91.github.io/alphazero/concepts.html).
+## Sub-projects shipped
 
-## Features
+| Sub-project | Status | Docs |
+|---|---|---|
+| SP1 — Framework + Tic-Tac-Toe (kill criterion: 0 losses vs perfect solver) | DONE | [spec](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html) · [plan](https://venkata91.github.io/alphazero/docs/superpowers/plans/2026-05-15-alphazero-framework-tictactoe.html) |
+| SP2 — Connect 4 (eval baseline: minimax-depth-8) | DONE | [spec](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-15-connect4-design.html) · [plan](https://venkata91.github.io/alphazero/docs/superpowers/plans/2026-05-15-connect4.html) |
+| SP3 — Chess (8×8×73=4672 move encoding, 20-plane input, Stockfish eval, NN-server + parallel self-play workers) | DONE | [spec](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-16-chess-design.html) · [plan](https://venkata91.github.io/alphazero/docs/superpowers/plans/2026-05-16-chess.html) |
+| SP3b — Supervised pre-training + AZ refinement (Stockfish-vs-Stockfish corpus → behavior cloning → AZ refinement) | DONE | [spec](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-16-supervised-pretraining-design.html) · [plan](https://venkata91.github.io/alphazero/docs/superpowers/plans/2026-05-16-supervised-pretraining.html) |
+| SP4 — Productionize (UCI engine, lichess-bot, 2000+ ELO target) | PLANNED | — |
+| SP5 — Hybrid search + distillation | PLANNED | — |
 
-* [x] Pure Python + [PyTorch](https://github.com/pytorch/pytorch) — no external RL frameworks
-* [x] **Game-agnostic framework**: same code trains TTT, Connect 4, chess by swapping a `Game` subclass
-* [x] ResNet backbone with policy + value heads (configurable depth × channels)
-* [x] PUCT-guided MCTS with Dirichlet root noise + temperature schedule
-* [x] Self-play with symmetry augmentation for data efficiency
-* [x] FIFO replay buffer, AdamW optimizer, training-step / iteration scheduling
-* [x] Apple Silicon (MPS) + CUDA + CPU device auto-detection
-* [x] **Checkpoint resume** (`--resume-from`) — survives Colab session disconnects
-* [x] Self-describing checkpoints (config embedded; matches architecture on load)
-* [x] **Google Colab notebook** with GPU + Google Drive persistence
-* [x] Interactive `play` CLI for matches vs the trained agent
-* [x] Six "silent-failure" invariant tests guarding the bug-prone parts of self-play and MCTS
-* [x] [GitHub Pages site](https://venkata91.github.io/alphazero/) with full spec/plan docs
-* [x] 118 unit tests + 2 kill-criterion E2E tests
+Full docs site: <https://venkata91.github.io/alphazero/>. Visual primer on MCTS / ResNet / PUCT / replay buffer / arena: [`concepts.html`](https://venkata91.github.io/alphazero/concepts.html).
 
-### Future improvements
+## Setup
 
-* [ ] Chess (Sub-project 3) — `python-chess` wrapper, scaled ResNet, ~5M params
-* [ ] UCI engine protocol — play in Lichess / any chess GUI
-* [ ] Distributed / parallel self-play (needed for chess scale)
-* [ ] Distillation from existing strong solvers (Sub-project 5 hybrid)
-
-## Demo
-
-Trained Tic-Tac-Toe agent vs perfect minimax solver (200 games, alternating colors):
-
-```
-$ python -m alphazero eval --checkpoint checkpoints/iter_0050.pt --num-games 200
-vs perfect solver (200 games): wins=0 draws=200 losses=0
-```
-
-TTT is a draw with perfect play. **Zero losses** = the trained agent matches optimal play as both first and second player — the formal kill criterion for Sub-project 1.
-
-Interactive play against the trained network:
-
-```
-$ python -m alphazero play --checkpoint checkpoints/iter_0050.pt --as x
-
-Loaded best_net from iteration 50.
-You are X (moves first).
-Action indices (row-major):
- 0 | 1 | 2
------------
- 3 | 4 | 5
------------
- 6 | 7 | 8
-
-   |   |
------------
-   |   |
------------
-   |   |
-
-Your move [0, 1, 2, 3, 4, 5, 6, 7, 8]: 4
-```
-
-## Games implemented
-
-| Game | Status | Network size | Notes |
-|---|---|---|---|
-| **Tic-Tac-Toe** | ✅ Passes kill criterion (0 losses vs perfect solver) | 4 blocks × 32 channels (~76K params) | Converges in ~50 iterations on CPU |
-| **Connect 4** | ✅ Implementation complete, training pending | 6 blocks × 64 channels (~600K params) | Target: ≥80% win rate vs minimax-depth-8 |
-| Chess | 🟡 Planned (Sub-project 3) | 10 blocks × 128 channels (~5M params) | Will wrap `python-chess` |
-| Go | 🟡 Possible future extension | (TBD) | — |
-
-Add a new game by creating one file in `src/alphazero/games/` that subclasses `Game`. Every other component of the framework is reused unchanged.
-
-## Code structure
-
-Four strict layers with well-defined boundaries:
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│  Trainer (orchestration)                                        │
-│    self-play → buffer → train → eval-vs-opponent, looping       │
-└──┬─────────────┬──────────────┬──────────────┬─────────────────┘
-   │             │              │              │
-   ▼             ▼              ▼              ▼
-┌────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────────┐
-│SelfPlay│ │ Replay   │ │  Arena   │ │ Eval-vs-opponent │
-│Worker  │ │  Buffer  │ │          │ │  (per game)      │
-└───┬────┘ └──────────┘ └────┬─────┘ └──────────────────┘
-    │                        │
-    ▼                        ▼
-┌────────────────┐  ┌───────────────────────────┐
-│  MCTS          │  │  Game (abstract base +    │
-│   PUCT, Dirich │  │  TicTacToe, Connect4)     │
-└────────┬───────┘  └───────────────────────────┘
-         │ calls eval_fn(state) → (priors, value)
-         ▼
-┌────────────────────────────────────────────────────────────────┐
-│  AlphaZeroNet (PyTorch ResNet — policy + value heads)          │
-│    pure forward pass; does not import MCTS or Game             │
-└────────────────────────────────────────────────────────────────┘
-```
-
-The key boundary property: **`MCTS` does not import `AlphaZeroNet`, and `AlphaZeroNet` does not import `MCTS`**. They communicate through a function signature (`eval_fn`), which makes both testable in isolation and means adding a new game touches exactly one file.
-
-For full architectural detail, see the Sub-project 1 spec: [TTT design doc](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html).
-
-## Getting started
-
-### Installation
+Requires Python 3.11+.
 
 ```bash
 git clone https://github.com/venkata91/alphazero.git
@@ -125,95 +32,154 @@ cd alphazero
 pip install -e ".[dev]"
 ```
 
-Requires Python 3.11+. PyTorch is installed automatically; GPU support (CUDA / MPS) is auto-detected at runtime.
+Chess additionally needs the Stockfish binary (for the eval baseline and the supervised corpus generator). One-shot installer for macOS / Debian:
 
-### Train
+```bash
+bin/setup.sh
+```
 
-Tic-Tac-Toe (CPU, ~30-60 min):
+GPU support (CUDA / MPS) is auto-detected at runtime.
+
+## Quick start
+
+Train each game's AlphaZero pipeline end-to-end:
 
 ```bash
 python -m alphazero train --game tictactoe --config configs/tictactoe.toml
+python -m alphazero train --game connect4  --config configs/connect4.toml
+python -m alphazero train --game chess     --config configs/chess.toml
 ```
 
-Connect 4 (MPS / CUDA recommended; ~1-6 hours depending on device):
+Chess supervised pre-training, then AZ refinement on top of the pretrained checkpoint:
 
 ```bash
-python -m alphazero train --game connect4 --config configs/connect4.toml
+python -m alphazero pretrain --config configs/chess-pretrain.toml
+python -m alphazero train --game chess --config configs/chess-refine.toml \
+    --resume-from pretrained.pt
 ```
 
-Resume from a checkpoint:
-
-```bash
-python -m alphazero train --game connect4 --config configs/connect4.toml \
-    --resume-from checkpoints/iter_0020.pt
-```
-
-### Evaluate
-
-Play 200 games against the game's ground-truth opponent (perfect solver for TTT, minimax-depth-8 for Connect 4):
+Evaluate a checkpoint against the game's reference opponent (perfect minimax for TTT, depth-8 minimax for Connect 4, Stockfish for chess):
 
 ```bash
 python -m alphazero eval --game tictactoe --checkpoint checkpoints/iter_0050.pt --num-games 200
-python -m alphazero eval --game connect4   --checkpoint checkpoints/iter_0050.pt --num-games 200
+python -m alphazero eval --game connect4  --checkpoint checkpoints/iter_0050.pt --num-games 200
+python -m alphazero eval --game chess     --checkpoint checkpoints_refine/iter_0010.pt --num-games 20
 ```
 
-### Play interactively
+Play interactively:
 
 ```bash
 python -m alphazero play --game tictactoe --checkpoint checkpoints/iter_0050.pt --as x
+python scripts/play_chess.py --checkpoint pretrained.pt --as white
 ```
 
-For tighter search at play time (stronger play, same network):
+Run as a UCI engine (drop into Lichess via [lichess-bot](https://github.com/lichess-bot-devs/lichess-bot), Arena, Cute Chess, etc.):
 
 ```bash
-python -m alphazero play --game tictactoe --checkpoint checkpoints/iter_0050.pt \
-    --num-simulations 500 --as x
+python scripts/uci_engine.py --checkpoint pretrained.pt --num-simulations 200
 ```
 
-### Train on Google Colab (free GPU)
+Resume any training run from a checkpoint with `--resume-from <path>`; checkpoints embed their config so the architecture rehydrates exactly.
 
-Open the included notebook in Colab — it clones the repo, installs deps, mounts Drive for checkpoint persistence, auto-resumes from interrupted runs, and downloads the final checkpoint locally.
+## Playing against the trained model
 
-1. Open https://colab.research.google.com/
-2. **File → Open notebook → GitHub** → URL: `https://github.com/venkata91/alphazero/blob/main/notebooks/train_connect4_colab.ipynb`
-3. **Runtime → Change runtime type → T4 GPU** (free) or L4/A100 (Pro)
-4. **Runtime → Run all**
+`scripts/uci_engine.py` is a generic UCI wrapper around any AlphaZero chess checkpoint, so any UCI-compatible host can drive it. Two recommended paths:
 
-Wall-time on Colab T4: ~1-2 hours for Connect 4. See [`notebooks/README.md`](notebooks/README.md) for details.
+### A) Cute Chess (local GUI) — recommended
 
-### Config
+A free desktop chess GUI that drives any UCI engine. Five-minute setup.
 
-Each game has its own TOML config in `configs/`. Edit fields like `n_blocks`, `num_simulations`, `num_iterations` to tune. The full schema lives in [`src/alphazero/config.py`](src/alphazero/config.py).
+```bash
+brew install --cask cute-chess   # on macOS
+# or download from https://cutechess.com on Linux/Windows
+```
 
-## Documentation
+Then in Cute Chess: Tools → Settings → Engines → Add (+), with:
 
-* **Visual concepts primer**: [`concepts.html`](https://venkata91.github.io/alphazero/concepts.html) — animated SVGs explaining MCTS, ResNet, PUCT, replay buffer, arena
-* **Sub-project 1 (TTT)**: [spec](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-15-alphazero-framework-tictactoe-design.html) · [implementation plan](https://venkata91.github.io/alphazero/docs/superpowers/plans/2026-05-15-alphazero-framework-tictactoe.html)
-* **Sub-project 2 (Connect 4)**: [spec](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-15-connect4-design.html) · [implementation plan](https://venkata91.github.io/alphazero/docs/superpowers/plans/2026-05-15-connect4.html)
-* **Live site (all docs)**: https://venkata91.github.io/alphazero/
+| Field | Value |
+|---|---|
+| Name | `AlphaZero-SP3b` |
+| Command | `/path/to/python3` (e.g., `/opt/miniconda3/bin/python3`) |
+| Arguments | `/Users/<you>/git/alphazero/scripts/uci_engine.py --checkpoint /Users/<you>/git/alphazero/pretrained.pt` |
+| Working directory | `/Users/<you>/git/alphazero` |
+| Protocol | UCI |
 
-## What we learned (so far)
+Then **Game → New Game → Human vs Engine**. Drag-drop board, real piece graphics, full PGN export. Also supports engine-vs-engine matches if you want to pit `pretrained.pt` against `checkpoints_refine/iter_0010.pt`.
 
-A few of the more interesting design corrections caught during implementation:
+### B) Lichess-bot (online, public)
 
-* **Arena gating stagnates training**: AlphaGo Zero (2017) gated network promotion behind a 55% win rate over 40 games. On TTT this completely stalled training because MCTS smoothed over small NN differences → most matches drew → win-rate hovered near 50% → gate never accepted → `best_net` froze at iter 5. The AlphaZero paper (2017) dropped arena gating; we now do the same. See [Sub-project 2 spec §6 "Lessons from Sub-project 1"](https://venkata91.github.io/alphazero/docs/superpowers/specs/2026-05-15-connect4-design.html).
-* **MCTS sign convention is bug-prone**: the value returned by both `terminal_value` and the NN's value head is from the *leaf* player's POV. PUCT at the parent reads `child.Q` as "good for me (the parent)", so the leaf value needs negation before backup. Getting this wrong silently teaches the agent to give up as the second player.
-* **Test the 6 invariants by name**: the project includes `tests/test_invariants.py` with one named test per silent-failure mode (`test_invariant_1_selfplay_uses_best_net_not_candidate`, etc.). When training stagnates, these usually catch it.
+Wraps the same UCI engine and exposes it as a Lichess BOT account. Anyone on Lichess can challenge it; rating calibrates against real opponents over ~30+ games.
+
+1. Create a regular Lichess account at <https://lichess.org>.
+2. Get an OAuth token at <https://lichess.org/account/oauth/token> (scope: `bot:play`).
+3. Upgrade the account to BOT (one-time, irreversible — pick a fresh account):
+   ```bash
+   curl -d '' https://lichess.org/api/bot/account/upgrade -H "Authorization: Bearer YOUR_TOKEN"
+   ```
+4. Clone and install lichess-bot:
+   ```bash
+   git clone https://github.com/lichess-bot-devs/lichess-bot.git
+   cd lichess-bot
+   pip install -r requirements.txt
+   ```
+5. Copy `config.yml.default` to `config.yml` and edit:
+   - `token: "YOUR_TOKEN"` (the one from step 2)
+   - `engine:` section — point to your `uci_engine.py`:
+     ```yaml
+     engine:
+       dir: "/Users/<you>/git/alphazero"
+       name: "python3 scripts/uci_engine.py --checkpoint pretrained.pt"
+       protocol: "uci"
+     ```
+6. Run: `python3 lichess-bot.py` — bot is now online and accepting challenges at `https://lichess.org/@/<your-bot-name>`.
+
+## Repo layout
+
+```
+src/alphazero/
+  network.py          ResNet (policy + value heads)
+  mcts.py             PUCT-guided MCTS with Dirichlet root noise
+  selfplay.py         single-process self-play worker
+  parallel_selfplay.py NN-server + worker pool (used for chess)
+  replay_buffer.py    FIFO buffer with symmetry augmentation
+  trainer.py          self-play → buffer → train loop
+  arena.py            head-to-head match harness
+  supervised.py       Stockfish-corpus behavior cloning (SP3b)
+  corpus.py           on-disk training corpus reader/writer
+  cli.py              `python -m alphazero` entrypoint
+  games/              TicTacToe, Connect4, Chess (the only per-game code)
+  opponents/          Stockfish wrapper, minimax baselines
+  solvers/            TTT perfect solver, Connect 4 minimax
+scripts/              generate_chess_corpus.py, play_chess.py, uci_engine.py
+configs/              one TOML per game (+ pretrain / refine for chess)
+tests/                unit + kill-criterion E2E tests, invariant suite
+docs/                 spec + plan markdown (rendered to GitHub Pages)
+```
+
+Architectural invariant: `MCTS` does not import `AlphaZeroNet`, and `AlphaZeroNet` does not import `MCTS`. They communicate through an `eval_fn(state) -> (priors, value)` signature, which is why adding a game touches one file.
+
+## Tests
+
+```bash
+python3 -m pytest -m "not slow"
+```
+
+207 tests pass currently. The `slow` marker gates 4 end-to-end kill-criterion runs that take minutes; deselect them for fast iteration.
+
+`tests/test_invariants.py` and `tests/test_invariants_chess.py` codify the silent-failure modes that historically bite self-play / MCTS implementations (wrong-net data, sign convention, root-noise leakage into eval, etc.) — one named test per failure mode.
 
 ## Related work
 
-* [AlphaZero paper](https://arxiv.org/abs/1712.01815) — Silver et al. 2017, primary reference
+* [AlphaZero paper](https://arxiv.org/abs/1712.01815) — Silver et al. 2017
 * [AlphaGo Zero paper](https://www.nature.com/articles/nature24270) — earlier work with arena gating
-* [alpha-zero-general](https://github.com/suragnair/alpha-zero-general) — Surag Nair's well-known pedagogical AlphaZero implementation
-* [muzero-general](https://github.com/werner-duvaud/muzero-general) — same spirit for MuZero (the successor algorithm without environment dynamics)
-* [Leela Chess Zero](https://lczero.org/) — the open-source community AlphaZero-style chess engine
+* [alpha-zero-general](https://github.com/suragnair/alpha-zero-general) — Surag Nair's pedagogical implementation
+* [Leela Chess Zero](https://lczero.org/) — open-source community AlphaZero-style chess engine
 
 ## Authors
 
 * Venkata Krishnan Sowrirajan ([@venkata91](https://github.com/venkata91))
 * Co-developed with Claude (Anthropic's coding assistant)
 
-## Getting involved
+## License
 
-* [GitHub Issues](https://github.com/venkata91/alphazero/issues) — bug reports, questions
-* [Pull Requests](https://github.com/venkata91/alphazero/pulls) — contributions welcome
+MIT.
