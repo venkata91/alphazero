@@ -12,6 +12,8 @@ from __future__ import annotations
 import argparse
 from unittest.mock import patch
 
+import pytest
+
 from alphazero.cli import _cmd_train
 from alphazero.opponents.connect4_minimax import Connect4MinimaxOpponent
 
@@ -87,6 +89,38 @@ def test_cmd_train_wires_chess_eval_opponent(tmp_path, monkeypatch):
     assert exit_code == 0
     assert isinstance(captured["eval_opponent"], StockfishOpponent)
     captured["eval_opponent"].close()
+
+
+def test_cmd_train_closes_stockfish_even_on_run_failure(tmp_path, monkeypatch):
+    """Regression for #15: if Trainer.run raises, the StockfishOpponent's
+    subprocess must still be reaped. Verifies the try/finally in _cmd_train."""
+    monkeypatch.chdir(tmp_path)
+
+    captured: dict = {"close_called": False, "opponent": None}
+
+    class FakeStockfish:
+        def __init__(self, *args, **kwargs):
+            captured["opponent"] = self
+
+        def close(self):
+            captured["close_called"] = True
+
+        def __call__(self, *args, **kwargs):
+            return 0
+
+    def fake_run(self, verbose=True, eval_opponent=None):
+        raise RuntimeError("simulated training failure")
+
+    with patch("alphazero.opponents.stockfish.StockfishOpponent", FakeStockfish), \
+         patch("alphazero.trainer.Trainer.run", fake_run):
+        with pytest.raises(RuntimeError, match="simulated training failure"):
+            _cmd_train(_stub_args(game="chess"))
+
+    assert captured["opponent"] is not None, "Stockfish opponent should have been constructed"
+    assert captured["close_called"], (
+        "StockfishOpponent.close() must be called in _cmd_train's finally block "
+        "even when Trainer.run raises — otherwise the subprocess leaks."
+    )
 
 
 def test_cmd_pretrain_calls_pretrain_supervised(tmp_path, monkeypatch):

@@ -48,9 +48,16 @@ def _cmd_train(args: argparse.Namespace) -> int:
     # (the perfect TTT minimax) which is correct.
 
     print(f"Starting training: {config.num_iterations} iterations on {trainer.device}")
-    trainer.run(eval_opponent=eval_opponent)
-    print("Training complete.")
-    return 0
+    try:
+        trainer.run(eval_opponent=eval_opponent)
+        print("Training complete.")
+        return 0
+    finally:
+        # Ensure the Stockfish subprocess is reaped even if training raises.
+        # Connect4MinimaxOpponent has no .close() — hasattr keeps this safe
+        # for both opponent types.
+        if eval_opponent is not None and hasattr(eval_opponent, "close"):
+            eval_opponent.close()
 
 
 def _config_for_checkpoint(checkpoint_path: Path, override_path: Path | None) -> TrainingConfig:
@@ -104,12 +111,17 @@ def _cmd_eval(args: argparse.Namespace) -> int:
     else:
         raise ValueError(f"No eval opponent defined for game={args.game}")
 
-    result = play_match(game, agent, opponent, num_games=args.num_games)
-    print(
-        f"vs {label} ({args.num_games} games): "
-        f"wins={result.wins_a} draws={result.draws} losses={result.losses_a}"
-    )
-    return 0 if result.losses_a == 0 else 1
+    try:
+        result = play_match(game, agent, opponent, num_games=args.num_games)
+        print(
+            f"vs {label} ({args.num_games} games): "
+            f"wins={result.wins_a} draws={result.draws} losses={result.losses_a}"
+        )
+        return 0 if result.losses_a == 0 else 1
+    finally:
+        # Same Stockfish-leak protection as _cmd_train.
+        if hasattr(opponent, "close"):
+            opponent.close()
 
 
 def _render_board(state: np.ndarray) -> str:
