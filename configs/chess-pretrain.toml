@@ -19,6 +19,12 @@ weight_decay = 1e-4
 holdout_fraction = 0.05
 early_stopping_patience = 2
 
+# Data loader parallelism — workers prefetch batches off the critical path
+# while forward/backward runs on the GPU. Set to ~half your physical core
+# count; pin_memory is honored only on CUDA (no-op on MPS/CPU).
+num_workers = 4
+pin_memory = true
+
 # I/O
 corpus_dir = "data/chess_corpus"
 output_checkpoint = "pretrained.pt"
