@@ -132,7 +132,7 @@ def worker_play_one_game(
     augment=True and the game has symmetries).
     """
     from .mcts import MCTS
-    from .selfplay import _assign_z
+    from .selfplay import play_one_selfplay_game
 
     game = _make_game(game_name)
     request_counter = [request_id_offset]
@@ -156,35 +156,13 @@ def worker_play_one_game(
         dirichlet_weight=dirichlet_weight,
     )
 
-    state = game.initial_state()
-    history: list[tuple[np.ndarray, np.ndarray, int]] = []
-    move_idx = 0
-    while game.terminal_value(state) is None:
-        pi = mcts.search(state, num_simulations=num_simulations, add_root_noise=True)
-        if move_idx < temperature_threshold:
-            # Renormalize: pi = visits/sum is float32 and can drift past
-            # numpy's 1e-8 tolerance for `np.random.choice`, especially
-            # for chess (4672 actions). Cast to float64 and rescale.
-            p = pi.astype(np.float64)
-            p /= p.sum()
-            action = int(np.random.choice(len(p), p=p))
-        else:
-            action = int(np.argmax(pi))
-        canon = game.canonical_state(state)
-        encoded = game.encode(canon)
-        history.append((encoded, pi.astype(np.float32), game.current_player(state)))
-        state = game.apply(state, action)
-        move_idx += 1
-
-    z_per_ply = _assign_z(history, game.terminal_value(state), state, game)
-    examples = []
-    for (encoded, pi, _player), z in zip(history, z_per_ply):
-        if augment:
-            for sym_enc, sym_pi in game.symmetries(encoded, pi):
-                examples.append((sym_enc.astype(np.float32), sym_pi.astype(np.float32), z))
-        else:
-            examples.append((encoded, pi, z))
-    return examples
+    return play_one_selfplay_game(
+        game,
+        mcts,
+        num_simulations=num_simulations,
+        temperature_threshold=temperature_threshold,
+        augment=augment,
+    )
 
 
 def run_parallel_self_play(

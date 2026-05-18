@@ -16,26 +16,24 @@ from .mcts import MCTS
 EvalFn = Callable[[np.ndarray], tuple[np.ndarray, float]]
 
 
-def run_one_game(
+def play_one_selfplay_game(
     game: Game,
-    eval_fn: EvalFn,
+    mcts: MCTS,
     num_simulations: int,
-    temperature_threshold: int = 6,
-    c_puct: float = 1.5,
-    dirichlet_alpha: float = 1.0,
-    dirichlet_weight: float = 0.25,
+    temperature_threshold: int,
     augment: bool = True,
+    rng: np.random.Generator | None = None,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
-    """Play one game using MCTS guided by `eval_fn`.
+    """Play one self-play game with the given MCTS.
 
-    Returns (encoded_state, mcts_policy_π, value_z) training tuples.
+    Drives the per-game loop shared by serial (`run_one_game`) and parallel
+    (`worker_play_one_game`) self-play: terminal check, MCTS.search,
+    temperature-vs-argmax action selection, history collection, _assign_z,
+    and optional symmetry augmentation. Construction of the MCTS (with a
+    local or remote eval_fn) is the caller's responsibility.
+
+    Returns (encoded_canonical_state, mcts_policy_π, value_z) training tuples.
     """
-    mcts = MCTS(
-        game, eval_fn,
-        c_puct=c_puct,
-        dirichlet_alpha=dirichlet_alpha,
-        dirichlet_weight=dirichlet_weight,
-    )
     state = game.initial_state()
     history: list[tuple[np.ndarray, np.ndarray, int]] = []
     move_idx = 0
@@ -50,7 +48,10 @@ def run_one_game(
             # for chess (4672 actions). Cast to float64 and rescale.
             p = pi.astype(np.float64)
             p /= p.sum()
-            action = int(np.random.choice(len(p), p=p))
+            if rng is None:
+                action = int(np.random.choice(len(p), p=p))
+            else:
+                action = int(rng.choice(len(p), p=p))
         else:
             action = int(np.argmax(pi))
 
@@ -71,6 +72,35 @@ def run_one_game(
         else:
             examples.append((encoded, pi, z))
     return examples
+
+
+def run_one_game(
+    game: Game,
+    eval_fn: EvalFn,
+    num_simulations: int,
+    temperature_threshold: int = 6,
+    c_puct: float = 1.5,
+    dirichlet_alpha: float = 1.0,
+    dirichlet_weight: float = 0.25,
+    augment: bool = True,
+) -> list[tuple[np.ndarray, np.ndarray, float]]:
+    """Play one game using MCTS guided by `eval_fn`.
+
+    Returns (encoded_state, mcts_policy_π, value_z) training tuples.
+    """
+    mcts = MCTS(
+        game, eval_fn,
+        c_puct=c_puct,
+        dirichlet_alpha=dirichlet_alpha,
+        dirichlet_weight=dirichlet_weight,
+    )
+    return play_one_selfplay_game(
+        game,
+        mcts,
+        num_simulations=num_simulations,
+        temperature_threshold=temperature_threshold,
+        augment=augment,
+    )
 
 
 def _assign_z(history, final_value, final_state, game) -> list[float]:
