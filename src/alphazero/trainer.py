@@ -224,13 +224,29 @@ class Trainer:
         # Save config as a dict so checkpoints are self-describing (the loader
         # can reconstruct the network with matching architecture).
         from dataclasses import asdict
-        torch.save({
+        base = {
             "iteration": self.iteration,
             "config": asdict(self.config),
             "best_net": self.best_net.state_dict(),
-            "candidate_net": self.candidate_net.state_dict(),
-            "optimizer": self.optimizer.state_dict(),
-        }, path)
+        }
+        if self.config.lean_checkpoints:
+            # Per-iteration checkpoint: lean (best_net only) for cheap retention.
+            # Full state for mid-training resume lives in latest.pt and is
+            # overwritten each iteration so disk usage stays O(1) in iterations.
+            torch.save(base, path)
+            full = {
+                **base,
+                "candidate_net": self.candidate_net.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+            }
+            torch.save(full, ckpt_dir / "latest.pt")
+        else:
+            full = {
+                **base,
+                "candidate_net": self.candidate_net.state_dict(),
+                "optimizer": self.optimizer.state_dict(),
+            }
+            torch.save(full, path)
         return path
 
     def load_from_checkpoint(self, path: Path | str) -> None:
@@ -243,12 +259,36 @@ class Trainer:
         After loading, calling `run()` continues training for additional
         `config.num_iterations` iterations (the counter is preserved, so the
         next iteration is `self.iteration + 1`).
+
+        If `path` points to a lean checkpoint (missing candidate_net /
+        optimizer — written by the default `lean_checkpoints=True` mode for
+        per-iteration files), candidate_net is reinitialized from best_net
+        and the optimizer is reinitialized from scratch. A warning is emitted
+        so users know they're not getting a true mid-training resume. For
+        full resume, point at the `latest.pt` written alongside the per-iter
+        files.
         """
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.best_net.load_state_dict(ckpt["best_net"])
         self.best_net.eval()
-        self.candidate_net.load_state_dict(ckpt["candidate_net"])
-        self.optimizer.load_state_dict(ckpt["optimizer"])
+        if "candidate_net" in ckpt and "optimizer" in ckpt:
+            self.candidate_net.load_state_dict(ckpt["candidate_net"])
+            self.optimizer.load_state_dict(ckpt["optimizer"])
+        else:
+            import warnings
+            warnings.warn(
+                f"Loading lean checkpoint {path}: candidate_net and optimizer "
+                "are not present. candidate_net will be reinitialized from "
+                "best_net and the optimizer will be reinitialized from scratch. "
+                "For a true mid-training resume, load latest.pt instead.",
+                stacklevel=2,
+            )
+            self.candidate_net.load_state_dict(self.best_net.state_dict())
+            self.optimizer = torch.optim.AdamW(
+                self.candidate_net.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
         self.iteration = int(ckpt["iteration"])
 
     def run(self, verbose: bool = True, eval_opponent=None) -> None:

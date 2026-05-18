@@ -53,6 +53,15 @@ class TrainingConfig:
     checkpoint_dir: str = "checkpoints"
     log_dir: str = "runs"
 
+    # Checkpoint disk-usage:
+    # When True (default) each per-iteration iter_NNNN.pt stores only the
+    # eval/fork-required tensors (iteration, config, best_net) — roughly 1/4
+    # the size for chess. The full state (candidate_net + optimizer) needed
+    # for a true mid-training resume is written separately to latest.pt.
+    # Set to False to restore the legacy behavior where every iter_NNNN.pt
+    # is a full checkpoint.
+    lean_checkpoints: bool = True
+
 
 def load_config(path: Path | str) -> TrainingConfig:
     """Load TrainingConfig from a TOML file.

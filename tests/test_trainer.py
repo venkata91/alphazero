@@ -153,6 +153,73 @@ def test_run_after_load_continues_from_checkpoint_iteration(tiny_config, tmp_pat
     assert (tmp_path / tiny_config.checkpoint_dir / "iter_0004.pt").exists()
 
 
+def test_lean_checkpoint_contents_and_latest_full(tiny_config, tmp_path, monkeypatch):
+    """In lean mode (default), iter_NNNN.pt holds only {iteration, config,
+    best_net}, while latest.pt holds the full state needed for resume."""
+    import torch
+    monkeypatch.chdir(tmp_path)
+    trainer = Trainer(TicTacToe(), tiny_config)
+    trainer.run()
+
+    iter_ckpt_path = tmp_path / tiny_config.checkpoint_dir / "iter_0002.pt"
+    latest_path = tmp_path / tiny_config.checkpoint_dir / "latest.pt"
+    assert iter_ckpt_path.exists()
+    assert latest_path.exists()
+
+    iter_ckpt = torch.load(iter_ckpt_path, map_location="cpu", weights_only=False)
+    assert set(iter_ckpt.keys()) == {"iteration", "config", "best_net"}
+
+    latest = torch.load(latest_path, map_location="cpu", weights_only=False)
+    assert set(latest.keys()) >= {"iteration", "config", "best_net",
+                                  "candidate_net", "optimizer"}
+
+
+def test_load_lean_checkpoint_reinitializes_candidate_and_optimizer(
+    tiny_config, tmp_path, monkeypatch,
+):
+    """Loading a lean checkpoint must succeed: candidate_net is reinitialized
+    from best_net and the optimizer is freshly constructed. After load, the
+    Trainer must be able to take a training step without crashing."""
+    monkeypatch.chdir(tmp_path)
+    trainer1 = Trainer(TicTacToe(), tiny_config)
+    trainer1.run()
+
+    lean_path = tmp_path / tiny_config.checkpoint_dir / "iter_0002.pt"
+    trainer2 = Trainer(TicTacToe(), tiny_config)
+    with pytest.warns(UserWarning, match="lean checkpoint"):
+        trainer2.load_from_checkpoint(lean_path)
+
+    assert trainer2.iteration == 2
+    # candidate_net should be reinitialized from best_net.
+    for p_b, p_c in zip(trainer2.best_net.parameters(),
+                        trainer2.candidate_net.parameters()):
+        torch.testing.assert_close(p_b, p_c)
+    # Optimizer must be a fresh, functional AdamW over candidate_net params.
+    assert isinstance(trainer2.optimizer, torch.optim.AdamW)
+    trainer2._run_self_play_iteration()
+    trainer2._train_step()
+
+
+def test_legacy_full_checkpoint_mode_still_works(tiny_config, tmp_path, monkeypatch):
+    """When lean_checkpoints=False, each iter_NNNN.pt is a full checkpoint
+    (backward-compatible behavior) and no latest.pt is written."""
+    import torch
+    from dataclasses import replace
+    monkeypatch.chdir(tmp_path)
+    cfg = replace(tiny_config, lean_checkpoints=False)
+    trainer = Trainer(TicTacToe(), cfg)
+    trainer.run()
+
+    iter_ckpt_path = tmp_path / cfg.checkpoint_dir / "iter_0002.pt"
+    latest_path = tmp_path / cfg.checkpoint_dir / "latest.pt"
+    assert iter_ckpt_path.exists()
+    assert not latest_path.exists()
+
+    iter_ckpt = torch.load(iter_ckpt_path, map_location="cpu", weights_only=False)
+    assert set(iter_ckpt.keys()) >= {"iteration", "config", "best_net",
+                                     "candidate_net", "optimizer"}
+
+
 def test_trainer_dispatches_parallel_when_num_workers_gt_1(tiny_config, tmp_path, monkeypatch):
     """When num_workers > 1, Trainer.run uses parallel_selfplay instead of run_one_game."""
     from dataclasses import replace
