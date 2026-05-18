@@ -96,6 +96,47 @@ def test_make_batch_iter_workers_shuffle_changes_order(tmp_path):
     assert not torch.equal(no_shuf[1], yes_shuf[1])
 
 
+def test_shard_dataset_shuffles_each_shard_differently(tmp_path):
+    """Regression for the bug where a fresh RNG inside the per-shard loop
+    produced the SAME permutation for every shard processed by a worker
+    (and the SAME permutation across epochs). Each shard's ordering must
+    be independent."""
+    from alphazero.supervised import _ShardDataset
+
+    # 3 shards, identical content. If shuffle works, the per-shard orderings
+    # (recovered from yielded move_indices) must NOT all be identical.
+    for i in range(3):
+        _write_fake_shard(tmp_path / f"shard_w0_s{i:04d}.npz", 50, seed=99)
+    shards = sorted(tmp_path.glob("*.npz"))
+
+    # Single-worker (worker_info is None), num_workers=0 path through DataLoader
+    ds = _ShardDataset(shards, batch_size=50, shuffle=True, seed=42)
+    per_shard_orders = [batch[1].tolist() for batch in ds]
+    assert len(per_shard_orders) == 3
+    # No two shard orderings should be identical (1-in-50! probability they match)
+    assert per_shard_orders[0] != per_shard_orders[1]
+    assert per_shard_orders[1] != per_shard_orders[2]
+    assert per_shard_orders[0] != per_shard_orders[2]
+
+
+def test_shard_dataset_shuffle_differs_across_epochs(tmp_path):
+    """Same regression — across epochs (different seed offsets), permutation
+    must change. Catches the prior bug where every epoch reused identical
+    per-worker permutations."""
+    from alphazero.supervised import _ShardDataset
+
+    _write_fake_shard(tmp_path / "shard_w0_s0000.npz", 50, seed=99)
+    shards = sorted(tmp_path.glob("*.npz"))
+
+    # Epoch 1: seed=42; epoch 2: seed=43 (mirrors pretrain_supervised loop:
+    # `seed=config.seed + epoch`)
+    ds_ep1 = _ShardDataset(shards, batch_size=50, shuffle=True, seed=42)
+    ds_ep2 = _ShardDataset(shards, batch_size=50, shuffle=True, seed=43)
+    order_ep1 = next(iter(ds_ep1))[1].tolist()
+    order_ep2 = next(iter(ds_ep2))[1].tolist()
+    assert order_ep1 != order_ep2, "Shuffle must differ across epochs (different seeds)"
+
+
 def test_pretrain_config_loads_from_toml(tmp_path):
     """load_pretrain_config reads a TOML file and constructs a PretrainConfig."""
     from alphazero.supervised import load_pretrain_config

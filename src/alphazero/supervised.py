@@ -143,14 +143,26 @@ class _ShardDataset(IterableDataset):
             my_shards = self.shards[worker_info.id :: worker_info.num_workers]
             worker_id = worker_info.id
 
+        # Construct ONE numpy RNG outside the per-shard loop. Each
+        # rng.permutation() call advances the RNG state, so consecutive
+        # shards get DIFFERENT permutations within the same epoch. Per-worker
+        # seed offset prevents identical orderings across workers; epoch
+        # offset (passed in via self.seed by the caller) gives different
+        # orderings across epochs.
+        #
+        # The prior bug: a fresh RNG was constructed *inside* the per-shard
+        # loop, seeded only by (seed + worker_id). Every shard in worker 0
+        # used permutation P0, every shard in worker 1 used P1, and these
+        # repeated verbatim every epoch — silently degrading SGD quality.
         if self.shuffle:
-            # Per-worker RNG seeded deterministically — same seed on retry,
-            # different seed per worker so workers don't shuffle identically.
             import random as _random
 
-            rng = _random.Random(self.seed + worker_id)
+            rng_shards = _random.Random(self.seed + worker_id)
             my_shards = list(my_shards)
-            rng.shuffle(my_shards)
+            rng_shards.shuffle(my_shards)
+            order_rng = np.random.default_rng(self.seed + worker_id)
+        else:
+            order_rng = None  # unused in non-shuffle path
 
         for shard_path in my_shards:
             data = np.load(shard_path)
@@ -159,7 +171,7 @@ class _ShardDataset(IterableDataset):
             outcomes = data["outcomes"]
             n = states.shape[0]
             if self.shuffle:
-                order = np.random.default_rng(self.seed + worker_id).permutation(n)
+                order = order_rng.permutation(n)
             else:
                 order = np.arange(n)
             for start in range(0, n, self.batch_size):
