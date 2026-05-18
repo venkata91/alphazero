@@ -142,6 +142,7 @@ def worker_play_one_game(
     response_q: mp.Queue,
     augment: bool = True,
     request_id_offset: int = 0,
+    heartbeat_q: Any = None,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Run one self-play game using a remote NN-server for inference.
 
@@ -173,12 +174,21 @@ def worker_play_one_game(
         dirichlet_weight=dirichlet_weight,
     )
 
+    on_step = None
+    if heartbeat_q is not None:
+        def on_step() -> None:
+            try:
+                heartbeat_q.put((worker_id, time.monotonic()))
+            except Exception:
+                pass
+
     return play_one_selfplay_game(
         game,
         mcts,
         num_simulations=num_simulations,
         temperature_threshold=temperature_threshold,
         augment=augment,
+        on_step=on_step,
     )
 
 
@@ -404,6 +414,7 @@ def _worker_loop(
                 response_q=response_q,
                 augment=True,
                 request_id_offset=request_id_offset,
+                heartbeat_q=heartbeat_q,
             )
         except (queue.Empty, AssertionError) as e:
             # NN inference server didn't respond (response_q timeout) or

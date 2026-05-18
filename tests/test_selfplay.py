@@ -200,3 +200,41 @@ def test_play_one_selfplay_game_with_stub_mcts():
         np.testing.assert_array_equal(s1, s2)
         np.testing.assert_array_equal(pi1, pi2)
         assert z1 == z2
+
+
+def test_play_one_selfplay_game_calls_on_step_per_move():
+    """Regression: on_step callback fires once per ply so parallel workers
+    can emit intra-game heartbeats. Without per-move heartbeats, chess at
+    200 sims (~10s/search × ~80 plies = ~13min/game) triggers phantom
+    WorkerHangError on the 120s default heartbeat timeout."""
+    from alphazero.selfplay import play_one_selfplay_game
+
+    ttt = TicTacToe()
+
+    class DeterministicStubMCTS:
+        def __init__(self, game):
+            self.game = game
+
+        def search(self, state, num_simulations, add_root_noise):
+            legal = self.game.legal_actions_mask(state).astype(np.float32)
+            pi = legal / legal.sum()
+            return pi
+
+    step_count = {"n": 0}
+    def on_step():
+        step_count["n"] += 1
+
+    examples = play_one_selfplay_game(
+        ttt,
+        DeterministicStubMCTS(ttt),
+        num_simulations=1,
+        temperature_threshold=0,
+        augment=False,
+        on_step=on_step,
+    )
+
+    assert step_count["n"] > 0, "on_step should fire at least once"
+    # TTT games are 5-9 plies. on_step fires once per ply.
+    assert 5 <= step_count["n"] <= 9, (
+        f"on_step fired {step_count['n']} times; expected one per ply (5-9 for TTT)"
+    )

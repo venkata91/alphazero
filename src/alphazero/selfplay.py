@@ -23,6 +23,7 @@ def play_one_selfplay_game(
     temperature_threshold: int,
     augment: bool = True,
     rng: np.random.Generator | None = None,
+    on_step: Callable[[], None] | None = None,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Play one self-play game with the given MCTS.
 
@@ -61,6 +62,9 @@ def play_one_selfplay_game(
 
         state = game.apply(state, action)
         move_idx += 1
+
+        if on_step is not None:
+            on_step()
 
     z_per_ply = _assign_z(history, game.terminal_value(state), state, game)
 
