@@ -37,7 +37,10 @@ eval_games = 25
 num_iterations = 10
 
 # Parallel self-play
-num_workers = 10
+# 4 workers (not 10): on Mac MPS, 10 workers thrash the device — single-move
+# MCTS can stretch past 2 min under contention and trip heartbeat_timeout.
+# 4 workers keeps batching efficiency while keeping MPS scheduling sane.
+num_workers = 4
 inference_batch_size = 64
 
 # Misc

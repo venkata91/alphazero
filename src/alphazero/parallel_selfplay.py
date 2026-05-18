@@ -209,7 +209,7 @@ def run_parallel_self_play(
     dirichlet_alpha: float,
     dirichlet_weight: float,
     device: str = "cpu",
-    heartbeat_timeout_s: float = 120.0,
+    heartbeat_timeout_s: float = 300.0,
     poll_interval_s: float = 5.0,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Run num_games self-play games across num_workers processes.
