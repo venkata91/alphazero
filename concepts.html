@@ -1458,9 +1458,9 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             <rect x="40" y="60" width="170" height="80" rx="14"
                   class="ax-box-base ax-box-best ax-pulse-best"/>
             <text x="125" y="86" text-anchor="middle" class="v-text-strong" style="font-size:14px;">best_net</text>
-            <text x="125" y="104" text-anchor="middle" class="v-text" style="font-size:11px;">frozen during play</text>
-            <text x="125" y="119" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">drives MCTS priors</text>
-            <text x="125" y="133" text-anchor="middle" class="v-text" style="font-size:10px;">eval_fn(s) → (P, v)</text>
+            <text x="125" y="104" text-anchor="middle" class="v-text" style="font-size:12px;">frozen during play</text>
+            <text x="125" y="119" text-anchor="middle" class="v-text" style="font-size:12px;">drives MCTS priors</text>
+            <text x="125" y="133" text-anchor="middle" class="v-text" style="font-size:12px;">eval_fn(s) → (P, v)</text>
             <!-- refresh halo (flashes on promotion) -->
             <rect x="40" y="60" width="170" height="80" rx="14"
                   fill="none" stroke="var(--orange)" stroke-width="3.5"
@@ -1474,22 +1474,22 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
               <rect x="260" y="138" width="230" height="32" rx="9" class="ax-box-base ax-box-worker"/>
               <rect x="260" y="176" width="230" height="32" rx="9" class="ax-box-base ax-box-worker"/>
             </g>
-            <text x="375" y="83"  text-anchor="middle" class="v-text" style="font-size:11px;">worker 1 · MCTS(best_net) · game</text>
-            <text x="375" y="121" text-anchor="middle" class="v-text" style="font-size:11px;">worker 2 · MCTS(best_net) · game</text>
-            <text x="375" y="159" text-anchor="middle" class="v-text" style="font-size:11px;">worker 3 · MCTS(best_net) · game</text>
-            <text x="375" y="197" text-anchor="middle" class="v-text" style="font-size:11px;">worker 4 · MCTS(best_net) · game</text>
+            <text x="375" y="83"  text-anchor="middle" class="v-text" style="font-size:12px;">worker 1 · MCTS(best_net) · game</text>
+            <text x="375" y="121" text-anchor="middle" class="v-text" style="font-size:12px;">worker 2 · MCTS(best_net) · game</text>
+            <text x="375" y="159" text-anchor="middle" class="v-text" style="font-size:12px;">worker 3 · MCTS(best_net) · game</text>
+            <text x="375" y="197" text-anchor="middle" class="v-text" style="font-size:12px;">worker 4 · MCTS(best_net) · game</text>
 
             <!-- best_net → workers (control: which net the workers serve) -->
             <path d="M 210,100 L 245,100 L 245,135 L 258,135"
                   fill="none" stroke="var(--orange)" stroke-width="1.6"
                   stroke-dasharray="4 4" stroke-linecap="round" opacity="0.7"/>
-            <text x="218" y="93" class="v-text v-text-red" style="font-size:10px;">weights</text>
+            <text x="218" y="93" class="v-text v-text-red" style="font-size:12px;">weights</text>
 
             <!-- ====== Replay Buffer (green, right) ====== -->
             <rect x="610" y="62" width="240" height="148" rx="14"
                   class="ax-box-base ax-box-buf ax-pulse-selfplay"/>
             <text x="730" y="86" text-anchor="middle" class="v-text-strong" style="font-size:14px;">replay buffer</text>
-            <text x="730" y="102" text-anchor="middle" class="v-text" style="font-size:10px;">FIFO deque · holds (s, π, z)</text>
+            <text x="730" y="102" text-anchor="middle" class="v-text" style="font-size:12px;">FIFO deque · holds (s, π, z)</text>
             <!-- slot row 1 -->
             <rect x="625" y="116" width="32" height="22" rx="4" class="ax-slot"/>
             <rect x="625" y="116" width="32" height="22" rx="4" class="ax-slot-fill s1"/>
@@ -1516,7 +1516,7 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             <rect x="773" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
             <rect x="810" y="146" width="32" height="22" rx="4" class="ax-slot"/>
             <rect x="810" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
-            <text x="730" y="190" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">uniform-random sample → minibatch</text>
+            <text x="730" y="190" text-anchor="middle" class="v-text v-text-cyan" style="font-size:12px;">uniform-random sample → minibatch</text>
 
             <!-- workers → buffer: data-flow edges (visible self-play phase) -->
             <path d="M 490,78  L 610,128" class="ax-edge ax-edge-sp"/>
@@ -1528,41 +1528,41 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
             <circle cx="495" cy="116" r="4" class="ax-tuple ax-tuple-b"/>
             <circle cx="495" cy="154" r="4" class="ax-tuple ax-tuple-c"/>
             <circle cx="495" cy="192" r="4" class="ax-tuple ax-tuple-d"/>
-            <text x="552" y="64" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">(s, π, z)</text>
+            <text x="552" y="64" text-anchor="middle" class="v-text v-text-cyan" style="font-size:12px;">(s, π, z)</text>
 
             <!-- ====== Trainer (bottom-center, blue) ====== -->
             <rect x="260" y="260" width="230" height="100" rx="14"
                   class="ax-box-base ax-box-train ax-pulse-train"/>
             <text x="375" y="284" text-anchor="middle" class="v-text-strong" style="font-size:14px;">trainer</text>
-            <text x="375" y="302" text-anchor="middle" class="v-text" style="font-size:11px;">forward · AZ loss · AdamW</text>
-            <text x="375" y="317" text-anchor="middle" class="v-text" style="font-size:11px;">K training steps / iter</text>
-            <text x="375" y="334" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">loss = CE(π) + MSE(z) + L2</text>
-            <text x="375" y="350" text-anchor="middle" class="v-text" style="font-size:10px;">∂L/∂θ → AdamW step</text>
+            <text x="375" y="302" text-anchor="middle" class="v-text" style="font-size:12px;">forward · AZ loss · AdamW</text>
+            <text x="375" y="317" text-anchor="middle" class="v-text" style="font-size:12px;">K training steps / iter</text>
+            <text x="375" y="334" text-anchor="middle" class="v-text" style="font-size:12px;">loss = CE(π) + MSE(z) + L2</text>
+            <text x="375" y="350" text-anchor="middle" class="v-text" style="font-size:12px;">∂L/∂θ → AdamW step</text>
 
             <!-- buffer → trainer (minibatch flow, training phase) -->
             <path d="M 610,180 Q 540,250 490,310" class="ax-edge ax-edge-tr"/>
             <circle cx="610" cy="180" r="5" class="ax-batch"/>
             <circle cx="610" cy="180" r="5" class="ax-batch b2"/>
             <circle cx="610" cy="180" r="5" class="ax-batch b3"/>
-            <text x="552" y="244" class="v-text" style="font-size:10px; fill:var(--green);">minibatch</text>
+            <text x="552" y="244" class="v-text" style="font-size:12px; fill:var(--green);">minibatch</text>
 
             <!-- ====== candidate_net (bottom-right, deep blue) ====== -->
             <rect x="610" y="260" width="240" height="100" rx="14"
                   class="ax-box-base ax-box-cand ax-pulse-train"/>
             <text x="730" y="284" text-anchor="middle" class="v-text-strong" style="font-size:14px;">candidate_net</text>
-            <text x="730" y="302" text-anchor="middle" class="v-text" style="font-size:11px;">the net being optimized</text>
+            <text x="730" y="302" text-anchor="middle" class="v-text" style="font-size:12px;">the net being optimized</text>
             <!-- "weight progress" bar (grows during train phase) -->
             <rect x="640" y="318" width="180" height="10" rx="5"
                   fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="1.2"/>
             <rect x="640" y="318" width="180" height="10" rx="5" class="ax-weight-bar"/>
-            <text x="730" y="350" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">θ ← θ − η ∇θ L</text>
+            <text x="730" y="350" text-anchor="middle" class="v-text" style="font-size:12px;">θ ← θ − η ∇θ L</text>
 
             <!-- trainer → candidate_net (gradient/weight-update flow) -->
             <path d="M 490,310 L 610,310" class="ax-edge ax-edge-grad"/>
             <circle cx="495" cy="310" r="4" class="ax-grad"/>
             <circle cx="495" cy="310" r="4" class="ax-grad g2"/>
             <circle cx="495" cy="310" r="4" class="ax-grad g3"/>
-            <text x="550" y="304" class="v-text v-text-cyan" style="font-size:10px;">∇θ → step</text>
+            <text x="550" y="304" class="v-text v-text-cyan" style="font-size:12px;">∇θ → step</text>
 
             <!-- ====== Promotion: candidate_net → best_net (orange loop-back) ====== -->
             <path d="M 730,260 Q 730,180 580,180 L 350,180 Q 125,180 125,140"
@@ -1571,7 +1571,7 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
                      class="ax-refresh" style="opacity:0;"/>
             <!-- promotion blob: snapshot of weights flying from candidate → best -->
             <circle cx="730" cy="260" r="6" class="ax-promo"/>
-            <text x="430" y="174" text-anchor="middle" class="v-text v-text-red" style="font-size:11px;">
+            <text x="430" y="174" text-anchor="middle" class="v-text v-text-red" style="font-size:12px;">
               best_net.load_state_dict(candidate_net.state_dict())
             </text>
 
