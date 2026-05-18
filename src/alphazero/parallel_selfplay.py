@@ -14,6 +14,8 @@ scale — serial self-play is wall-time infeasible.
 from __future__ import annotations
 
 import queue
+import sys
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -22,6 +24,21 @@ import torch
 import torch.multiprocessing as mp
 
 from .network import AlphaZeroNet
+
+
+class WorkerHangError(RuntimeError):
+    """Raised when a worker has not sent a heartbeat within the configured
+    timeout. Carries the offending worker_id and elapsed silence (seconds)."""
+
+    def __init__(self, worker_id: int, silent_for_s: float, heartbeat_timeout_s: float):
+        self.worker_id = worker_id
+        self.silent_for_s = silent_for_s
+        self.heartbeat_timeout_s = heartbeat_timeout_s
+        super().__init__(
+            f"Worker {worker_id} has not sent a heartbeat for "
+            f"{silent_for_s:.1f}s (timeout={heartbeat_timeout_s:.1f}s); "
+            f"considering it hung."
+        )
 
 
 @dataclass
@@ -182,12 +199,20 @@ def run_parallel_self_play(
     dirichlet_alpha: float,
     dirichlet_weight: float,
     device: str = "cpu",
+    heartbeat_timeout_s: float = 120.0,
+    poll_interval_s: float = 5.0,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Run num_games self-play games across num_workers processes.
 
     Spawns one NN-server thread (owns the model) and num_workers worker
     processes (each runs one game at a time until num_games are done).
     Workers report back via a result queue; orchestrator collects.
+
+    Workers also emit a (worker_id, monotonic_timestamp) heartbeat at the
+    start and end of every game. The parent polls result_q on a short
+    interval (poll_interval_s) and checks heartbeats; any worker silent
+    for more than heartbeat_timeout_s is treated as hung and raises
+    WorkerHangError after attempting shutdown.
 
     Returns a flat list of (state, π, z) training tuples.
     """
@@ -198,6 +223,7 @@ def run_parallel_self_play(
     request_q = ctx.Queue()
     response_qs = {wid: ctx.Queue() for wid in range(num_workers)}
     result_q = ctx.Queue()
+    heartbeat_q = ctx.Queue()
     work_q = ctx.Queue()   # holds "play one game" job tokens
 
     # Pre-load work queue with num_games jobs (just dummy tokens)
@@ -220,6 +246,11 @@ def run_parallel_self_play(
     )
     server_thread.start()
 
+    # Seed heartbeats to "now" so we don't false-positive before workers
+    # have a chance to send their first ping (spawn startup can take >1s).
+    now = time.monotonic()
+    last_heartbeat: dict[int, float] = {wid: now for wid in range(num_workers)}
+
     # Start workers
     workers = []
     for wid in range(num_workers):
@@ -227,7 +258,8 @@ def run_parallel_self_play(
             target=_worker_loop,
             args=(wid, game_name, num_simulations, temperature_threshold,
                   c_puct, dirichlet_alpha, dirichlet_weight,
-                  work_q, request_q, response_qs[wid], result_q),
+                  work_q, request_q, response_qs[wid], result_q,
+                  heartbeat_q, shutdown_event),
         )
         p.start()
         workers.append(p)
@@ -235,11 +267,15 @@ def run_parallel_self_play(
     # Collect num_games batches of training tuples
     all_examples: list[tuple[np.ndarray, np.ndarray, float]] = []
     try:
-        games_collected = 0
-        while games_collected < num_games:
-            batch = result_q.get(timeout=600.0)
-            all_examples.extend(batch)
-            games_collected += 1
+        _collect_with_heartbeat_monitor(
+            num_games=num_games,
+            result_q=result_q,
+            heartbeat_q=heartbeat_q,
+            last_heartbeat=last_heartbeat,
+            heartbeat_timeout_s=heartbeat_timeout_s,
+            poll_interval_s=poll_interval_s,
+            sink=all_examples.extend,
+        )
     finally:
         # Always shutdown — even if collection raised
         shutdown_event.set()
@@ -247,9 +283,70 @@ def run_parallel_self_play(
             p.join(timeout=10.0)
             if p.is_alive():
                 p.terminate()
+                p.join(timeout=2.0)
         server_thread.join(timeout=5.0)
 
     return all_examples
+
+
+def _collect_with_heartbeat_monitor(
+    *,
+    num_games: int,
+    result_q: Any,
+    heartbeat_q: Any,
+    last_heartbeat: dict[int, float],
+    heartbeat_timeout_s: float,
+    poll_interval_s: float,
+    sink,
+) -> None:
+    """Collect num_games results from result_q while monitoring heartbeats.
+
+    Calls `sink(batch)` for each batch pulled from result_q. Raises
+    WorkerHangError if any worker is silent for more than
+    heartbeat_timeout_s before all games are collected. Exits cleanly
+    (no raise) once all num_games batches are collected.
+    """
+    games_collected = 0
+    while games_collected < num_games:
+        # Short-poll result_q so we can check heartbeats frequently.
+        try:
+            batch = result_q.get(timeout=poll_interval_s)
+            sink(batch)
+            games_collected += 1
+        except queue.Empty:
+            pass
+
+        # Drain any pending heartbeats.
+        while True:
+            try:
+                wid, ts = heartbeat_q.get_nowait()
+            except queue.Empty:
+                break
+            # Keep only the most recent timestamp per worker.
+            if ts > last_heartbeat.get(wid, 0.0):
+                last_heartbeat[wid] = ts
+
+        # If we've already collected everything, exit happy regardless
+        # of any worker that may still be winding down.
+        if games_collected >= num_games:
+            return
+
+        # Hang check: any worker silent for too long?
+        now = time.monotonic()
+        for wid, last in last_heartbeat.items():
+            silent_for = now - last
+            if silent_for > heartbeat_timeout_s:
+                err = WorkerHangError(
+                    worker_id=wid,
+                    silent_for_s=silent_for,
+                    heartbeat_timeout_s=heartbeat_timeout_s,
+                )
+                print(
+                    f"[parallel_selfplay] {err}",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                raise err
 
 
 def _worker_loop(
@@ -264,15 +361,36 @@ def _worker_loop(
     request_q: mp.Queue,
     response_q: mp.Queue,
     result_q: mp.Queue,
+    heartbeat_q: mp.Queue,
+    shutdown_event: Any,
 ) -> None:
     """Worker entry point. Pulls 'play a game' tokens from work_q, runs one
     game using worker_play_one_game, pushes results back via result_q. Exits
-    when it pulls a None sentinel."""
+    when it pulls a None sentinel or when shutdown_event is set.
+
+    Emits a (worker_id, monotonic_timestamp) heartbeat on heartbeat_q at the
+    start and end of every game so the parent can detect hangs."""
     request_id_offset = worker_id * 1_000_000  # avoid request_id collisions across workers
+
+    # Initial heartbeat: announce we're alive immediately after spawn.
+    try:
+        heartbeat_q.put((worker_id, time.monotonic()))
+    except Exception:
+        pass
+
     while True:
+        if shutdown_event.is_set():
+            break
         token = work_q.get()
         if token is None:
             break
+
+        # Heartbeat: about to start a game.
+        try:
+            heartbeat_q.put((worker_id, time.monotonic()))
+        except Exception:
+            pass
+
         examples = worker_play_one_game(
             worker_id=worker_id,
             game_name=game_name,
@@ -287,4 +405,11 @@ def _worker_loop(
             request_id_offset=request_id_offset,
         )
         request_id_offset += 100_000   # bump for next game from this worker
+
+        # Heartbeat: game done, about to publish.
+        try:
+            heartbeat_q.put((worker_id, time.monotonic()))
+        except Exception:
+            pass
+
         result_q.put(examples)
