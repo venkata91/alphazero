@@ -409,26 +409,33 @@ def pretrain_supervised(config: PretrainConfig) -> None:
         )
         elapsed = time.time() - epoch_start
 
-        print(
-            f"  epoch {epoch}/{config.num_epochs}: "
-            f"train_loss={train_loss:.4f} val_loss={val_loss:.4f} "
-            f"lr={lr:.2e} elapsed={elapsed:.1f}s",
-            flush=True,
-        )
-
-        if val_loss < best_val_loss:
+        # Save checkpoint BEFORE printing the epoch summary, so that
+        # whenever a user sees "epoch N/M done", the file on disk is
+        # guaranteed to reflect that epoch's weights (no race window
+        # between print and save flush).
+        improved = val_loss < best_val_loss
+        if improved:
             best_val_loss = val_loss
             patience_counter = 0
             _save_pretrained_checkpoint(net, optimizer, config, epoch)
         else:
             patience_counter += 1
-            if patience_counter >= config.early_stopping_patience:
-                print(
-                    f"  early stopping: val_loss did not improve for "
-                    f"{patience_counter} epochs (best={best_val_loss:.4f})",
-                    flush=True,
-                )
-                break
+
+        saved_marker = " (checkpoint saved)" if improved else ""
+        print(
+            f"  epoch {epoch}/{config.num_epochs}: "
+            f"train_loss={train_loss:.4f} val_loss={val_loss:.4f} "
+            f"lr={lr:.2e} elapsed={elapsed:.1f}s{saved_marker}",
+            flush=True,
+        )
+
+        if not improved and patience_counter >= config.early_stopping_patience:
+            print(
+                f"  early stopping: val_loss did not improve for "
+                f"{patience_counter} epochs (best={best_val_loss:.4f})",
+                flush=True,
+            )
+            break
 
     print(f"Done. best_val_loss={best_val_loss:.4f}", flush=True)
 
