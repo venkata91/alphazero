@@ -169,7 +169,12 @@ def worker_play_one_game(
     while game.terminal_value(state) is None:
         pi = mcts.search(state, num_simulations=num_simulations, add_root_noise=True)
         if move_idx < temperature_threshold:
-            action = int(np.random.choice(len(pi), p=pi))
+            # Renormalize: pi = visits/sum is float32 and can drift past
+            # numpy's 1e-8 tolerance for `np.random.choice`, especially
+            # for chess (4672 actions). Cast to float64 and rescale.
+            p = pi.astype(np.float64)
+            p /= p.sum()
+            action = int(np.random.choice(len(p), p=p))
         else:
             action = int(np.argmax(pi))
         canon = game.canonical_state(state)
