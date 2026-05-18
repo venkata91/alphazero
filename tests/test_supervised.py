@@ -35,11 +35,65 @@ def test_pretrain_config_defaults():
     assert cfg.weight_decay == 1e-4
     assert cfg.holdout_fraction == 0.05
     assert cfg.early_stopping_patience == 2
+    assert cfg.num_workers == 0
+    assert cfg.pin_memory is True
     assert cfg.corpus_dir == "data/chess_corpus"
     assert cfg.output_checkpoint == "pretrained.pt"
     assert cfg.log_dir == "runs_pretrain"
     assert cfg.seed == 42
     assert cfg.device == "auto"
+
+
+def test_make_batch_iter_dispatches_to_single_threaded_when_workers_0(tmp_path):
+    """num_workers=0 → falls back to iter_batches (no DataLoader overhead)."""
+    from alphazero.supervised import make_batch_iter
+
+    _write_fake_shard(tmp_path / "shard_w0_s0000.npz", 64, seed=0)
+    shards = sorted(tmp_path.glob("*.npz"))
+
+    batches = list(make_batch_iter(shards, batch_size=16, device=torch.device("cpu"),
+                                    shuffle=False, num_workers=0))
+    assert len(batches) == 4
+    for states, moves, zs in batches:
+        assert states.shape == (16, 20, 8, 8)
+        assert states.dtype == torch.float32
+
+
+def test_make_batch_iter_multi_worker_produces_all_positions(tmp_path):
+    """num_workers>0 → DataLoader path; same total positions, same dtypes."""
+    from alphazero.supervised import make_batch_iter
+
+    for i in range(4):
+        _write_fake_shard(tmp_path / f"shard_w0_s{i:04d}.npz", 50, seed=i)
+    shards = sorted(tmp_path.glob("*.npz"))
+
+    batches = list(make_batch_iter(shards, batch_size=25, device=torch.device("cpu"),
+                                    shuffle=False, num_workers=2))
+    # 4 shards × 50 positions = 200 total positions
+    # With batch_size=25 and per-shard batching: 2 batches per shard × 4 shards = 8 batches
+    total_positions = sum(b[0].shape[0] for b in batches)
+    assert total_positions == 200
+
+    for states, moves, zs in batches:
+        assert states.dtype == torch.float32
+        assert moves.dtype == torch.int64
+        assert zs.dtype == torch.float32
+        assert states.shape[1:] == (20, 8, 8)
+
+
+def test_make_batch_iter_workers_shuffle_changes_order(tmp_path):
+    """Multi-worker shuffle=True should produce non-identity ordering."""
+    from alphazero.supervised import make_batch_iter
+
+    _write_fake_shard(tmp_path / "shard_w0_s0000.npz", 100, seed=0)
+    shards = sorted(tmp_path.glob("*.npz"))
+
+    no_shuf = next(iter(make_batch_iter(shards, batch_size=100, device=torch.device("cpu"),
+                                         shuffle=False, num_workers=1)))
+    yes_shuf = next(iter(make_batch_iter(shards, batch_size=100, device=torch.device("cpu"),
+                                          shuffle=True, num_workers=1, seed=42)))
+    # Move indices should differ when shuffled
+    assert not torch.equal(no_shuf[1], yes_shuf[1])
 
 
 def test_pretrain_config_loads_from_toml(tmp_path):

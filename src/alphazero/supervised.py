@@ -36,6 +36,13 @@ class PretrainConfig:
     holdout_fraction: float = 0.05
     early_stopping_patience: int = 2
 
+    # Data loader parallelism. num_workers=0 → single-threaded synchronous reads
+    # (old behavior). num_workers>0 → torch DataLoader with that many worker
+    # processes prefetching batches off the critical path. pin_memory only
+    # matters on CUDA (no-op on MPS/CPU).
+    num_workers: int = 0
+    pin_memory: bool = True
+
     corpus_dir: str = "data/chess_corpus"
     output_checkpoint: str = "pretrained.pt"
     log_dir: str = "runs_pretrain"
@@ -109,6 +116,117 @@ def iter_batches(
             yield s, m, z
 
 
+from torch.utils.data import IterableDataset, DataLoader, get_worker_info
+
+
+class _ShardDataset(IterableDataset):
+    """IterableDataset yielding (state, move, z) batches from .npz shards.
+
+    Yields CPU tensors — the consumer (or DataLoader's pin_memory path)
+    handles the device transfer. Designed for multi-worker DataLoader:
+    when N workers are spawned, each takes shards[worker_id::N] so there
+    is no inter-worker overlap.
+    """
+
+    def __init__(self, shards: list[Path], batch_size: int, shuffle: bool, seed: int):
+        self.shards = list(shards)
+        self.batch_size = batch_size
+        self.shuffle = shuffle
+        self.seed = seed
+
+    def __iter__(self):
+        worker_info = get_worker_info()
+        if worker_info is None:
+            my_shards = self.shards
+            worker_id = 0
+        else:
+            my_shards = self.shards[worker_info.id :: worker_info.num_workers]
+            worker_id = worker_info.id
+
+        if self.shuffle:
+            # Per-worker RNG seeded deterministically — same seed on retry,
+            # different seed per worker so workers don't shuffle identically.
+            import random as _random
+
+            rng = _random.Random(self.seed + worker_id)
+            my_shards = list(my_shards)
+            rng.shuffle(my_shards)
+
+        for shard_path in my_shards:
+            data = np.load(shard_path)
+            states = data["states"]
+            move_indices = data["move_indices"]
+            outcomes = data["outcomes"]
+            n = states.shape[0]
+            if self.shuffle:
+                order = np.random.default_rng(self.seed + worker_id).permutation(n)
+            else:
+                order = np.arange(n)
+            for start in range(0, n, self.batch_size):
+                idx = order[start : start + self.batch_size]
+                s = torch.from_numpy(states[idx].astype(np.float32, copy=False))
+                m = torch.from_numpy(move_indices[idx].astype(np.int64, copy=False))
+                z = torch.from_numpy(outcomes[idx].astype(np.float32, copy=False))
+                yield s, m, z
+
+
+def iter_batches_workers(
+    shards: list[Path],
+    batch_size: int,
+    device: torch.device,
+    shuffle: bool,
+    num_workers: int,
+    pin_memory: bool = True,
+    seed: int = 0,
+) -> "Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]":
+    """Multi-worker batch loader using torch DataLoader prefetching.
+
+    Workers read shards from disk + cast int8 → float32 off the critical
+    path; main thread handles only the CPU→GPU transfer. pin_memory only
+    affects CUDA — MPS and CPU ignore it.
+
+    For num_workers=0 callers should use iter_batches instead — this
+    function still works at num_workers=0 (synchronous mode) but adds
+    needless DataLoader overhead.
+    """
+    dataset = _ShardDataset(shards, batch_size, shuffle, seed=seed)
+    # pin_memory is meaningful only on CUDA; suppress otherwise to avoid warnings
+    effective_pin = pin_memory and device.type == "cuda"
+    loader = DataLoader(
+        dataset,
+        batch_size=None,  # _ShardDataset already yields batches
+        num_workers=num_workers,
+        pin_memory=effective_pin,
+        persistent_workers=num_workers > 0,
+    )
+    for s, m, z in loader:
+        s = s.to(device, non_blocking=effective_pin)
+        m = m.to(device, non_blocking=effective_pin)
+        z = z.to(device, non_blocking=effective_pin)
+        yield s, m, z
+
+
+def make_batch_iter(
+    shards: list[Path],
+    batch_size: int,
+    device: torch.device,
+    shuffle: bool,
+    num_workers: int = 0,
+    pin_memory: bool = True,
+    seed: int = 0,
+) -> "Iterator[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]":
+    """Dispatch to iter_batches or iter_batches_workers based on num_workers.
+
+    num_workers == 0 → single-threaded iter_batches (lowest overhead)
+    num_workers >  0 → DataLoader with that many prefetch workers
+    """
+    if num_workers <= 0:
+        return iter_batches(shards, batch_size, device, shuffle)
+    return iter_batches_workers(
+        shards, batch_size, device, shuffle, num_workers, pin_memory, seed
+    )
+
+
 import math
 
 
@@ -173,14 +291,21 @@ def compute_val_loss(
     val_shards: list[Path],
     batch_size: int,
     device: torch.device,
+    num_workers: int = 0,
+    pin_memory: bool = True,
 ) -> float:
     """Compute average (policy + value) loss over val_shards without gradients."""
     net.eval()
     total_loss = 0.0
     total_samples = 0
     with torch.inference_mode():
-        for states, move_indices, outcomes in iter_batches(
-            val_shards, batch_size=batch_size, device=device, shuffle=False
+        for states, move_indices, outcomes in make_batch_iter(
+            val_shards,
+            batch_size=batch_size,
+            device=device,
+            shuffle=False,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
         ):
             logits, values = net(states)
             policy_loss = F.cross_entropy(logits, move_indices, reduction="sum")
@@ -252,7 +377,15 @@ def pretrain_supervised(config: PretrainConfig) -> None:
         epoch_loss_sum = 0.0
         epoch_samples = 0
 
-        for batch in iter_batches(train_shards, config.batch_size, device, shuffle=True):
+        for batch in make_batch_iter(
+            train_shards,
+            config.batch_size,
+            device,
+            shuffle=True,
+            num_workers=config.num_workers,
+            pin_memory=config.pin_memory,
+            seed=config.seed + epoch,
+        ):
             lr = lr_schedule(
                 step=global_step,
                 warmup_steps=config.warmup_steps,
@@ -266,7 +399,14 @@ def pretrain_supervised(config: PretrainConfig) -> None:
             global_step += 1
 
         train_loss = epoch_loss_sum / max(1, epoch_samples)
-        val_loss = compute_val_loss(net, val_shards, config.batch_size, device)
+        val_loss = compute_val_loss(
+            net,
+            val_shards,
+            config.batch_size,
+            device,
+            num_workers=config.num_workers,
+            pin_memory=config.pin_memory,
+        )
         elapsed = time.time() - epoch_start
 
         print(
