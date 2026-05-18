@@ -48,13 +48,11 @@ class Trainer:
 
     @staticmethod
     def _resolve_device(name: str) -> torch.device:
-        if name == "auto":
-            if torch.cuda.is_available():
-                return torch.device("cuda")
-            if torch.backends.mps.is_available():
-                return torch.device("mps")
-            return torch.device("cpu")
-        return torch.device(name)
+        # Delegate to the shared helper so Trainer and supervised pretraining
+        # always resolve "auto" to the same backend.
+        from .device import resolve_device
+
+        return resolve_device(name)
 
     def _make_eval_fn(self, net: AlphaZeroNet) -> Callable[[np.ndarray], tuple[np.ndarray, float]]:
         """Wrap a network as an eval_fn for MCTS."""

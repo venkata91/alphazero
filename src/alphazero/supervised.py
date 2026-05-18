@@ -324,14 +324,10 @@ from dataclasses import asdict
 
 
 def _resolve_device(device_str: str) -> torch.device:
-    """Mirrors Trainer._resolve_device for consistency."""
-    if device_str == "auto":
-        if torch.backends.mps.is_available():
-            return torch.device("mps")
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        return torch.device("cpu")
-    return torch.device(device_str)
+    """Shared with Trainer via alphazero.device — see that module."""
+    from .device import resolve_device
+
+    return resolve_device(device_str)
 
 
 def pretrain_supervised(config: PretrainConfig) -> None:
