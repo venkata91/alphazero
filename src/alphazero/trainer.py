@@ -98,14 +98,13 @@ class Trainer:
         """Use parallel_selfplay with N workers + central NN-server."""
         from .parallel_selfplay import run_parallel_self_play
 
-        # game_name registry (the parallel module needs a string to import the game)
-        game_class_to_name = {
-            "TicTacToe": "tictactoe",
-            "Connect4": "connect4",
-            "Chess": "chess",
-        }
-        game_name = game_class_to_name.get(type(self.game).__name__)
-        if game_name is None:
+        # Single source of truth in games/__init__.py — no separate
+        # dict to keep in sync with parallel_selfplay._make_game.
+        from .games import name_for_instance
+
+        try:
+            game_name = name_for_instance(self.game)
+        except ValueError:
             raise ValueError(
                 f"Parallel self-play not configured for game {type(self.game).__name__}"
             )

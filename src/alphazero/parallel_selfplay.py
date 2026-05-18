@@ -105,18 +105,11 @@ def nn_server_loop(
             )
 
 
-# Game registry — extend as new games are added
+# Game-name → Game instance. Single source of truth in games/__init__.py.
 def _make_game(game_name: str):
-    if game_name == "tictactoe":
-        from .games.tictactoe import TicTacToe
-        return TicTacToe()
-    if game_name == "connect4":
-        from .games.connect4 import Connect4
-        return Connect4()
-    if game_name == "chess":
-        from .games.chess_game import Chess
-        return Chess()
-    raise ValueError(f"Unknown game: {game_name}")
+    from .games import make_game
+
+    return make_game(game_name)
 
 
 def worker_play_one_game(
