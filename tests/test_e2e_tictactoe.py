@@ -29,7 +29,6 @@ def test_e2e_tictactoe_reaches_zero_losses_vs_perfect_solver(tmp_path, monkeypat
         games_per_iteration=100,
         training_steps_per_iteration=500,
         num_iterations=30,
-        arena_interval=5,
         eval_interval=5,
         eval_games=200,
         seed=42,
