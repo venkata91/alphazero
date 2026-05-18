@@ -399,6 +399,219 @@
       .arch-legend .orange { background: var(--orange-bg); border-color: var(--orange); }
       .arch-legend .green  { background: var(--green-bg);  border-color: var(--green);  }
 
+      /* ===== Animated architecture: 15s loop, 3 phases ===== */
+      /* Phase windows (of 15s): self-play 0–43%, train 45–77%, promote 78–95% */
+      .ax-box-base { stroke-width: 2.4; }
+      .ax-box-best   { fill: var(--orange-bg); stroke: var(--orange); }
+      .ax-box-worker { fill: var(--blue-bg);   stroke: var(--blue);   }
+      .ax-box-buf    { fill: var(--green-bg);  stroke: var(--green);  }
+      .ax-box-train  { fill: var(--blue-bg);   stroke: var(--blue);   }
+      .ax-box-cand   { fill: var(--blue-bg);   stroke: var(--blue-deep); }
+
+      /* Active-phase pulse: a halo class applied to boxes for the window they're live. */
+      .ax-active { animation: ax-active 15s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes ax-active {
+        0%, 100% { filter: none; }
+        50%      { filter: none; }
+      }
+      .ax-pulse-selfplay { animation: ax-pulse-sp 15s ease-in-out infinite; }
+      .ax-pulse-train    { animation: ax-pulse-tr 15s ease-in-out infinite; }
+      .ax-pulse-promote  { animation: ax-pulse-pr 15s ease-in-out infinite; }
+      @keyframes ax-pulse-sp {
+        0%, 2%   { stroke-width: 2.4; filter: none; }
+        4%, 40%  { stroke-width: 4;   filter: drop-shadow(0 0 6px var(--blue-soft)); }
+        43%, 100%{ stroke-width: 2.4; filter: none; }
+      }
+      @keyframes ax-pulse-tr {
+        0%, 44%  { stroke-width: 2.4; filter: none; }
+        47%, 75% { stroke-width: 4;   filter: drop-shadow(0 0 6px var(--blue-soft)); }
+        78%, 100%{ stroke-width: 2.4; filter: none; }
+      }
+      @keyframes ax-pulse-pr {
+        0%, 77%  { stroke-width: 2.4; filter: none; }
+        80%, 94% { stroke-width: 4;   filter: drop-shadow(0 0 6px var(--orange-soft)); }
+        96%, 100%{ stroke-width: 2.4; filter: none; }
+      }
+      /* best_net is "live source" during self-play AND target of promotion. */
+      .ax-pulse-best { animation: ax-pulse-best 15s ease-in-out infinite; }
+      @keyframes ax-pulse-best {
+        0%, 2%   { stroke-width: 2.4; filter: none; }
+        4%, 40%  { stroke-width: 3.6; filter: drop-shadow(0 0 5px var(--orange-soft)); }
+        43%, 79% { stroke-width: 2.4; filter: none; }
+        82%, 94% { stroke-width: 4.2; filter: drop-shadow(0 0 8px var(--orange-soft)); }
+        96%, 100%{ stroke-width: 2.4; filter: none; }
+      }
+
+      /* Flow edges keyed to phase windows: visible+dashing only when phase active. */
+      .ax-edge {
+        fill: none; stroke-linecap: round;
+        stroke-width: 2; stroke-dasharray: 5 5;
+      }
+      .ax-edge-sp   { stroke: var(--blue);   opacity: 0; animation: ax-edge-sp 15s linear infinite; }
+      .ax-edge-tr   { stroke: var(--green);  opacity: 0; animation: ax-edge-tr 15s linear infinite; }
+      .ax-edge-grad { stroke: var(--blue);   opacity: 0; animation: ax-edge-tr 15s linear infinite; }
+      .ax-edge-pr   { stroke: var(--orange); opacity: 0; animation: ax-edge-pr 15s linear infinite; stroke-width: 2.6; stroke-dasharray: 7 5; }
+      @keyframes ax-edge-sp {
+        0%, 2%   { opacity: 0; stroke-dashoffset: 0;   }
+        5%, 40%  { opacity: 0.95; }
+        43%, 100%{ opacity: 0; }
+        100%     { stroke-dashoffset: -300; }
+      }
+      @keyframes ax-edge-tr {
+        0%, 44%  { opacity: 0; stroke-dashoffset: 0;   }
+        47%, 75% { opacity: 0.95; }
+        78%, 100%{ opacity: 0; }
+        100%     { stroke-dashoffset: -300; }
+      }
+      @keyframes ax-edge-pr {
+        0%, 77%  { opacity: 0; stroke-dashoffset: 0;   }
+        80%, 94% { opacity: 1; }
+        96%, 100%{ opacity: 0; }
+        100%     { stroke-dashoffset: -180; }
+      }
+
+      /* Tuple dots flying from workers into the replay buffer (self-play phase). */
+      .ax-tuple { fill: var(--blue); opacity: 0; }
+      .ax-tuple-a { animation: ax-tuple-a 15s ease-in-out infinite; }
+      .ax-tuple-b { animation: ax-tuple-b 15s ease-in-out infinite; }
+      .ax-tuple-c { animation: ax-tuple-c 15s ease-in-out infinite; }
+      .ax-tuple-d { animation: ax-tuple-d 15s ease-in-out infinite; }
+      @keyframes ax-tuple-a {
+        0%, 6%   { opacity: 0; transform: translate(0,0); }
+        9%       { opacity: 1; }
+        36%      { opacity: 1; transform: translate(280px, 0); }
+        40%, 100%{ opacity: 0; transform: translate(280px, 0); }
+      }
+      @keyframes ax-tuple-b {
+        0%, 12%  { opacity: 0; transform: translate(0,0); }
+        15%      { opacity: 1; }
+        37%      { opacity: 1; transform: translate(280px, 0); }
+        41%, 100%{ opacity: 0; transform: translate(280px, 0); }
+      }
+      @keyframes ax-tuple-c {
+        0%, 18%  { opacity: 0; transform: translate(0,0); }
+        21%      { opacity: 1; }
+        38%      { opacity: 1; transform: translate(280px, 0); }
+        42%, 100%{ opacity: 0; transform: translate(280px, 0); }
+      }
+      @keyframes ax-tuple-d {
+        0%, 24%  { opacity: 0; transform: translate(0,0); }
+        27%      { opacity: 1; }
+        39%      { opacity: 1; transform: translate(280px, 0); }
+        43%, 100%{ opacity: 0; transform: translate(280px, 0); }
+      }
+
+      /* Replay buffer slots filling up during self-play. */
+      .ax-slot { fill: var(--bg); stroke: var(--green); stroke-width: 1.6; }
+      .ax-slot-fill { fill: var(--green); opacity: 0; }
+      .ax-slot-fill.s1 { animation: ax-slot-fill 15s ease-in-out infinite; }
+      .ax-slot-fill.s2 { animation: ax-slot-fill 15s ease-in-out infinite; animation-delay: -14.0s; }
+      .ax-slot-fill.s3 { animation: ax-slot-fill 15s ease-in-out infinite; animation-delay: -13.4s; }
+      .ax-slot-fill.s4 { animation: ax-slot-fill 15s ease-in-out infinite; animation-delay: -12.8s; }
+      .ax-slot-fill.s5 { animation: ax-slot-fill 15s ease-in-out infinite; animation-delay: -12.2s; }
+      .ax-slot-fill.s6 { animation: ax-slot-fill 15s ease-in-out infinite; animation-delay: -11.6s; }
+      @keyframes ax-slot-fill {
+        0%, 8%   { opacity: 0; }
+        14%, 96% { opacity: 0.9; }
+        100%     { opacity: 0; }
+      }
+
+      /* Batch sample: a green dot flies from buffer into trainer during training phase. */
+      .ax-batch { fill: var(--green); opacity: 0; animation: ax-batch 15s ease-in-out infinite; }
+      @keyframes ax-batch {
+        0%, 46%  { opacity: 0; transform: translate(0, 0); }
+        49%      { opacity: 1; transform: translate(0, 0); }
+        65%      { opacity: 1; transform: translate(-220px, 80px); }
+        70%, 100%{ opacity: 0; transform: translate(-220px, 80px); }
+      }
+      /* A second + third batch sample for the "many steps" feel. */
+      .ax-batch.b2 { animation-delay: -13.1s; }
+      .ax-batch.b3 { animation-delay: -12.5s; }
+
+      /* Gradient/weight-delta blip: trainer → candidate_net during train phase. */
+      .ax-grad { fill: var(--blue); opacity: 0; animation: ax-grad 15s ease-in-out infinite; }
+      @keyframes ax-grad {
+        0%, 52%  { opacity: 0; transform: translate(0,0) scale(1); }
+        56%      { opacity: 1; transform: translate(0,0) scale(1); }
+        74%      { opacity: 1; transform: translate(180px,0) scale(1.4); }
+        78%, 100%{ opacity: 0; transform: translate(180px,0) scale(1.4); }
+      }
+      .ax-grad.g2 { animation-delay: -13.7s; }
+      .ax-grad.g3 { animation-delay: -13.0s; }
+
+      /* candidate_net "weights shifting" — a small inner bar that scales. */
+      .ax-weight-bar { fill: var(--blue-deep); animation: ax-weight-bar 15s ease-in-out infinite; transform-origin: left center; transform-box: fill-box; }
+      @keyframes ax-weight-bar {
+        0%, 46%  { transform: scaleX(0.35); }
+        60%      { transform: scaleX(0.6);  }
+        76%      { transform: scaleX(0.95); }
+        80%, 100%{ transform: scaleX(0.95); }
+      }
+
+      /* Promotion: candidate_net snapshot flies up-and-over to best_net. */
+      .ax-promo { fill: var(--orange); opacity: 0; animation: ax-promo 15s ease-in-out infinite; }
+      @keyframes ax-promo {
+        0%, 78%  { opacity: 0; transform: translate(0,0); }
+        81%      { opacity: 1; transform: translate(0,0); }
+        92%      { opacity: 1; transform: translate(-560px,-180px); }
+        95%, 100%{ opacity: 0; transform: translate(-560px,-180px); }
+      }
+
+      /* Best_net "refresh flash" on promotion. */
+      .ax-refresh { animation: ax-refresh 15s ease-in-out infinite; transform-origin: center; transform-box: fill-box; }
+      @keyframes ax-refresh {
+        0%, 91%  { opacity: 0; transform: scale(1); }
+        93%      { opacity: 1; transform: scale(1.05); }
+        96%      { opacity: 0; transform: scale(1); }
+        100%     { opacity: 0; }
+      }
+
+      /* Timeline strip + sliding marker. */
+      .ax-tl-strip { fill: var(--paper-tint); stroke: var(--line-faint); stroke-width: 1.5; stroke-dasharray: 3 3; }
+      .ax-tl-sp    { fill: var(--blue-bg);   stroke: var(--blue);   stroke-width: 1.5; }
+      .ax-tl-tr    { fill: var(--green-bg);  stroke: var(--green);  stroke-width: 1.5; }
+      .ax-tl-pr    { fill: var(--orange-bg); stroke: var(--orange); stroke-width: 1.5; }
+      .ax-tl-marker {
+        fill: var(--ink); opacity: 0.85;
+        animation: ax-tl-marker 15s linear infinite;
+      }
+      @keyframes ax-tl-marker {
+        0%   { transform: translateX(0); }
+        100% { transform: translateX(820px); }
+      }
+      .ax-tl-label {
+        font-family: var(--hand); font-size: 13px; fill: var(--ink-soft);
+        text-anchor: middle;
+      }
+      .ax-tl-label.l-sp { animation: ax-tl-lbl-sp 15s ease-in-out infinite; }
+      .ax-tl-label.l-tr { animation: ax-tl-lbl-tr 15s ease-in-out infinite; }
+      .ax-tl-label.l-pr { animation: ax-tl-lbl-pr 15s ease-in-out infinite; }
+      @keyframes ax-tl-lbl-sp {
+        0%, 2%   { fill: var(--ink-soft); font-weight: normal; }
+        4%, 40%  { fill: var(--blue-deep); font-weight: bold; }
+        43%, 100%{ fill: var(--ink-soft); font-weight: normal; }
+      }
+      @keyframes ax-tl-lbl-tr {
+        0%, 44%  { fill: var(--ink-soft); font-weight: normal; }
+        47%, 75% { fill: var(--green); font-weight: bold; }
+        78%, 100%{ fill: var(--ink-soft); font-weight: normal; }
+      }
+      @keyframes ax-tl-lbl-pr {
+        0%, 77%  { fill: var(--ink-soft); font-weight: normal; }
+        80%, 94% { fill: var(--orange-deep); font-weight: bold; }
+        96%, 100%{ fill: var(--ink-soft); font-weight: normal; }
+      }
+
+      /* Iteration counter dot at top-left (data legend). */
+      .ax-iter-dot {
+        fill: var(--orange); animation: ax-iter-dot 15s ease-in-out infinite;
+        transform-origin: center; transform-box: fill-box;
+      }
+      @keyframes ax-iter-dot {
+        0%, 100% { transform: scale(1); opacity: 0.5; }
+        50%      { transform: scale(1.4); opacity: 1; }
+      }
+
       /* Glossary */
       .glossary { margin: 20px 0; }
       .glossary-group {
@@ -1226,157 +1439,169 @@ combined loss = CrossEntropy(policy, π) + MSE(value, z) + L2_regularization</sp
 
       <!-- ============================ Architecture & data flow ============================ -->
       <section class="animation-panel arch-panel" id="architecture">
-        <p class="kicker">Architecture &middot; one iteration end-to-end</p>
+        <p class="kicker">Architecture &middot; one iteration, animated</p>
         <h2>How the components wire together</h2>
         <p>
-          The whole framework is four orthogonal layers. The <strong>Trainer</strong> coordinates one iteration as a 4-stage pipeline at the top.
-          The <strong>MCTS</strong> and <strong>Game</strong> sit underneath as the search + rules layer.
-          The <strong>AlphaZeroNet</strong> sits at the bottom — a pure PyTorch module wrapped as MCTS's <code class="code-inline">eval_fn</code>, trained by stage 3.
-          Arrows show dependencies and data flow.
+          One AZ iteration runs three phases in sequence:
+          <strong>self-play</strong> with <code class="code-inline">best_net</code> emits <code class="code-inline">(s, π, z)</code> tuples into the replay buffer,
+          <strong>training</strong> samples batches and updates <code class="code-inline">candidate_net</code>,
+          <strong>promotion</strong> copies the new weights back into <code class="code-inline">best_net</code> &mdash; then the loop restarts.
         </p>
 
         <div class="arch-viz" aria-hidden="true">
-          <svg viewBox="0 0 900 540" class="arch-svg" preserveAspectRatio="xMidYMid meet">
-            <!-- ====== Trainer container (dashed orange) ====== -->
-            <rect x="15" y="15" width="870" height="180" rx="20"
-                  fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5" stroke-dasharray="8 6" opacity="0.55"/>
-            <text x="38" y="40" class="v-text-strong" style="font-size:15px; fill:var(--orange-deep);">Trainer (orchestration)</text>
-            <text x="38" y="56" class="v-text" style="font-size:11px;">one iteration cycles through 4 stages, then loops</text>
+          <svg viewBox="0 0 900 420" class="arch-svg" preserveAspectRatio="xMidYMid meet">
+            <!-- ====== Title row: pulsing iteration dot ====== -->
+            <circle cx="32" cy="28" r="6" class="ax-iter-dot"/>
+            <text x="46" y="32" class="v-text-strong" style="font-size:13px; fill:var(--ink-soft);">one iteration (~15s loop)</text>
 
-            <!-- ====== Stage 1: SelfPlay (blue) ====== -->
-            <rect x="50"  y="72" width="170" height="100" rx="14"
-                  fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="2.5"/>
-            <text x="135" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">1. SelfPlay</text>
-            <text x="135" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">×100 games / iter</text>
-            <text x="135" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">eval_fn = best_net</text>
-            <text x="135" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">emits (s, π, z) tuples</text>
-            <text x="135" y="164" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">Dirichlet noise at root</text>
+            <!-- ====== best_net (orange, top-left) ====== -->
+            <rect x="40" y="60" width="170" height="80" rx="14"
+                  class="ax-box-base ax-box-best ax-pulse-best"/>
+            <text x="125" y="86" text-anchor="middle" class="v-text-strong" style="font-size:14px;">best_net</text>
+            <text x="125" y="104" text-anchor="middle" class="v-text" style="font-size:11px;">frozen during play</text>
+            <text x="125" y="119" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">drives MCTS priors</text>
+            <text x="125" y="133" text-anchor="middle" class="v-text" style="font-size:10px;">eval_fn(s) → (P, v)</text>
+            <!-- refresh halo (flashes on promotion) -->
+            <rect x="40" y="60" width="170" height="80" rx="14"
+                  fill="none" stroke="var(--orange)" stroke-width="3.5"
+                  class="ax-refresh" style="opacity:0;"/>
 
-            <!-- arrow 1 → 2 -->
-            <line x1="222" y1="122" x2="258" y2="122" class="v-edge-flow"/>
-            <text x="240" y="115" text-anchor="middle" class="v-text" style="font-size:9px;">(s, π, z)</text>
+            <!-- ====== Parallel workers (4 boxes, blue) ====== -->
+            <text x="375" y="54" text-anchor="middle" class="v-text-strong" style="font-size:13px; fill:var(--blue-deep);">N parallel workers · MCTS per move</text>
+            <g class="ax-pulse-selfplay">
+              <rect x="260" y="62"  width="230" height="32" rx="9" class="ax-box-base ax-box-worker"/>
+              <rect x="260" y="100" width="230" height="32" rx="9" class="ax-box-base ax-box-worker"/>
+              <rect x="260" y="138" width="230" height="32" rx="9" class="ax-box-base ax-box-worker"/>
+              <rect x="260" y="176" width="230" height="32" rx="9" class="ax-box-base ax-box-worker"/>
+            </g>
+            <text x="375" y="83"  text-anchor="middle" class="v-text" style="font-size:11px;">worker 1 · MCTS(best_net) · game</text>
+            <text x="375" y="121" text-anchor="middle" class="v-text" style="font-size:11px;">worker 2 · MCTS(best_net) · game</text>
+            <text x="375" y="159" text-anchor="middle" class="v-text" style="font-size:11px;">worker 3 · MCTS(best_net) · game</text>
+            <text x="375" y="197" text-anchor="middle" class="v-text" style="font-size:11px;">worker 4 · MCTS(best_net) · game</text>
 
-            <!-- ====== Stage 2: ReplayBuffer (green) ====== -->
-            <rect x="258" y="72" width="170" height="100" rx="14"
-                  fill="var(--green-bg)" stroke="var(--green)" stroke-width="2.5"/>
-            <text x="343" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">2. ReplayBuffer</text>
-            <text x="343" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">FIFO 50K tuples</text>
-            <text x="343" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">uniform random sample</text>
-            <text x="343" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">batch_size=64</text>
+            <!-- best_net → workers (control: which net the workers serve) -->
+            <path d="M 210,100 L 245,100 L 245,135 L 258,135"
+                  fill="none" stroke="var(--orange)" stroke-width="1.6"
+                  stroke-dasharray="4 4" stroke-linecap="round" opacity="0.7"/>
+            <text x="218" y="93" class="v-text v-text-red" style="font-size:10px;">weights</text>
 
-            <!-- arrow 2 → 3 -->
-            <line x1="430" y1="122" x2="466" y2="122" class="v-edge-flow" style="animation-delay:.2s"/>
-            <text x="448" y="115" text-anchor="middle" class="v-text" style="font-size:9px;">minibatch</text>
+            <!-- ====== Replay Buffer (green, right) ====== -->
+            <rect x="610" y="62" width="240" height="148" rx="14"
+                  class="ax-box-base ax-box-buf ax-pulse-selfplay"/>
+            <text x="730" y="86" text-anchor="middle" class="v-text-strong" style="font-size:14px;">replay buffer</text>
+            <text x="730" y="102" text-anchor="middle" class="v-text" style="font-size:10px;">FIFO deque · holds (s, π, z)</text>
+            <!-- slot row 1 -->
+            <rect x="625" y="116" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="625" y="116" width="32" height="22" rx="4" class="ax-slot-fill s1"/>
+            <rect x="662" y="116" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="662" y="116" width="32" height="22" rx="4" class="ax-slot-fill s2"/>
+            <rect x="699" y="116" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="699" y="116" width="32" height="22" rx="4" class="ax-slot-fill s3"/>
+            <rect x="736" y="116" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="736" y="116" width="32" height="22" rx="4" class="ax-slot-fill s4"/>
+            <rect x="773" y="116" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="773" y="116" width="32" height="22" rx="4" class="ax-slot-fill s5"/>
+            <rect x="810" y="116" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="810" y="116" width="32" height="22" rx="4" class="ax-slot-fill s6"/>
+            <!-- slot row 2 (always-filled to suggest "carry-over from prev iters") -->
+            <rect x="625" y="146" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="625" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
+            <rect x="662" y="146" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="662" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
+            <rect x="699" y="146" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="699" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
+            <rect x="736" y="146" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="736" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
+            <rect x="773" y="146" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="773" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
+            <rect x="810" y="146" width="32" height="22" rx="4" class="ax-slot"/>
+            <rect x="810" y="146" width="32" height="22" rx="4" fill="var(--green)" opacity="0.55"/>
+            <text x="730" y="190" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">uniform-random sample → minibatch</text>
 
-            <!-- ====== Stage 3: Train (blue) ====== -->
-            <rect x="466" y="72" width="170" height="100" rx="14"
-                  fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="2.5"/>
-            <text x="551" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">3. Train</text>
-            <text x="551" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">×500 steps / iter</text>
-            <text x="551" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">AdamW, weight_decay=1e-4</text>
-            <text x="551" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">loss = CE(π) + MSE(z)</text>
-            <text x="551" y="164" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">updates candidate_net</text>
+            <!-- workers → buffer: data-flow edges (visible self-play phase) -->
+            <path d="M 490,78  L 610,128" class="ax-edge ax-edge-sp"/>
+            <path d="M 490,116 L 610,134" class="ax-edge ax-edge-sp" style="animation-delay:-13.7s;"/>
+            <path d="M 490,154 L 610,140" class="ax-edge ax-edge-sp" style="animation-delay:-13.0s;"/>
+            <path d="M 490,192 L 610,146" class="ax-edge ax-edge-sp" style="animation-delay:-12.3s;"/>
+            <!-- tuple dots (4 streams) -->
+            <circle cx="495" cy="78"  r="4" class="ax-tuple ax-tuple-a"/>
+            <circle cx="495" cy="116" r="4" class="ax-tuple ax-tuple-b"/>
+            <circle cx="495" cy="154" r="4" class="ax-tuple ax-tuple-c"/>
+            <circle cx="495" cy="192" r="4" class="ax-tuple ax-tuple-d"/>
+            <text x="552" y="64" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">(s, π, z)</text>
 
-            <!-- arrow 3 → 4 -->
-            <line x1="638" y1="122" x2="674" y2="122" class="v-edge-flow" style="animation-delay:.4s"/>
+            <!-- ====== Trainer (bottom-center, blue) ====== -->
+            <rect x="260" y="260" width="230" height="100" rx="14"
+                  class="ax-box-base ax-box-train ax-pulse-train"/>
+            <text x="375" y="284" text-anchor="middle" class="v-text-strong" style="font-size:14px;">trainer</text>
+            <text x="375" y="302" text-anchor="middle" class="v-text" style="font-size:11px;">forward · AZ loss · AdamW</text>
+            <text x="375" y="317" text-anchor="middle" class="v-text" style="font-size:11px;">K training steps / iter</text>
+            <text x="375" y="334" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">loss = CE(π) + MSE(z) + L2</text>
+            <text x="375" y="350" text-anchor="middle" class="v-text" style="font-size:10px;">∂L/∂θ → AdamW step</text>
 
-            <!-- ====== Stage 4: Promote (orange) ====== -->
-            <rect x="674" y="72" width="170" height="100" rx="14"
-                  fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5"/>
-            <text x="759" y="100" text-anchor="middle" class="v-text-strong" style="font-size:14px;">4. Promote</text>
-            <text x="759" y="120" text-anchor="middle" class="v-text" style="font-size:11px;">best_net ← candidate_net</text>
-            <text x="759" y="135" text-anchor="middle" class="v-text" style="font-size:11px;">unconditional</text>
-            <text x="759" y="150" text-anchor="middle" class="v-text" style="font-size:11px;">(AlphaZero paper, 2017)</text>
-            <text x="759" y="164" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">no arena gate</text>
+            <!-- buffer → trainer (minibatch flow, training phase) -->
+            <path d="M 610,180 Q 540,250 490,310" class="ax-edge ax-edge-tr"/>
+            <circle cx="610" cy="180" r="5" class="ax-batch"/>
+            <circle cx="610" cy="180" r="5" class="ax-batch b2"/>
+            <circle cx="610" cy="180" r="5" class="ax-batch b3"/>
+            <text x="552" y="244" class="v-text" style="font-size:10px; fill:var(--green);">minibatch</text>
 
-            <!-- Loop-back arrow: Promote → SelfPlay -->
-            <path d="M 759,172 Q 759,210 690,210 L 200,210 Q 135,210 135,172"
-                  fill="none" stroke="var(--orange)" stroke-width="2.2"
-                  stroke-dasharray="6 4" stroke-linecap="round" opacity="0.85"/>
-            <polygon points="135,172 130,182 140,182" fill="var(--orange)"/>
-            <text x="450" y="206" text-anchor="middle" class="v-text v-text-red" style="font-size:11px;">loop: best_net always updated; self-play uses new best_net next iteration</text>
+            <!-- ====== candidate_net (bottom-right, deep blue) ====== -->
+            <rect x="610" y="260" width="240" height="100" rx="14"
+                  class="ax-box-base ax-box-cand ax-pulse-train"/>
+            <text x="730" y="284" text-anchor="middle" class="v-text-strong" style="font-size:14px;">candidate_net</text>
+            <text x="730" y="302" text-anchor="middle" class="v-text" style="font-size:11px;">the net being optimized</text>
+            <!-- "weight progress" bar (grows during train phase) -->
+            <rect x="640" y="318" width="180" height="10" rx="5"
+                  fill="var(--blue-bg)" stroke="var(--blue)" stroke-width="1.2"/>
+            <rect x="640" y="318" width="180" height="10" rx="5" class="ax-weight-bar"/>
+            <text x="730" y="350" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">θ ← θ − η ∇θ L</text>
 
-            <!-- ===== Divider label ===== -->
-            <line x1="40" y1="232" x2="860" y2="232" class="v-axis"/>
-            <text x="38" y="246" class="v-text" style="font-size:11px;">─── used by orchestration ──↓</text>
+            <!-- trainer → candidate_net (gradient/weight-update flow) -->
+            <path d="M 490,310 L 610,310" class="ax-edge ax-edge-grad"/>
+            <circle cx="495" cy="310" r="4" class="ax-grad"/>
+            <circle cx="495" cy="310" r="4" class="ax-grad g2"/>
+            <circle cx="495" cy="310" r="4" class="ax-grad g3"/>
+            <text x="550" y="304" class="v-text v-text-cyan" style="font-size:10px;">∇θ → step</text>
 
-            <!-- ===== MCTS box (orange) ===== -->
-            <rect x="190" y="262" width="245" height="100" rx="14"
-                  fill="var(--orange-bg)" stroke="var(--orange)" stroke-width="2.5"/>
-            <text x="312" y="290" text-anchor="middle" class="v-text-strong" style="font-size:14px;">MCTS</text>
-            <text x="312" y="310" text-anchor="middle" class="v-text" style="font-size:11px;">select (PUCT) → expand → backup</text>
-            <text x="312" y="325" text-anchor="middle" class="v-text" style="font-size:11px;">N simulations per move</text>
-            <text x="312" y="340" text-anchor="middle" class="v-text" style="font-size:11px;">returns visit distribution π</text>
-            <text x="312" y="355" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">eval_fn: (state) → (priors, value)</text>
+            <!-- ====== Promotion: candidate_net → best_net (orange loop-back) ====== -->
+            <path d="M 730,260 Q 730,180 580,180 L 350,180 Q 125,180 125,140"
+                  class="ax-edge ax-edge-pr"/>
+            <polygon points="125,140 119,150 131,150" fill="var(--orange)"
+                     class="ax-refresh" style="opacity:0;"/>
+            <!-- promotion blob: snapshot of weights flying from candidate → best -->
+            <circle cx="730" cy="260" r="6" class="ax-promo"/>
+            <text x="430" y="174" text-anchor="middle" class="v-text v-text-red" style="font-size:11px;">
+              best_net.load_state_dict(candidate_net.state_dict())
+            </text>
 
-            <!-- ===== Game box (green) ===== -->
-            <rect x="490" y="262" width="245" height="100" rx="14"
-                  fill="var(--green-bg)" stroke="var(--green)" stroke-width="2.5"/>
-            <text x="612" y="290" text-anchor="middle" class="v-text-strong" style="font-size:14px;">Game</text>
-            <text x="612" y="310" text-anchor="middle" class="v-text" style="font-size:11px;">initial / apply / terminal_value</text>
-            <text x="612" y="325" text-anchor="middle" class="v-text" style="font-size:11px;">encode / canonical_state</text>
-            <text x="612" y="340" text-anchor="middle" class="v-text" style="font-size:11px;">legal_actions_mask / symmetries</text>
-            <text x="612" y="355" text-anchor="middle" class="v-text v-text-cyan" style="font-size:10px;">TTT → Connect 4 → Chess (same interface)</text>
-
-            <!-- MCTS ↔ Game uses arrow -->
-            <line x1="435" y1="305" x2="490" y2="305" class="v-edge-flow" style="animation-delay:.3s"/>
-            <text x="462" y="298" text-anchor="middle" class="v-text" style="font-size:9px;">uses</text>
-
-            <!-- SelfPlay → MCTS (uses) -->
-            <path d="M 135,172 L 135,240 L 240,240 L 240,262"
-                  fill="none" stroke="var(--blue)" stroke-width="1.8"
-                  stroke-dasharray="4 4" stroke-linecap="round" opacity="0.8"/>
-            <polygon points="240,262 235,254 245,254" fill="var(--blue)"/>
-            <text x="150" y="232" class="v-text v-text-cyan" style="font-size:10px;">uses MCTS</text>
-
-            <!-- Eval-vs-opponents (Stockfish / perfect solver) → MCTS (uses, τ=0) -->
-            <path d="M 759,172 L 759,240 L 385,240 L 385,262"
-                  fill="none" stroke="var(--orange)" stroke-width="1.8"
-                  stroke-dasharray="4 4" stroke-linecap="round" opacity="0.8"/>
-            <polygon points="385,262 380,254 390,254" fill="var(--orange)"/>
-            <text x="600" y="232" class="v-text v-text-red" style="font-size:10px;">eval vs external opponent (τ=0)</text>
-
-            <!-- ===== AlphaZeroNet box (deep blue) ===== -->
-            <rect x="240" y="410" width="420" height="115" rx="16"
-                  fill="var(--blue-bg)" stroke="var(--blue-deep)" stroke-width="2.5"/>
-            <text x="450" y="438" text-anchor="middle" class="v-text-strong" style="font-size:14px;">AlphaZeroNet (PyTorch nn.Module)</text>
-            <text x="450" y="458" text-anchor="middle" class="v-text" style="font-size:11px;">input encoding → N residual blocks (backbone)</text>
-            <text x="450" y="473" text-anchor="middle" class="v-text" style="font-size:11px;">→ [ policy_head (logits) , value_head (scalar in [-1,+1]) ]</text>
-            <text x="450" y="490" text-anchor="middle" class="v-text" style="font-size:11px;">forward(state_batch) → (priors, value)</text>
-            <text x="450" y="508" text-anchor="middle" class="v-text v-text-red" style="font-size:10px;">does not know about MCTS / Game / training; pure forward pass</text>
-
-            <!-- MCTS → AlphaZeroNet (eval_fn) -->
-            <path d="M 312,362 L 312,395 L 360,395 L 360,410"
-                  fill="none" stroke="var(--blue)" stroke-width="2"
-                  stroke-dasharray="5 4" stroke-linecap="round"/>
-            <polygon points="360,410 355,402 365,402" fill="var(--blue)"/>
-            <text x="320" y="385" class="v-text v-text-cyan" style="font-size:10px;">eval_fn(s)</text>
-            <text x="320" y="396" class="v-text v-text-cyan" style="font-size:10px;">→ (P, v)</text>
-
-            <!-- Train → AlphaZeroNet (updates weights) - dashed back-arrow style -->
-            <path d="M 551,172 L 551,395 L 540,395 L 540,410"
-                  fill="none" stroke="var(--orange)" stroke-width="2"
-                  stroke-dasharray="5 4" stroke-linecap="round"/>
-            <polygon points="540,410 535,402 545,402" fill="var(--orange)"/>
-            <text x="560" y="385" class="v-text v-text-red" style="font-size:10px;">backprop</text>
-            <text x="560" y="396" class="v-text v-text-red" style="font-size:10px;">updates</text>
+            <!-- ====== Timeline strip (bottom) ====== -->
+            <rect x="40" y="380" width="820" height="22" rx="10" class="ax-tl-strip"/>
+            <!-- Phase blocks: SP 0–43% (~352px), TR 45–77% (~262px), PR 78–95% (~140px) -->
+            <rect x="40"  y="380" width="350" height="22" rx="10" class="ax-tl-sp"/>
+            <rect x="395" y="380" width="262" height="22" rx="10" class="ax-tl-tr"/>
+            <rect x="662" y="380" width="140" height="22" rx="10" class="ax-tl-pr"/>
+            <text x="215" y="395" class="ax-tl-label l-sp">self-play (best_net plays N games)</text>
+            <text x="526" y="395" class="ax-tl-label l-tr">train (sample → forward → backprop) × K</text>
+            <text x="732" y="395" class="ax-tl-label l-pr">promote</text>
+            <!-- Sliding marker dot -->
+            <circle cx="40" cy="391" r="6" class="ax-tl-marker"/>
           </svg>
         </div>
 
         <div class="arch-legend">
-          <span class="item"><span class="dot blue"></span>Neural network / training</span>
-          <span class="item"><span class="dot orange"></span>Search / decisions / orchestration</span>
-          <span class="item"><span class="dot green"></span>Data / rules</span>
-          <span class="item">→ flow of data&nbsp;&nbsp; &middot; &middot; &middot;&nbsp;<em>uses</em>&nbsp;relationship</span>
+          <span class="item"><span class="dot blue"></span>data flow (tuples, batches, gradients)</span>
+          <span class="item"><span class="dot orange"></span>control / weight transfer (best ↔ candidate)</span>
+          <span class="item"><span class="dot green"></span>replay buffer</span>
+          <span class="item">box glow = currently-active phase</span>
         </div>
 
         <div class="callout">
-          <strong>Key invariants (easy bugs to plant):</strong>
+          <strong>Key invariants:</strong>
           (1) self-play uses <code class="code-inline">best_net</code>, training updates <code class="code-inline">candidate_net</code> — never confuse the two.
-          (2) Dirichlet noise: root only, self-play only.
-          (3) Backup flips sign at each ply (zero-sum games).
-          (4) z-per-ply is from <em>that ply's mover's</em> POV, not the final-mover's.
-          (5) Replay buffer is never reset between iterations.
+          (2) Phases are <em>serial within</em> an iteration (self-play → train → promote), but workers within self-play run in parallel.
+          (3) Promotion is unconditional (no arena gate); next iteration's self-play uses the just-promoted weights.
+          (4) Replay buffer is never reset between iterations.
         </div>
       </section>
 
