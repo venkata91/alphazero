@@ -123,6 +123,22 @@ def test_cmd_train_closes_stockfish_even_on_run_failure(tmp_path, monkeypatch):
     )
 
 
+def test_play_subcommand_rejects_chess_and_connect4(monkeypatch):
+    """Regression for #17: `_render_board` is TTT-only (3×3, X/O symbols),
+    so `play --game chess` would crash with IndexError mid-game. The
+    parser must reject the choice up front with a clear error message
+    rather than allowing the run to start and fail confusingly."""
+    from alphazero.cli import main
+
+    # argparse raises SystemExit(2) with a usage error when --game is rejected
+    for bad_game in ("chess", "connect4"):
+        with pytest.raises(SystemExit) as excinfo:
+            main(["play", "--game", bad_game, "--checkpoint", "/dev/null"])
+        assert excinfo.value.code != 0, (
+            f"--game {bad_game} should be rejected by argparse, not silently accepted"
+        )
+
+
 def test_cmd_pretrain_calls_pretrain_supervised(tmp_path, monkeypatch):
     """Regression test: `pretrain` subcommand wires config + calls pretrain_supervised."""
     from alphazero.cli import _cmd_pretrain

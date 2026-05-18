@@ -251,8 +251,18 @@ def main(argv: list[str] | None = None) -> int:
     p_eval.add_argument("--num-games", type=int, default=200)
     p_eval.set_defaults(func=_cmd_eval)
 
-    p_play = subs.add_parser("play", help="Play interactively against best_net")
-    p_play.add_argument("--game", choices=list(GAMES), default="tictactoe")
+    p_play = subs.add_parser(
+        "play",
+        help="Play interactively against best_net (tictactoe only — chess uses a UCI engine in SP4)",
+    )
+    # Restrict to tictactoe: _render_board and _render_action_help are
+    # hardcoded for the 3×3 TTT board. Connect 4 (6×7 grid) and chess
+    # (8×8 board with piece glyphs) would crash with IndexError. Chess
+    # interactive play is part of SP4's UCI engine wrapper; until then,
+    # use `python -m alphazero eval --game chess` for benchmarking.
+    p_play.add_argument("--game", choices=["tictactoe"], default="tictactoe",
+                        help="Currently only tictactoe is supported. "
+                             "Chess interactive play comes via UCI in SP4.")
     p_play.add_argument("--checkpoint", type=Path, required=True)
     p_play.add_argument("--config", type=Path, default=None,
                         help="Override architecture config (needed for older checkpoints "
