@@ -123,20 +123,66 @@ def test_cmd_train_closes_stockfish_even_on_run_failure(tmp_path, monkeypatch):
     )
 
 
-def test_play_subcommand_rejects_chess_and_connect4(monkeypatch):
-    """Regression for #17: `_render_board` is TTT-only (3×3, X/O symbols),
-    so `play --game chess` would crash with IndexError mid-game. The
-    parser must reject the choice up front with a clear error message
-    rather than allowing the run to start and fail confusingly."""
+def test_play_subcommand_rejects_connect4(monkeypatch):
+    """Regression for #17 (narrowed): chess interactive play is now wired up
+    in `_cmd_play_chess`, but connect4 still has no renderer or input scheme,
+    so it must continue to be rejected at the argparse layer rather than
+    allowing the run to start and fail confusingly mid-game."""
     from alphazero.cli import main
 
     # argparse raises SystemExit(2) with a usage error when --game is rejected
-    for bad_game in ("chess", "connect4"):
-        with pytest.raises(SystemExit) as excinfo:
-            main(["play", "--game", bad_game, "--checkpoint", "/dev/null"])
-        assert excinfo.value.code != 0, (
-            f"--game {bad_game} should be rejected by argparse, not silently accepted"
-        )
+    with pytest.raises(SystemExit) as excinfo:
+        main(["play", "--game", "connect4", "--checkpoint", "/dev/null"])
+    assert excinfo.value.code != 0, (
+        "--game connect4 should be rejected by argparse, not silently accepted"
+    )
+
+
+def test_cmd_play_chess_can_construct_pipeline_without_running(tmp_path, monkeypatch):
+    """Regression: `_cmd_play_chess` must construct the Trainer + checkpoint
+    load + agent before entering the input loop without raising. We mock the
+    checkpoint load and the input function so the test exits the moment the
+    input loop tries to read from stdin (via the 'quit' shortcut).
+    """
+    from alphazero.cli import _cmd_play
+
+    captured: dict = {"load_called": False, "agent_called": False}
+
+    def fake_load_state_dict(self, state_dict, *args, **kwargs):
+        captured["load_called"] = True
+
+    def fake_torch_load(*args, **kwargs):
+        # Minimal checkpoint payload: best_net is empty (we stub load_state_dict),
+        # plus an iteration marker for the print line.
+        return {"best_net": {}, "iteration": 42, "config": {}}
+
+    def fake_make_agent(self, net):
+        def agent(game, state):
+            captured["agent_called"] = True
+            # Return a no-op action; this path shouldn't be reached because
+            # the user moves first as white and immediately quits.
+            return 0
+        return agent
+
+    # 'quit' immediately on first user-move prompt.
+    inputs = iter(["quit"])
+    monkeypatch.setattr("builtins.input", lambda *a, **k: next(inputs))
+
+    args = argparse.Namespace(
+        game="chess",
+        checkpoint=tmp_path / "fake.pt",
+        config=None,
+        num_simulations=1,
+        as_player="white",
+    )
+
+    with patch("alphazero.cli.torch.load", fake_torch_load), \
+         patch("alphazero.network.AlphaZeroNet.load_state_dict", fake_load_state_dict), \
+         patch("alphazero.trainer.Trainer._make_argmax_mcts_agent", fake_make_agent):
+        exit_code = _cmd_play(args)
+
+    assert exit_code == 0, "Quitting at the first prompt should exit cleanly"
+    assert captured["load_called"], "Trainer.best_net.load_state_dict must be called"
 
 
 def test_cmd_pretrain_calls_pretrain_supervised(tmp_path, monkeypatch):

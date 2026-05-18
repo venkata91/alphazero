@@ -144,16 +144,15 @@ def _render_action_help() -> str:
     )
 
 
-def _cmd_play(args: argparse.Namespace) -> int:
-    """Interactive play against best_net loaded from a checkpoint."""
+def _cmd_play_tictactoe(args: argparse.Namespace) -> int:
+    """Interactive TTT play against best_net loaded from a checkpoint."""
     config = _config_for_checkpoint(args.checkpoint, args.config)
     if args.num_simulations is not None:
         # Override MCTS depth at inference time. More sims = stronger play
         # even with the same trained NN.
         from dataclasses import replace
         config = replace(config, num_simulations=args.num_simulations)
-    game_cls = GAMES[args.game]
-    game = game_cls()
+    game = TicTacToe()
     trainer = Trainer(game, config)
 
     ckpt = torch.load(args.checkpoint, map_location=trainer.device, weights_only=False)
@@ -161,7 +160,7 @@ def _cmd_play(args: argparse.Namespace) -> int:
     trainer.best_net.eval()
     agent = trainer._make_argmax_mcts_agent(trainer.best_net)
 
-    user_plays_x = args.as_player.lower() == "x"
+    user_plays_x = args.as_player.lower() in ("x", "white", "w")
     user_player = 1 if user_plays_x else -1
 
     print(f"\nLoaded best_net from iteration {ckpt.get('iteration', '?')}.")
@@ -220,6 +219,165 @@ def _cmd_play(args: argparse.Namespace) -> int:
     return 0
 
 
+def _render_chess_board(board, human_color) -> str:
+    """ASCII chess board from the human's POV (flipped if playing Black)."""
+    import chess
+    flip = (human_color == chess.BLACK)
+    lines = [""]
+    for rank in (range(8) if flip else range(7, -1, -1)):
+        line = f"{rank + 1} "
+        for file in (range(7, -1, -1) if flip else range(8)):
+            piece = board.piece_at(chess.square(file, rank))
+            line += f" {piece.symbol() if piece else '.'}"
+        lines.append(line)
+    file_labels = "   " + " ".join(reversed("abcdefgh")) if flip else "   " + " ".join("abcdefgh")
+    lines.append(file_labels)
+    return "\n".join(lines)
+
+
+def _parse_chess_move(user_input: str, board):
+    """Parse user input as UCI first, then SAN. Returns chess.Move or None."""
+    import chess
+    s = user_input.strip()
+    if not s:
+        return None
+    try:
+        move = chess.Move.from_uci(s)
+        if move in board.legal_moves:
+            return move
+    except (ValueError, chess.InvalidMoveError):
+        pass
+    try:
+        move = board.parse_san(s)
+        if move in board.legal_moves:
+            return move
+    except (ValueError, chess.InvalidMoveError, chess.IllegalMoveError, chess.AmbiguousMoveError):
+        pass
+    return None
+
+
+def _print_chess_result(board, human_color) -> None:
+    """Print game outcome from the human's perspective."""
+    import chess
+    outcome = board.outcome(claim_draw=True)
+    if outcome is None:
+        print("Game ended without an outcome.")
+        return
+    if outcome.winner is None:
+        reason_map = {
+            chess.Termination.STALEMATE: "stalemate",
+            chess.Termination.INSUFFICIENT_MATERIAL: "insufficient material",
+            chess.Termination.SEVENTYFIVE_MOVES: "75-move rule",
+            chess.Termination.FIVEFOLD_REPETITION: "5-fold repetition",
+            chess.Termination.FIFTY_MOVES: "50-move rule",
+            chess.Termination.THREEFOLD_REPETITION: "3-fold repetition",
+        }
+        reason = reason_map.get(outcome.termination, "unknown")
+        print(f"Draw — {reason}.")
+    else:
+        human_won = (outcome.winner == human_color)
+        reason = "checkmate" if outcome.termination == chess.Termination.CHECKMATE else "termination"
+        print(f"{'You win' if human_won else 'You lose'} by {reason}.")
+
+
+def _normalize_chess_color(as_player: str):
+    """Map any of {white,black,w,b,x,o} to chess.WHITE / chess.BLACK.
+
+    Accepting x/o keeps the --as flag uniform across games (x → first-mover →
+    white; o → second-mover → black), so the CLI doesn't grow a separate flag
+    per game.
+    """
+    import chess
+    p = as_player.lower()
+    if p in ("white", "w", "x"):
+        return chess.WHITE
+    if p in ("black", "b", "o"):
+        return chess.BLACK
+    raise ValueError(f"Unrecognized --as value: {as_player!r}")
+
+
+def _cmd_play_chess(args: argparse.Namespace) -> int:
+    """Interactive chess play against best_net loaded from a checkpoint.
+
+    Mirrors `scripts/play_chess.py` but goes through Trainer's checkpoint
+    load + agent construction so it stays in lockstep with `_cmd_eval`.
+    """
+    import chess
+    from .games.chess_move_encoding import index_to_move
+
+    config = _config_for_checkpoint(args.checkpoint, args.config)
+    if args.num_simulations is not None:
+        from dataclasses import replace
+        config = replace(config, num_simulations=args.num_simulations)
+    game = Chess()
+    trainer = Trainer(game, config)
+
+    ckpt = torch.load(args.checkpoint, map_location=trainer.device, weights_only=False)
+    trainer.best_net.load_state_dict(ckpt["best_net"])
+    trainer.best_net.eval()
+    agent = trainer._make_argmax_mcts_agent(trainer.best_net)
+
+    human_color = _normalize_chess_color(args.as_player)
+    human_label = "white" if human_color == chess.WHITE else "black"
+    human_player_id = 1 if human_color == chess.WHITE else -1
+
+    epoch_or_iter = ckpt.get("_pretrain_epoch") or ckpt.get("iteration", "?")
+    print(f"\nLoaded best_net from epoch/iter {epoch_or_iter}.")
+    print(f"MCTS: {config.num_simulations} sims per move, c_puct={config.c_puct}")
+    print(f"You are {human_label}. "
+          f"{'You move first.' if human_color == chess.WHITE else 'Agent moves first.'}")
+    print("Enter moves as UCI ('e2e4') or SAN ('e4'). Type 'quit' to abort.")
+
+    state = game.initial_state()
+    while game.terminal_value(state) is None:
+        print(_render_chess_board(state, human_color))
+
+        if game.current_player(state) == human_player_id:
+            while True:
+                try:
+                    raw = input(f"Your move ({human_label}): ")
+                except (EOFError, KeyboardInterrupt):
+                    print("\nGame aborted.")
+                    return 130
+                if raw.strip().lower() in ("quit", "exit", "q"):
+                    print("Game aborted.")
+                    return 0
+                move = _parse_chess_move(raw, state)
+                if move is not None:
+                    break
+                print(f"  Illegal or unparseable: {raw!r}. Try UCI ('e2e4') or SAN ('e4').")
+            print(f"  You: {state.san(move)}")
+            new_state = state.copy()
+            new_state.push(move)
+            state = new_state
+        else:
+            print(f"Agent thinking ({config.num_simulations} sims)...", flush=True)
+            action_idx = agent(game, state)
+            agent_move = index_to_move(state, action_idx)
+            print(f"  Agent: {state.san(agent_move)}")
+            state = game.apply(state, action_idx)
+
+    print(_render_chess_board(state, human_color))
+    _print_chess_result(state, human_color)
+    return 0
+
+
+def _cmd_play(args: argparse.Namespace) -> int:
+    """Interactive play dispatcher: routes by --game.
+
+    TTT and chess have different state types (np.ndarray vs chess.Board),
+    rendering, and input formats (action index vs UCI/SAN), so each game
+    gets its own implementation. Connect 4 interactive play isn't wired up
+    yet (no renderer or input scheme), so it's still rejected at the
+    argparse layer.
+    """
+    if args.game == "tictactoe":
+        return _cmd_play_tictactoe(args)
+    if args.game == "chess":
+        return _cmd_play_chess(args)
+    raise ValueError(f"Unsupported --game for play: {args.game}")
+
+
 def _cmd_pretrain(args: argparse.Namespace) -> int:
     """Run supervised pre-training using a PretrainConfig from TOML."""
     from .supervised import load_pretrain_config, pretrain_supervised
@@ -253,16 +411,14 @@ def main(argv: list[str] | None = None) -> int:
 
     p_play = subs.add_parser(
         "play",
-        help="Play interactively against best_net (tictactoe only — chess uses a UCI engine in SP4)",
+        help="Play interactively against best_net (tictactoe or chess)",
     )
-    # Restrict to tictactoe: _render_board and _render_action_help are
-    # hardcoded for the 3×3 TTT board. Connect 4 (6×7 grid) and chess
-    # (8×8 board with piece glyphs) would crash with IndexError. Chess
-    # interactive play is part of SP4's UCI engine wrapper; until then,
-    # use `python -m alphazero eval --game chess` for benchmarking.
-    p_play.add_argument("--game", choices=["tictactoe"], default="tictactoe",
-                        help="Currently only tictactoe is supported. "
-                             "Chess interactive play comes via UCI in SP4.")
+    # tictactoe + chess are wired up; connect4 isn't (no 6×7 renderer or
+    # column-input scheme yet), so it stays rejected at argparse to avoid
+    # a confusing mid-game crash.
+    p_play.add_argument("--game", choices=["tictactoe", "chess"], default="tictactoe",
+                        help="Game to play. tictactoe uses action-index input; "
+                             "chess accepts UCI ('e2e4') or SAN ('e4').")
     p_play.add_argument("--checkpoint", type=Path, required=True)
     p_play.add_argument("--config", type=Path, default=None,
                         help="Override architecture config (needed for older checkpoints "
@@ -271,8 +427,14 @@ def main(argv: list[str] | None = None) -> int:
                         help="Override MCTS simulations per move at play time. "
                              "Default uses the config's value. Crank to 200-1000 for "
                              "much stronger play even with a weak network.")
-    p_play.add_argument("--as", dest="as_player", choices=["x", "o", "X", "O"], default="x",
-                        help="Play as X (moves first) or O (moves second). Default: x.")
+    # Accept both TTT vocabulary (x/o) and chess vocabulary (white/black/w/b)
+    # for --as so a single flag works for both games. Normalization happens
+    # inside _cmd_play_{tictactoe,chess}.
+    p_play.add_argument("--as", dest="as_player",
+                        choices=["x", "o", "X", "O", "white", "black", "w", "b"],
+                        default="x",
+                        help="Play as first-mover (x/white/w) or second-mover (o/black/b). "
+                             "Default: x.")
     p_play.set_defaults(func=_cmd_play)
 
     p_pretrain = subs.add_parser("pretrain", help="Supervised pre-training on a corpus")

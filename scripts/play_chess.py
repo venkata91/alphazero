@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Play a game of chess against an AlphaZero chess checkpoint.
 
+Standalone version of `python -m alphazero play --game chess`. Useful for
+quick experiments outside the CLI.
+
 Accepts a checkpoint produced by `python -m alphazero pretrain` (the
 pretrained.pt) or the per-iteration files written by AZ refinement
 (checkpoints_refine/iter_NNNN.pt). Uses MCTS for the agent's moves.
