@@ -46,6 +46,9 @@ class TrainingConfig:
     # NEW: parallel self-play (scale-invariant knobs)
     num_workers: int = 1                 # 1 = serial fallback (existing behavior)
     inference_batch_size: int = 64       # NN-server batches up to N states per forward
+    heartbeat_timeout_s: float = 300.0   # worker considered hung after this silence
+    heartbeat_interval_s: float = 5.0    # worker intra-search heartbeat cadence
+    progress_log_interval_s: float = 60.0  # parent aggregate progress log cadence
 
     # Misc
     seed: int = 42

@@ -141,6 +141,9 @@ class Trainer:
             dirichlet_alpha=self.config.dirichlet_alpha,
             dirichlet_weight=self.config.dirichlet_weight,
             device=str(self.device),
+            heartbeat_timeout_s=self.config.heartbeat_timeout_s,
+            heartbeat_interval_s=self.config.heartbeat_interval_s,
+            progress_log_interval_s=self.config.progress_log_interval_s,
         )
         self.replay_buffer.add(examples)
 

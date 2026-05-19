@@ -6,6 +6,7 @@ and (optionally) symmetry augmentation expands each tuple into 8 for TTT.
 """
 from __future__ import annotations
 
+import inspect
 from typing import Callable
 
 import numpy as np
@@ -24,6 +25,7 @@ def play_one_selfplay_game(
     augment: bool = True,
     rng: np.random.Generator | None = None,
     on_step: Callable[[], None] | None = None,
+    on_search_progress: Callable[[int, int, int], None] | None = None,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Play one self-play game with the given MCTS.
 
@@ -41,7 +43,17 @@ def play_one_selfplay_game(
 
     while game.terminal_value(state) is None:
         # Pass RAW state to MCTS — MCTS canonicalizes internally in _expand.
-        pi = mcts.search(state, num_simulations=num_simulations, add_root_noise=True)
+        if on_search_progress is not None and _search_accepts_progress_callback(mcts.search):
+            pi = mcts.search(
+                state,
+                num_simulations=num_simulations,
+                add_root_noise=True,
+                progress_callback=lambda done, total: on_search_progress(
+                    move_idx, done, total
+                ),
+            )
+        else:
+            pi = mcts.search(state, num_simulations=num_simulations, add_root_noise=True)
 
         if move_idx < temperature_threshold:
             # Renormalize: pi = visits/sum is float32 and can drift past
@@ -76,6 +88,19 @@ def play_one_selfplay_game(
         else:
             examples.append((encoded, pi, z))
     return examples
+
+
+def _search_accepts_progress_callback(search_fn) -> bool:
+    """Return whether an MCTS-like search method supports progress_callback.
+
+    Tests use lightweight stub MCTS objects with the old 3-argument search
+    signature. Introspection keeps those stubs working while real MCTS can
+    emit intra-search heartbeats.
+    """
+    try:
+        return "progress_callback" in inspect.signature(search_fn).parameters
+    except (TypeError, ValueError):
+        return False
 
 
 def run_one_game(

@@ -14,6 +14,7 @@ import numpy as np
 from .games.base import Game, State
 
 EvalFn = Callable[[np.ndarray], tuple[np.ndarray, float]]
+ProgressFn = Callable[[int, int], None]
 
 
 @dataclass
@@ -49,7 +50,11 @@ class MCTS:
         self.dirichlet_weight = dirichlet_weight
 
     def search(
-        self, root_state: State, num_simulations: int, add_root_noise: bool
+        self,
+        root_state: State,
+        num_simulations: int,
+        add_root_noise: bool,
+        progress_callback: ProgressFn | None = None,
     ) -> np.ndarray:
         """Run `num_simulations` simulations from root_state.
 
@@ -59,8 +64,10 @@ class MCTS:
         root = Node()
         self._expand(root, root_state, add_root_noise=add_root_noise)
 
-        for _ in range(num_simulations):
+        for sim_idx in range(num_simulations):
             self._simulate(root, root_state)
+            if progress_callback is not None:
+                progress_callback(sim_idx + 1, num_simulations)
 
         visits = np.zeros(self.game.action_size, dtype=np.float32)
         for action, child in root.children.items():

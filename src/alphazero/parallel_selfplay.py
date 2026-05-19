@@ -55,6 +55,17 @@ class InferenceResponse:
     value: float          # scalar
 
 
+@dataclass
+class WorkerProgress:
+    worker_id: int
+    timestamp: float
+    game_index: int | None = None
+    ply: int | None = None
+    simulation: int | None = None
+    num_simulations: int | None = None
+    phase: str = "alive"
+
+
 def nn_server_loop(
     state_dict: dict,
     input_shape: tuple[int, int, int],
@@ -143,6 +154,8 @@ def worker_play_one_game(
     augment: bool = True,
     request_id_offset: int = 0,
     heartbeat_q: Any = None,
+    game_index: int | None = None,
+    heartbeat_interval_s: float = 5.0,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Run one self-play game using a remote NN-server for inference.
 
@@ -174,13 +187,50 @@ def worker_play_one_game(
         dirichlet_weight=dirichlet_weight,
     )
 
+    last_progress_emit = [0.0]
+
+    def emit_progress(
+        phase: str,
+        *,
+        ply: int | None = None,
+        simulation: int | None = None,
+        total: int | None = None,
+        force: bool = False,
+    ) -> None:
+        if heartbeat_q is None:
+            return
+        now = time.monotonic()
+        if not force and now - last_progress_emit[0] < heartbeat_interval_s:
+            return
+        last_progress_emit[0] = now
+        try:
+            heartbeat_q.put(WorkerProgress(
+                worker_id=worker_id,
+                timestamp=now,
+                game_index=game_index,
+                ply=ply,
+                simulation=simulation,
+                num_simulations=total,
+                phase=phase,
+            ))
+        except Exception:
+            pass
+
     on_step = None
+    on_search_progress = None
     if heartbeat_q is not None:
         def on_step() -> None:
-            try:
-                heartbeat_q.put((worker_id, time.monotonic()))
-            except Exception:
-                pass
+            emit_progress("move_done", force=True)
+
+        def on_search_progress(ply: int, simulation: int, total: int) -> None:
+            emit_progress(
+                "search",
+                ply=ply,
+                simulation=simulation,
+                total=total,
+            )
+
+        emit_progress("game_start", force=True)
 
     return play_one_selfplay_game(
         game,
@@ -189,6 +239,7 @@ def worker_play_one_game(
         temperature_threshold=temperature_threshold,
         augment=augment,
         on_step=on_step,
+        on_search_progress=on_search_progress,
     )
 
 
@@ -210,7 +261,9 @@ def run_parallel_self_play(
     dirichlet_weight: float,
     device: str = "cpu",
     heartbeat_timeout_s: float = 300.0,
+    heartbeat_interval_s: float = 5.0,
     poll_interval_s: float = 5.0,
+    progress_log_interval_s: float = 60.0,
 ) -> list[tuple[np.ndarray, np.ndarray, float]]:
     """Run num_games self-play games across num_workers processes.
 
@@ -269,7 +322,7 @@ def run_parallel_self_play(
             args=(wid, game_name, num_simulations, temperature_threshold,
                   c_puct, dirichlet_alpha, dirichlet_weight,
                   work_q, request_q, response_qs[wid], result_q,
-                  heartbeat_q, shutdown_event),
+                  heartbeat_q, shutdown_event, heartbeat_interval_s),
         )
         p.start()
         workers.append(p)
@@ -284,6 +337,7 @@ def run_parallel_self_play(
             last_heartbeat=last_heartbeat,
             heartbeat_timeout_s=heartbeat_timeout_s,
             poll_interval_s=poll_interval_s,
+            progress_log_interval_s=progress_log_interval_s,
             sink=all_examples.extend,
         )
     finally:
@@ -307,6 +361,7 @@ def _collect_with_heartbeat_monitor(
     last_heartbeat: dict[int, float],
     heartbeat_timeout_s: float,
     poll_interval_s: float,
+    progress_log_interval_s: float = 60.0,
     sink,
 ) -> None:
     """Collect num_games results from result_q while monitoring heartbeats.
@@ -317,32 +372,58 @@ def _collect_with_heartbeat_monitor(
     (no raise) once all num_games batches are collected.
     """
     games_collected = 0
+    last_progress: dict[int, WorkerProgress] = {
+        wid: WorkerProgress(worker_id=wid, timestamp=ts)
+        for wid, ts in last_heartbeat.items()
+    }
+    last_progress_log = time.monotonic()
     while games_collected < num_games:
         # Short-poll result_q so we can check heartbeats frequently.
         try:
             batch = result_q.get(timeout=poll_interval_s)
             sink(batch)
             games_collected += 1
+            print(
+                f"[parallel_selfplay] completed {games_collected}/{num_games} games "
+                f"(examples +{len(batch)})",
+                flush=True,
+            )
         except queue.Empty:
             pass
 
         # Drain any pending heartbeats.
         while True:
             try:
-                wid, ts = heartbeat_q.get_nowait()
+                msg = heartbeat_q.get_nowait()
             except queue.Empty:
                 break
+            progress = _coerce_progress_message(msg)
+            wid = progress.worker_id
+            ts = progress.timestamp
             # Keep only the most recent timestamp per worker.
             if ts > last_heartbeat.get(wid, 0.0):
                 last_heartbeat[wid] = ts
+                last_progress[wid] = progress
 
         # If we've already collected everything, exit happy regardless
         # of any worker that may still be winding down.
         if games_collected >= num_games:
             return
 
-        # Hang check: any worker silent for too long?
         now = time.monotonic()
+        if now - last_progress_log >= progress_log_interval_s:
+            print(
+                _format_parallel_progress(
+                    games_collected=games_collected,
+                    num_games=num_games,
+                    progress_by_worker=last_progress,
+                    now=now,
+                ),
+                flush=True,
+            )
+            last_progress_log = now
+
+        # Hang check: any worker silent for too long?
         for wid, last in last_heartbeat.items():
             silent_for = now - last
             if silent_for > heartbeat_timeout_s:
@@ -359,6 +440,39 @@ def _collect_with_heartbeat_monitor(
                 raise err
 
 
+def _coerce_progress_message(msg: Any) -> WorkerProgress:
+    """Accept both legacy `(worker_id, timestamp)` and WorkerProgress."""
+    if isinstance(msg, WorkerProgress):
+        return msg
+    wid, ts = msg
+    return WorkerProgress(worker_id=wid, timestamp=ts)
+
+
+def _format_parallel_progress(
+    *,
+    games_collected: int,
+    num_games: int,
+    progress_by_worker: dict[int, WorkerProgress],
+    now: float,
+) -> str:
+    worker_bits = []
+    for wid in sorted(progress_by_worker):
+        p = progress_by_worker[wid]
+        silent_for = now - p.timestamp
+        detail = p.phase
+        if p.game_index is not None:
+            detail += f" game={p.game_index}"
+        if p.ply is not None:
+            detail += f" ply={p.ply}"
+        if p.simulation is not None and p.num_simulations is not None:
+            detail += f" sim={p.simulation}/{p.num_simulations}"
+        worker_bits.append(f"w{wid}:{detail} silent={silent_for:.1f}s")
+    return (
+        f"[parallel_selfplay] progress {games_collected}/{num_games} games | "
+        + " | ".join(worker_bits)
+    )
+
+
 def _worker_loop(
     worker_id: int,
     game_name: str,
@@ -373,6 +487,7 @@ def _worker_loop(
     result_q: mp.Queue,
     heartbeat_q: mp.Queue,
     shutdown_event: Any,
+    heartbeat_interval_s: float = 5.0,
 ) -> None:
     """Worker entry point. Pulls 'play a game' tokens from work_q, runs one
     game using worker_play_one_game, pushes results back via result_q. Exits
@@ -384,20 +499,25 @@ def _worker_loop(
 
     # Initial heartbeat: announce we're alive immediately after spawn.
     try:
-        heartbeat_q.put((worker_id, time.monotonic()))
+        heartbeat_q.put(WorkerProgress(worker_id=worker_id, timestamp=time.monotonic()))
     except Exception:
         pass
 
     while True:
         if shutdown_event.is_set():
             break
-        token = work_q.get()
-        if token is None:
+        game_index = work_q.get()
+        if game_index is None:
             break
 
         # Heartbeat: about to start a game.
         try:
-            heartbeat_q.put((worker_id, time.monotonic()))
+            heartbeat_q.put(WorkerProgress(
+                worker_id=worker_id,
+                timestamp=time.monotonic(),
+                game_index=int(game_index),
+                phase="game_start",
+            ))
         except Exception:
             pass
 
@@ -415,6 +535,8 @@ def _worker_loop(
                 augment=True,
                 request_id_offset=request_id_offset,
                 heartbeat_q=heartbeat_q,
+                game_index=int(game_index),
+                heartbeat_interval_s=heartbeat_interval_s,
             )
         except (queue.Empty, AssertionError) as e:
             # NN inference server didn't respond (response_q timeout) or
@@ -439,7 +561,12 @@ def _worker_loop(
 
         # Heartbeat: game done, about to publish.
         try:
-            heartbeat_q.put((worker_id, time.monotonic()))
+            heartbeat_q.put(WorkerProgress(
+                worker_id=worker_id,
+                timestamp=time.monotonic(),
+                game_index=int(game_index),
+                phase="game_done",
+            ))
         except Exception:
             pass
 

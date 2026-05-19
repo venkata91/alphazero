@@ -9,6 +9,8 @@ from alphazero.network import AlphaZeroNet
 from alphazero.parallel_selfplay import (
     InferenceRequest,
     InferenceResponse,
+    WorkerProgress,
+    _format_parallel_progress,
     nn_server_loop,
 )
 
@@ -151,6 +153,32 @@ def test_run_parallel_self_play_happy_path_with_heartbeat():
         poll_interval_s=0.5,
     )
     assert len(examples) > 0
+
+
+def test_format_parallel_progress_includes_worker_game_ply_and_simulation():
+    import time
+
+    now = time.monotonic()
+    msg = _format_parallel_progress(
+        games_collected=3,
+        num_games=10,
+        progress_by_worker={
+            0: WorkerProgress(
+                worker_id=0,
+                timestamp=now - 2.0,
+                game_index=7,
+                ply=12,
+                simulation=44,
+                num_simulations=200,
+                phase="search",
+            )
+        },
+        now=now,
+    )
+
+    assert "progress 3/10 games" in msg
+    assert "w0:search game=7 ply=12 sim=44/200" in msg
+    assert "silent=2.0s" in msg
 
 
 def test_collect_with_heartbeat_monitor_raises_on_hung_worker():

@@ -70,8 +70,7 @@ class Chess(Game):
             12:    ones plane (constant 1)
             13-16: castling rights (my-K, my-Q, opp-K, opp-Q)
             17:    en-passant target square (1-hot at the en-passant square, if any)
-            18:    halfmove clock for 50-move rule (normalized: clock / 100)
-            19:    fullmove number normalized: fullmove_number / 100
+            18-19: reserved clock planes, currently zeroed.
         """
         enc = np.zeros((NUM_PLANES, 8, 8), dtype=np.float32)
         my_color = state.turn  # current player
@@ -104,10 +103,9 @@ class Chess(Game):
         if state.ep_square is not None:
             r, f = chess.square_rank(state.ep_square), chess.square_file(state.ep_square)
             enc[17, r, f] = 1.0
-        # Plane 18: halfmove clock normalized
-        enc[18, :, :] = min(state.halfmove_clock / 100.0, 1.0)
-        # Plane 19: fullmove number normalized
-        enc[19, :, :] = min(state.fullmove_number / 100.0, 1.0)
+        # Planes 18-19 are intentionally left at zero. The current Stockfish
+        # corpus stores states as int8, which discarded the fractional clock
+        # features. Keeping live inference zeroed avoids train/inference skew.
         return enc
 
     def canonical_state(self, state: State) -> State:

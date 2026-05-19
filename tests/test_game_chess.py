@@ -135,6 +135,15 @@ def test_encode_castling_rights_after_white_kingside_zero(game):
     assert (enc[14] == 0).all()
 
 
+def test_encode_clock_planes_are_zeroed_to_match_existing_corpus(game):
+    """The existing Stockfish corpus stores int8 states, so fractional clock
+    features were truncated. Live encoding must match that pretrain input."""
+    s = chess.Board("4k3/8/8/8/8/8/8/4K3 w - - 73 120")
+    enc = game.encode(s)
+    assert (enc[18] == 0).all()
+    assert (enc[19] == 0).all()
+
+
 def test_canonical_state_identity_when_white_to_move(game):
     s = game.initial_state()
     canon = game.canonical_state(s)

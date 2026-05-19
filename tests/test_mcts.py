@@ -71,6 +71,21 @@ def test_search_more_simulations_means_more_total_visits(ttt):
     assert pi_b.sum() == pytest.approx(1.0)
 
 
+def test_search_progress_callback_fires_per_simulation(ttt):
+    eval_fn = make_eval_fn(np.full(9, 1/9), 0.0)
+    mcts = MCTS(ttt, eval_fn)
+    calls = []
+
+    mcts.search(
+        ttt.initial_state(),
+        num_simulations=5,
+        add_root_noise=False,
+        progress_callback=lambda done, total: calls.append((done, total)),
+    )
+
+    assert calls == [(1, 5), (2, 5), (3, 5), (4, 5), (5, 5)]
+
+
 def test_search_value_favoring_child_concentrates_visits(ttt):
     """If the NN values action 0 highly (for parent), visits should concentrate on action 0.
 
