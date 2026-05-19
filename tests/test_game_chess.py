@@ -141,19 +141,32 @@ def test_canonical_state_identity_when_white_to_move(game):
     assert canon.fen() == s.fen()
 
 
-def test_canonical_state_mirrors_when_black_to_move(game):
-    """After white plays e2-e4, it's black to move. Canonical state should be the
-    board mirrored (white pawn at e4 → black pawn at e5)."""
+def test_canonical_state_preserves_raw_board_when_black_to_move(game):
+    """Chess policy indices are raw python-chess coordinates, so canonical_state
+    must not mirror the board unless the policy vector is remapped too."""
     s = game.initial_state()
     s.push(chess.Move.from_uci("e2e4"))
     assert s.turn == chess.BLACK
     canon = game.canonical_state(s)
-    # In the mirrored board, the previously-white pawn at e4 is vertically
-    # flipped to e5 and color-swapped to black (python-chess Board.mirror()
-    # swaps colors so the to-move player appears as White).
-    assert canon.turn == chess.WHITE
-    assert canon.piece_at(chess.E5) is not None
-    assert canon.piece_at(chess.E5).color == chess.BLACK
+    assert canon.fen() == s.fen()
+
+
+def test_black_to_move_canonical_policy_indices_remain_legal(game):
+    """Regression guard for the pretraining/refinement contract.
+
+    The corpus stores encode(board) together with move_to_index(board, move).
+    MCTS also masks policy logits with legal_actions_mask(raw_board). If a
+    Black-to-move canonical board is mirrored without remapping policy indices,
+    legal moves such as e7e5 no longer refer to the encoded position.
+    """
+    from alphazero.games.chess_move_encoding import move_to_index, index_to_move
+
+    s = game.initial_state()
+    s.push(chess.Move.from_uci("e2e4"))
+    canon = game.canonical_state(s)
+    move = chess.Move.from_uci("e7e5")
+    idx = move_to_index(s, move)
+    assert index_to_move(canon, idx) == move
 
 
 def test_symmetries_identity_only(game):

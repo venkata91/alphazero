@@ -113,12 +113,17 @@ class Chess(Game):
     def canonical_state(self, state: State) -> State:
         """Return state from the current player's POV.
 
-        For chess: when Black is to move, mirror the board so the network
-        always sees the to-move player as "White at the bottom." python-chess's
-        Board.mirror() handles castling rights and en passant correctly.
+        Chess intentionally keeps raw board coordinates here.
+
+        `encode()` already makes piece planes player-relative (`my pieces` vs
+        `opp pieces`). The policy head, however, uses raw python-chess action
+        indices: `move_to_index(state, move)` and `index_to_move(state, idx)`.
+        Mirroring only the input board without also remapping the 4672 policy
+        logits breaks that contract for every Black-to-move position. The
+        supervised corpus was generated as `encode(board)` plus raw
+        `move_to_index(board, move)`, so refinement and eval must use the same
+        representation.
         """
-        if state.turn == chess.BLACK:
-            return state.mirror()
         return state
 
     def symmetries(self, encoded, policy):
