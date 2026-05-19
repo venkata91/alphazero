@@ -404,6 +404,7 @@ def test_pretrained_checkpoint_loads_in_trainer_via_resume(tmp_path):
     train_cfg = TrainingConfig(
         n_blocks=1,
         n_channels=8,
+        learning_rate=1e-4,
         num_iterations=1,
         games_per_iteration=1,
         training_steps_per_iteration=1,
@@ -422,6 +423,8 @@ def test_pretrained_checkpoint_loads_in_trainer_via_resume(tmp_path):
         assert torch.equal(pretrained_sd[k], trainer.best_net.state_dict()[k]), (
             f"Weight mismatch at {k} — pretrained checkpoint did not load correctly"
         )
+    for group in trainer.optimizer.param_groups:
+        assert group["lr"] == pytest.approx(train_cfg.learning_rate)
 
 
 def test_pretrain_config_rejects_unknown_keys(tmp_path):

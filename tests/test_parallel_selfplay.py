@@ -9,6 +9,8 @@ from alphazero.network import AlphaZeroNet
 from alphazero.parallel_selfplay import (
     InferenceRequest,
     InferenceResponse,
+    WorkerGameError,
+    WorkerGameResult,
     WorkerProgress,
     _format_parallel_progress,
     nn_server_loop,
@@ -257,6 +259,62 @@ def test_collect_with_heartbeat_monitor_happy_path_no_raise():
     assert len(collected) == 2
 
 
+def test_collect_with_heartbeat_monitor_raises_on_failed_worker_game():
+    """A failed worker game must not be counted as a completed empty game."""
+    import queue as stdlib_queue
+    import time
+
+    from alphazero.parallel_selfplay import _collect_with_heartbeat_monitor
+
+    result_q = stdlib_queue.Queue()
+    heartbeat_q = stdlib_queue.Queue()
+    result_q.put(WorkerGameResult(
+        worker_id=0,
+        game_index=3,
+        ok=False,
+        examples=[],
+        error_type="RuntimeError",
+        error_message="simulated game failure",
+    ))
+
+    collected: list = []
+    with pytest.raises(WorkerGameError, match="simulated game failure"):
+        _collect_with_heartbeat_monitor(
+            num_games=1,
+            result_q=result_q,
+            heartbeat_q=heartbeat_q,
+            last_heartbeat={0: time.monotonic()},
+            heartbeat_timeout_s=60.0,
+            poll_interval_s=0.05,
+            sink=collected.extend,
+        )
+    assert collected == []
+
+
+def test_collect_with_heartbeat_monitor_raises_on_dead_worker_process():
+    """A worker process that exits before posting a result should fail fast."""
+    import queue as stdlib_queue
+    import time
+
+    from alphazero.parallel_selfplay import _collect_with_heartbeat_monitor
+
+    class DeadWorker:
+        exitcode = 17
+
+    with pytest.raises(WorkerGameError, match="exitcode 17"):
+        _collect_with_heartbeat_monitor(
+            num_games=1,
+            result_q=stdlib_queue.Queue(),
+            heartbeat_q=stdlib_queue.Queue(),
+            last_heartbeat={0: time.monotonic()},
+            heartbeat_timeout_s=60.0,
+            poll_interval_s=0.01,
+            progress_log_interval_s=60.0,
+            sink=lambda b: None,
+            workers=[DeadWorker()],
+        )
+
+
 def _hanging_worker_target(worker_id, heartbeat_q, shutdown_event):
     """Top-level target for spawn: sends one heartbeat then sleeps until
     shutdown_event is set (or 60s elapse). Used by the end-to-end hang test."""
@@ -315,16 +373,10 @@ def test_end_to_end_hang_detection_with_real_spawned_worker():
             p.join(timeout=2.0)
 
 
-def test_worker_loop_skips_failed_game_on_eval_fn_timeout(monkeypatch, capsys):
+def test_worker_loop_reports_failed_game_on_eval_fn_timeout(monkeypatch, capsys):
     """Regression: when worker_play_one_game raises queue.Empty (e.g. NN
-    inference server slow / MPS hiccup), the worker must skip that game
-    and continue rather than die — otherwise a transient parent-side
-    slowness kills the iteration via a misleading downstream
-    WorkerHangError.
-
-    Asserts: the loop logs to stderr, posts an empty result for the
-    failed game, processes subsequent tokens normally, then exits on
-    sentinel.
+    inference server slow / MPS hiccup), the worker must report a failed
+    game so the parent fails fast instead of treating it as completed.
     """
     import queue as stdqueue
     import threading
@@ -340,7 +392,6 @@ def test_worker_loop_skips_failed_game_on_eval_fn_timeout(monkeypatch, capsys):
     shutdown_event = threading.Event()
 
     work_q.put(1)
-    work_q.put(2)
     work_q.put(None)
 
     call_count = {"n": 0}
@@ -349,8 +400,7 @@ def test_worker_loop_skips_failed_game_on_eval_fn_timeout(monkeypatch, capsys):
         call_count["n"] += 1
         if call_count["n"] == 1:
             raise stdqueue.Empty("simulated NN inference timeout")
-        return [(np.zeros((3, 3, 3), dtype=np.float32),
-                 np.zeros(9, dtype=np.float32), 0.0)]
+        raise AssertionError("should stop after first failed game")
 
     monkeypatch.setattr(
         "alphazero.parallel_selfplay.worker_play_one_game",
@@ -377,10 +427,13 @@ def test_worker_loop_skips_failed_game_on_eval_fn_timeout(monkeypatch, capsys):
     while not result_q.empty():
         posted.append(result_q.get_nowait())
 
-    assert call_count["n"] == 2, "Worker should attempt both games before sentinel"
-    assert len(posted) == 2, f"Worker should post one result per game; got {posted}"
-    assert posted[0] == [], "First (failed) game posts empty examples"
-    assert len(posted[1]) == 1, "Second (successful) game posts one example tuple"
+    assert call_count["n"] == 1, "Worker should stop after reporting the failed game"
+    assert len(posted) == 1, f"Worker should post one failure result; got {posted}"
+    assert isinstance(posted[0], WorkerGameResult)
+    assert posted[0].ok is False
+    assert posted[0].examples == []
+    assert posted[0].error_type == "Empty"
+    assert "simulated NN inference timeout" in (posted[0].error_message or "")
 
     captured = capsys.readouterr()
     assert "worker 0: game failed" in captured.err

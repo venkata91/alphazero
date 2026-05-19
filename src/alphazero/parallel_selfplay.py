@@ -16,6 +16,7 @@ from __future__ import annotations
 import queue
 import sys
 import time
+import traceback
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,6 +42,29 @@ class WorkerHangError(RuntimeError):
         )
 
 
+class WorkerGameError(RuntimeError):
+    """Raised when a worker reports a failed self-play game."""
+
+    def __init__(
+        self,
+        worker_id: int,
+        game_index: int | None,
+        error_type: str | None,
+        error_message: str | None,
+    ):
+        self.worker_id = worker_id
+        self.game_index = game_index
+        self.error_type = error_type
+        self.error_message = error_message
+        where = f"Worker {worker_id}"
+        if game_index is not None:
+            where += f" game {game_index}"
+        detail = error_message or "unknown error"
+        if error_type:
+            detail = f"{error_type}: {detail}"
+        super().__init__(f"{where} failed: {detail}")
+
+
 @dataclass
 class InferenceRequest:
     worker_id: int
@@ -64,6 +88,16 @@ class WorkerProgress:
     simulation: int | None = None
     num_simulations: int | None = None
     phase: str = "alive"
+
+
+@dataclass
+class WorkerGameResult:
+    worker_id: int
+    game_index: int | None
+    ok: bool
+    examples: list[tuple[np.ndarray, np.ndarray, float]]
+    error_type: str | None = None
+    error_message: str | None = None
 
 
 def nn_server_loop(
@@ -335,6 +369,7 @@ def run_parallel_self_play(
             result_q=result_q,
             heartbeat_q=heartbeat_q,
             last_heartbeat=last_heartbeat,
+            workers=workers,
             heartbeat_timeout_s=heartbeat_timeout_s,
             poll_interval_s=poll_interval_s,
             progress_log_interval_s=progress_log_interval_s,
@@ -359,6 +394,7 @@ def _collect_with_heartbeat_monitor(
     result_q: Any,
     heartbeat_q: Any,
     last_heartbeat: dict[int, float],
+    workers: list[Any] | None = None,
     heartbeat_timeout_s: float,
     poll_interval_s: float,
     progress_log_interval_s: float = 60.0,
@@ -380,7 +416,18 @@ def _collect_with_heartbeat_monitor(
     while games_collected < num_games:
         # Short-poll result_q so we can check heartbeats frequently.
         try:
-            batch = result_q.get(timeout=poll_interval_s)
+            result = result_q.get(timeout=poll_interval_s)
+            if isinstance(result, WorkerGameResult):
+                if not result.ok:
+                    raise WorkerGameError(
+                        worker_id=result.worker_id,
+                        game_index=result.game_index,
+                        error_type=result.error_type,
+                        error_message=result.error_message,
+                    )
+                batch = result.examples
+            else:
+                batch = result
             sink(batch)
             games_collected += 1
             print(
@@ -390,6 +437,17 @@ def _collect_with_heartbeat_monitor(
             )
         except queue.Empty:
             pass
+
+        if workers is not None:
+            for wid, worker in enumerate(workers):
+                exitcode = getattr(worker, "exitcode", None)
+                if exitcode not in (None, 0):
+                    raise WorkerGameError(
+                        worker_id=wid,
+                        game_index=None,
+                        error_type="WorkerProcessExit",
+                        error_message=f"worker process exited with exitcode {exitcode}",
+                    )
 
         # Drain any pending heartbeats.
         while True:
@@ -540,12 +598,11 @@ def _worker_loop(
             )
         except (queue.Empty, AssertionError) as e:
             # NN inference server didn't respond (response_q timeout) or
-            # request_id desync. Skip this game so the iteration doesn't stall,
-            # but log clearly so the user sees the real cause rather than a
-            # downstream WorkerHangError.
+            # request_id desync. Report the failure to the parent so this
+            # game is not counted as a successful empty batch.
             sys.stderr.write(
                 f"worker {worker_id}: game failed ({type(e).__name__}: {e}); "
-                f"skipping. Likely NN inference timeout — check parent-side "
+                f"stopping. Likely NN inference timeout — check parent-side "
                 f"MPS/GPU saturation.\n"
             )
             sys.stderr.flush()
@@ -556,7 +613,31 @@ def _worker_loop(
                     response_q.get_nowait()
                 except queue.Empty:
                     break
-            examples = []
+            result_q.put(WorkerGameResult(
+                worker_id=worker_id,
+                game_index=int(game_index),
+                ok=False,
+                examples=[],
+                error_type=type(e).__name__,
+                error_message=str(e),
+            ))
+            break
+        except Exception as e:
+            tb = traceback.format_exc()
+            sys.stderr.write(
+                f"worker {worker_id}: game failed ({type(e).__name__}: {e}); "
+                f"stopping.\n{tb}"
+            )
+            sys.stderr.flush()
+            result_q.put(WorkerGameResult(
+                worker_id=worker_id,
+                game_index=int(game_index),
+                ok=False,
+                examples=[],
+                error_type=type(e).__name__,
+                error_message=str(e),
+            ))
+            break
         request_id_offset += 100_000   # bump for next game from this worker
 
         # Heartbeat: game done, about to publish.
@@ -570,4 +651,9 @@ def _worker_loop(
         except Exception:
             pass
 
-        result_q.put(examples)
+        result_q.put(WorkerGameResult(
+            worker_id=worker_id,
+            game_index=int(game_index),
+            ok=True,
+            examples=examples,
+        ))

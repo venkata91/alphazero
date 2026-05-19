@@ -282,7 +282,22 @@ class Trainer:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
         self.best_net.load_state_dict(ckpt["best_net"])
         self.best_net.eval()
-        if "candidate_net" in ckpt and "optimizer" in ckpt:
+
+        is_pretrain_checkpoint = "_pretrain_epoch" in ckpt
+        if is_pretrain_checkpoint:
+            import warnings
+            warnings.warn(
+                f"Loading pretrained checkpoint {path}: resetting candidate_net "
+                "and optimizer for refinement training.",
+                stacklevel=2,
+            )
+            self.candidate_net.load_state_dict(self.best_net.state_dict())
+            self.optimizer = torch.optim.AdamW(
+                self.candidate_net.parameters(),
+                lr=self.config.learning_rate,
+                weight_decay=self.config.weight_decay,
+            )
+        elif "candidate_net" in ckpt and "optimizer" in ckpt:
             self.candidate_net.load_state_dict(ckpt["candidate_net"])
             self.optimizer.load_state_dict(ckpt["optimizer"])
         else:
