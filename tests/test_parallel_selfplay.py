@@ -315,6 +315,42 @@ def test_collect_with_heartbeat_monitor_raises_on_dead_worker_process():
         )
 
 
+def test_collect_with_heartbeat_monitor_ignores_cleanly_exited_workers():
+    """A worker that has exited successfully after finishing its assigned games
+    should not trip the heartbeat watchdog while another worker finishes the
+    final game.
+    """
+    import queue as stdlib_queue
+    import time
+
+    from alphazero.parallel_selfplay import WorkerHangError, _collect_with_heartbeat_monitor
+
+    class ExitedWorker:
+        exitcode = 0
+
+    class RunningWorker:
+        exitcode = None
+
+    now = time.monotonic()
+    result_q = stdlib_queue.Queue()
+    heartbeat_q = stdlib_queue.Queue()
+
+    with pytest.raises(WorkerHangError) as exc_info:
+        _collect_with_heartbeat_monitor(
+            num_games=1,
+            result_q=result_q,
+            heartbeat_q=heartbeat_q,
+            last_heartbeat={0: now - 100.0, 1: now},
+            heartbeat_timeout_s=0.05,
+            poll_interval_s=0.01,
+            progress_log_interval_s=60.0,
+            sink=lambda b: None,
+            workers=[ExitedWorker(), RunningWorker()],
+        )
+
+    assert exc_info.value.worker_id == 1
+
+
 def _hanging_worker_target(worker_id, heartbeat_q, shutdown_event):
     """Top-level target for spawn: sends one heartbeat then sleeps until
     shutdown_event is set (or 60s elapse). Used by the end-to-end hang test."""

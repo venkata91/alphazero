@@ -441,6 +441,10 @@ def _collect_with_heartbeat_monitor(
         if workers is not None:
             for wid, worker in enumerate(workers):
                 exitcode = getattr(worker, "exitcode", None)
+                if exitcode == 0:
+                    last_heartbeat.pop(wid, None)
+                    last_progress.pop(wid, None)
+                    continue
                 if exitcode not in (None, 0):
                     raise WorkerGameError(
                         worker_id=wid,
